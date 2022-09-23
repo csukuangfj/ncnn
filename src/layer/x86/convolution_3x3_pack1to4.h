@@ -1,54 +1,58 @@
-// Tencent is pleased to support the open source community by making ncnn available.
+// Tencent is pleased to support the open source community by making ncnn
+// available.
 //
 // Copyright (C) 2019 THL A29 Limited, a Tencent company. All rights reserved.
 //
-// Licensed under the BSD 3-Clause License (the "License"); you may not use this file except
-// in compliance with the License. You may obtain a copy of the License at
+// Licensed under the BSD 3-Clause License (the "License"); you may not use this
+// file except in compliance with the License. You may obtain a copy of the
+// License at
 //
 // https://opensource.org/licenses/BSD-3-Clause
 //
-// Unless required by applicable law or agreed to in writing, software distributed
-// under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
-// CONDITIONS OF ANY KIND, either express or implied. See the License for the
-// specific language governing permissions and limitations under the License.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+// WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+// License for the specific language governing permissions and limitations under
+// the License.
 
-static void conv3x3s1_pack1to4_sse(const Mat& bottom_blob, Mat& top_blob, const Mat& kernel, const Mat& _bias, const Option& opt)
-{
+static void conv3x3s1_pack1to4_sse(const Mat &bottom_blob, Mat &top_blob,
+                                   const Mat &kernel, const Mat &_bias,
+                                   const Option &opt) {
     int inch = bottom_blob.c;
     int outw = top_blob.w;
     int outh = top_blob.h;
     int outch = top_blob.c;
-    const float* bias = _bias;
+    const float *bias = _bias;
 
     int nn_outch = outch >> 1;
     int remain_outch_start = nn_outch << 1;
 
     #pragma omp parallel for num_threads(opt.num_threads)
-    for (int pp = 0; pp < nn_outch; pp++)
-    {
+    for (int pp = 0; pp < nn_outch; pp++) {
         int p = pp * 2;
 
         Mat out0 = top_blob.channel(p);
         Mat out1 = top_blob.channel(p + 1);
 
-        __m128 _bias0 = bias ? _mm_loadu_ps((const float*)bias + p * 4) : _mm_set1_ps(0.f);
-        __m128 _bias1 = bias ? _mm_loadu_ps((const float*)bias + (p + 1) * 4) : _mm_set1_ps(0.f);
+        __m128 _bias0 =
+            bias ? _mm_loadu_ps((const float *)bias + p * 4) : _mm_set1_ps(0.f);
+        __m128 _bias1 = bias ? _mm_loadu_ps((const float *)bias + (p + 1) * 4)
+                        : _mm_set1_ps(0.f);
         out0.fill(_bias0);
         out1.fill(_bias1);
 
-        const float* k0 = kernel.channel(p);
-        const float* k1 = kernel.channel(p + 1);
+        const float *k0 = kernel.channel(p);
+        const float *k1 = kernel.channel(p + 1);
 
-        for (int q = 0; q < inch; q++)
-        {
-            float* outptr0 = out0;
-            float* outptr1 = out1;
+        for (int q = 0; q < inch; q++) {
+            float *outptr0 = out0;
+            float *outptr1 = out1;
 
             const Mat img0 = bottom_blob.channel(q);
 
-            const float* r0 = img0.row(0);
-            const float* r1 = img0.row(1);
-            const float* r2 = img0.row(2);
+            const float *r0 = img0.row(0);
+            const float *r1 = img0.row(1);
+            const float *r2 = img0.row(2);
 
             __m128 _k00_0 = _mm_loadu_ps(k0);
             __m128 _k01_0 = _mm_loadu_ps(k0 + 4);
@@ -72,11 +76,9 @@ static void conv3x3s1_pack1to4_sse(const Mat& bottom_blob, Mat& top_blob, const 
 
             int i = 0;
 
-            for (; i < outh; i++)
-            {
+            for (; i < outh; i++) {
                 int j = 0;
-                for (; j + 3 < outw; j += 4)
-                {
+                for (; j + 3 < outw; j += 4) {
                     __m128 _sum00 = _mm_loadu_ps(outptr0);
                     __m128 _sum10 = _mm_loadu_ps(outptr1);
 
@@ -210,8 +212,7 @@ static void conv3x3s1_pack1to4_sse(const Mat& bottom_blob, Mat& top_blob, const 
                     outptr1 += 16;
                 }
 
-                for (; j + 1 < outw; j += 2)
-                {
+                for (; j + 1 < outw; j += 2) {
                     __m128 _sum00 = _mm_loadu_ps(outptr0);
                     __m128 _sum10 = _mm_loadu_ps(outptr1);
 
@@ -285,8 +286,7 @@ static void conv3x3s1_pack1to4_sse(const Mat& bottom_blob, Mat& top_blob, const 
                     outptr1 += 8;
                 }
 
-                for (; j < outw; j++)
-                {
+                for (; j < outw; j++) {
                     __m128 _sum00 = _mm_loadu_ps(outptr0);
                     __m128 _sum10 = _mm_loadu_ps(outptr1);
 
@@ -341,24 +341,23 @@ static void conv3x3s1_pack1to4_sse(const Mat& bottom_blob, Mat& top_blob, const 
     }
 
     #pragma omp parallel for num_threads(opt.num_threads)
-    for (int p = remain_outch_start; p < outch; p++)
-    {
+    for (int p = remain_outch_start; p < outch; p++) {
         Mat out0 = top_blob.channel(p);
 
-        __m128 _bias0 = bias ? _mm_loadu_ps((const float*)bias + p * 4) : _mm_set1_ps(0.f);
+        __m128 _bias0 =
+            bias ? _mm_loadu_ps((const float *)bias + p * 4) : _mm_set1_ps(0.f);
         out0.fill(_bias0);
 
-        const float* k0 = kernel.channel(p);
+        const float *k0 = kernel.channel(p);
 
-        for (int q = 0; q < inch; q++)
-        {
-            float* outptr0 = out0.row(0);
+        for (int q = 0; q < inch; q++) {
+            float *outptr0 = out0.row(0);
 
             const Mat img0 = bottom_blob.channel(q);
 
-            const float* r0 = img0.row(0);
-            const float* r1 = img0.row(1);
-            const float* r2 = img0.row(2);
+            const float *r0 = img0.row(0);
+            const float *r1 = img0.row(1);
+            const float *r2 = img0.row(2);
 
             __m128 _k00 = _mm_loadu_ps(k0);
             __m128 _k01 = _mm_loadu_ps(k0 + 4);
@@ -372,11 +371,9 @@ static void conv3x3s1_pack1to4_sse(const Mat& bottom_blob, Mat& top_blob, const 
 
             int i = 0;
 
-            for (; i < outh; i++)
-            {
+            for (; i < outh; i++) {
                 int j = 0;
-                for (; j + 3 < outw; j += 4)
-                {
+                for (; j + 3 < outw; j += 4) {
                     __m128 _sum0 = _mm_loadu_ps(outptr0);
 
                     __m128 _r01 = _mm_set1_ps(*(r0));
@@ -454,8 +451,7 @@ static void conv3x3s1_pack1to4_sse(const Mat& bottom_blob, Mat& top_blob, const 
                     r2 += 4;
                     outptr0 += 16;
                 }
-                for (; j + 1 < outw; j += 2)
-                {
+                for (; j + 1 < outw; j += 2) {
                     __m128 _sum0 = _mm_loadu_ps(outptr0);
 
                     __m128 _r01 = _mm_set1_ps(*(r0));
@@ -501,8 +497,7 @@ static void conv3x3s1_pack1to4_sse(const Mat& bottom_blob, Mat& top_blob, const 
                     r2 += 2;
                     outptr0 += 8;
                 }
-                for (; j < outw; j++)
-                {
+                for (; j < outw; j++) {
                     __m128 _sum0 = _mm_loadu_ps(outptr0);
 
                     __m128 _r01 = _mm_set1_ps(*(r0));
@@ -542,8 +537,9 @@ static void conv3x3s1_pack1to4_sse(const Mat& bottom_blob, Mat& top_blob, const 
     }
 }
 
-static void conv3x3s2_pack1to4_sse(const Mat& bottom_blob, Mat& top_blob, const Mat& kernel, const Mat& _bias, const Option& opt)
-{
+static void conv3x3s2_pack1to4_sse(const Mat &bottom_blob, Mat &top_blob,
+                                   const Mat &kernel, const Mat &_bias,
+                                   const Option &opt) {
     int w = bottom_blob.w;
     int inch = bottom_blob.c;
     int outw = top_blob.w;
@@ -552,36 +548,36 @@ static void conv3x3s2_pack1to4_sse(const Mat& bottom_blob, Mat& top_blob, const 
 
     const int tailstep = w - 2 * outw + w;
 
-    const float* bias = _bias;
+    const float *bias = _bias;
     int nn_outch = outch >> 1;
     int remain_outch_start = nn_outch << 1;
 
     #pragma omp parallel for num_threads(opt.num_threads)
-    for (int pp = 0; pp < nn_outch; pp++)
-    {
+    for (int pp = 0; pp < nn_outch; pp++) {
         int p = pp * 2;
 
         Mat out0 = top_blob.channel(p);
         Mat out1 = top_blob.channel(p + 1);
 
-        __m128 _bias0 = bias ? _mm_loadu_ps((const float*)bias + p * 4) : _mm_set1_ps(0.f);
-        __m128 _bias1 = bias ? _mm_loadu_ps((const float*)bias + (p + 1) * 4) : _mm_set1_ps(0.f);
+        __m128 _bias0 =
+            bias ? _mm_loadu_ps((const float *)bias + p * 4) : _mm_set1_ps(0.f);
+        __m128 _bias1 = bias ? _mm_loadu_ps((const float *)bias + (p + 1) * 4)
+                        : _mm_set1_ps(0.f);
         out0.fill(_bias0);
         out1.fill(_bias1);
 
-        const float* k0 = kernel.channel(p);
-        const float* k1 = kernel.channel(p + 1);
+        const float *k0 = kernel.channel(p);
+        const float *k1 = kernel.channel(p + 1);
 
-        for (int q = 0; q < inch; q++)
-        {
-            float* outptr0 = out0;
-            float* outptr1 = out1;
+        for (int q = 0; q < inch; q++) {
+            float *outptr0 = out0;
+            float *outptr1 = out1;
 
             const Mat img0 = bottom_blob.channel(q);
 
-            const float* r0 = img0.row(0);
-            const float* r1 = img0.row(1);
-            const float* r2 = img0.row(2);
+            const float *r0 = img0.row(0);
+            const float *r1 = img0.row(1);
+            const float *r2 = img0.row(2);
 
             __m128 _k00_0 = _mm_loadu_ps(k0);
             __m128 _k01_0 = _mm_loadu_ps(k0 + 4);
@@ -605,12 +601,10 @@ static void conv3x3s2_pack1to4_sse(const Mat& bottom_blob, Mat& top_blob, const 
 
             int i = 0;
 
-            for (; i < outh; i++)
-            {
+            for (; i < outh; i++) {
                 int j = 0;
 
-                for (; j + 3 < outw; j += 4)
-                {
+                for (; j + 3 < outw; j += 4) {
                     __m128 _sum00 = _mm_loadu_ps(outptr0);
                     __m128 _sum10 = _mm_loadu_ps(outptr1);
 
@@ -752,8 +746,7 @@ static void conv3x3s2_pack1to4_sse(const Mat& bottom_blob, Mat& top_blob, const 
                     outptr1 += 16;
                 }
 
-                for (; j + 1 < outw; j += 2)
-                {
+                for (; j + 1 < outw; j += 2) {
                     __m128 _sum00 = _mm_loadu_ps(outptr0);
                     __m128 _sum10 = _mm_loadu_ps(outptr1);
 
@@ -829,8 +822,7 @@ static void conv3x3s2_pack1to4_sse(const Mat& bottom_blob, Mat& top_blob, const 
                     outptr0 += 8;
                     outptr1 += 8;
                 }
-                for (; j < outw; j++)
-                {
+                for (; j < outw; j++) {
                     __m128 _sum00 = _mm_loadu_ps(outptr0);
                     __m128 _sum10 = _mm_loadu_ps(outptr1);
 
@@ -884,24 +876,23 @@ static void conv3x3s2_pack1to4_sse(const Mat& bottom_blob, Mat& top_blob, const 
     }
 
     #pragma omp parallel for num_threads(opt.num_threads)
-    for (int p = remain_outch_start; p < outch; p++)
-    {
+    for (int p = remain_outch_start; p < outch; p++) {
         Mat out0 = top_blob.channel(p);
 
-        __m128 _bias0 = bias ? _mm_loadu_ps((const float*)bias + p * 4) : _mm_set1_ps(0.f);
+        __m128 _bias0 =
+            bias ? _mm_loadu_ps((const float *)bias + p * 4) : _mm_set1_ps(0.f);
         out0.fill(_bias0);
 
-        const float* k0 = kernel.channel(p);
+        const float *k0 = kernel.channel(p);
 
-        for (int q = 0; q < inch; q++)
-        {
-            float* outptr0 = out0.row(0);
+        for (int q = 0; q < inch; q++) {
+            float *outptr0 = out0.row(0);
 
             const Mat img0 = bottom_blob.channel(q);
 
-            const float* r0 = img0.row(0);
-            const float* r1 = img0.row(1);
-            const float* r2 = img0.row(2);
+            const float *r0 = img0.row(0);
+            const float *r1 = img0.row(1);
+            const float *r2 = img0.row(2);
 
             __m128 _k00_0 = _mm_loadu_ps(k0);
             __m128 _k01_0 = _mm_loadu_ps(k0 + 4);
@@ -915,11 +906,9 @@ static void conv3x3s2_pack1to4_sse(const Mat& bottom_blob, Mat& top_blob, const 
 
             int i = 0;
 
-            for (; i < outh; i++)
-            {
+            for (; i < outh; i++) {
                 int j = 0;
-                for (; j + 7 < outw; j += 8)
-                {
+                for (; j + 7 < outw; j += 8) {
                     __m128 _sum00 = _mm_loadu_ps(outptr0);
 
                     __m128 _r01 = _mm_set1_ps(*(r0));
@@ -1097,8 +1086,7 @@ static void conv3x3s2_pack1to4_sse(const Mat& bottom_blob, Mat& top_blob, const 
                     outptr0 += 32;
                 }
 
-                for (; j + 3 < outw; j += 4)
-                {
+                for (; j + 3 < outw; j += 4) {
                     __m128 _sum00 = _mm_loadu_ps(outptr0);
 
                     __m128 _r01 = _mm_set1_ps(*(r0));
@@ -1191,8 +1179,7 @@ static void conv3x3s2_pack1to4_sse(const Mat& bottom_blob, Mat& top_blob, const 
                     outptr0 += 16;
                 }
 
-                for (; j + 1 < outw; j += 2)
-                {
+                for (; j + 1 < outw; j += 2) {
                     __m128 _sum00 = _mm_loadu_ps(outptr0);
 
                     __m128 _r01 = _mm_set1_ps(*(r0));
@@ -1243,8 +1230,7 @@ static void conv3x3s2_pack1to4_sse(const Mat& bottom_blob, Mat& top_blob, const 
                     r2 += 4;
                     outptr0 += 8;
                 }
-                for (; j < outw; j++)
-                {
+                for (; j < outw; j++) {
                     __m128 _sum00 = _mm_loadu_ps(outptr0);
                     __m128 _r01 = _mm_set1_ps(*(r0));
                     __m128 _r02 = _mm_set1_ps(*(r0 + 1));

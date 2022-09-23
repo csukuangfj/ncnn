@@ -1,20 +1,23 @@
-// Tencent is pleased to support the open source community by making ncnn available.
+// Tencent is pleased to support the open source community by making ncnn
+// available.
 //
 // Copyright (C) 2018 THL A29 Limited, a Tencent company. All rights reserved.
 //
-// Licensed under the BSD 3-Clause License (the "License"); you may not use this file except
-// in compliance with the License. You may obtain a copy of the License at
+// Licensed under the BSD 3-Clause License (the "License"); you may not use this
+// file except in compliance with the License. You may obtain a copy of the
+// License at
 //
 // https://opensource.org/licenses/BSD-3-Clause
 //
-// Unless required by applicable law or agreed to in writing, software distributed
-// under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
-// CONDITIONS OF ANY KIND, either express or implied. See the License for the
-// specific language governing permissions and limitations under the License.
-
-#include "net.h"
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+// WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+// License for the specific language governing permissions and limitations under
+// the License.
 
 #include <math.h>
+
+#include "net.h"
 #if defined(USE_NCNN_SIMPLEOCV)
 #include "simpleocv.h"
 #else
@@ -24,35 +27,29 @@
 #endif
 #include <stdio.h>
 
-struct Object
-{
+struct Object {
     cv::Rect_<float> rect;
     int label;
     float prob;
 };
 
-static inline float intersection_area(const Object& a, const Object& b)
-{
+static inline float intersection_area(const Object &a, const Object &b) {
     cv::Rect_<float> inter = a.rect & b.rect;
     return inter.area();
 }
 
-static void qsort_descent_inplace(std::vector<Object>& objects, int left, int right)
-{
+static void qsort_descent_inplace(std::vector<Object> &objects, int left,
+                                  int right) {
     int i = left;
     int j = right;
     float p = objects[(left + right) / 2].prob;
 
-    while (i <= j)
-    {
-        while (objects[i].prob > p)
-            i++;
+    while (i <= j) {
+        while (objects[i].prob > p) i++;
 
-        while (objects[j].prob < p)
-            j--;
+        while (objects[j].prob < p) j--;
 
-        if (i <= j)
-        {
+        if (i <= j) {
             // swap
             std::swap(objects[i], objects[j]);
 
@@ -74,53 +71,45 @@ static void qsort_descent_inplace(std::vector<Object>& objects, int left, int ri
     }
 }
 
-static void qsort_descent_inplace(std::vector<Object>& objects)
-{
-    if (objects.empty())
-        return;
+static void qsort_descent_inplace(std::vector<Object> &objects) {
+    if (objects.empty()) return;
 
     qsort_descent_inplace(objects, 0, objects.size() - 1);
 }
 
-static void nms_sorted_bboxes(const std::vector<Object>& faceobjects, std::vector<int>& picked, float nms_threshold, bool agnostic = false)
-{
+static void nms_sorted_bboxes(const std::vector<Object> &faceobjects,
+                              std::vector<int> &picked, float nms_threshold,
+                              bool agnostic = false) {
     picked.clear();
 
     const int n = faceobjects.size();
 
     std::vector<float> areas(n);
-    for (int i = 0; i < n; i++)
-    {
+    for (int i = 0; i < n; i++) {
         areas[i] = faceobjects[i].rect.area();
     }
 
-    for (int i = 0; i < n; i++)
-    {
-        const Object& a = faceobjects[i];
+    for (int i = 0; i < n; i++) {
+        const Object &a = faceobjects[i];
 
         int keep = 1;
-        for (int j = 0; j < (int)picked.size(); j++)
-        {
-            const Object& b = faceobjects[picked[j]];
+        for (int j = 0; j < (int)picked.size(); j++) {
+            const Object &b = faceobjects[picked[j]];
 
-            if (!agnostic && a.label != b.label)
-                continue;
+            if (!agnostic && a.label != b.label) continue;
 
             // intersection over union
             float inter_area = intersection_area(a, b);
             float union_area = areas[i] + areas[picked[j]] - inter_area;
             // float IoU = inter_area / union_area
-            if (inter_area / union_area > nms_threshold)
-                keep = 0;
+            if (inter_area / union_area > nms_threshold) keep = 0;
         }
 
-        if (keep)
-            picked.push_back(i);
+        if (keep) picked.push_back(i);
     }
 }
 
-static int detect_fasterrcnn(const cv::Mat& bgr, std::vector<Object>& objects)
-{
+static int detect_fasterrcnn(const cv::Mat &bgr, std::vector<Object> &objects) {
     ncnn::Net fasterrcnn;
 
     fasterrcnn.opt.use_vulkan_compute = true;
@@ -130,39 +119,35 @@ static int detect_fasterrcnn(const cv::Mat& bgr, std::vector<Object>& objects)
     // https://dl.dropboxusercontent.com/s/o6ii098bu51d139/faster_rcnn_models.tgz?dl=0
     // ZF_faster_rcnn_final.caffemodel
     // the ncnn model https://github.com/nihui/ncnn-assets/tree/master/models
-    if (fasterrcnn.load_param("ZF_faster_rcnn_final.param"))
-        exit(-1);
-    if (fasterrcnn.load_model("ZF_faster_rcnn_final.bin"))
-        exit(-1);
+    if (fasterrcnn.load_param("ZF_faster_rcnn_final.param")) exit(-1);
+    if (fasterrcnn.load_model("ZF_faster_rcnn_final.bin")) exit(-1);
 
     // hyper parameters taken from
     // py-faster-rcnn/lib/fast_rcnn/config.py
     // py-faster-rcnn/lib/fast_rcnn/test.py
-    const int target_size = 600; // __C.TEST.SCALES
+    const int target_size = 600;  // __C.TEST.SCALES
 
     const int max_per_image = 100;
     const float confidence_thresh = 0.05f;
 
-    const float nms_threshold = 0.3f; // __C.TEST.NMS
+    const float nms_threshold = 0.3f;  // __C.TEST.NMS
 
     // scale to target detect size
     int w = bgr.cols;
     int h = bgr.rows;
     float scale = 1.f;
-    if (w < h)
-    {
+    if (w < h) {
         scale = (float)target_size / w;
         w = target_size;
         h = h * scale;
-    }
-    else
-    {
+    } else {
         scale = (float)target_size / h;
         h = target_size;
         w = w * scale;
     }
 
-    ncnn::Mat in = ncnn::Mat::from_pixels_resize(bgr.data, ncnn::Mat::PIXEL_BGR, bgr.cols, bgr.rows, w, h);
+    ncnn::Mat in = ncnn::Mat::from_pixels_resize(bgr.data, ncnn::Mat::PIXEL_BGR,
+                   bgr.cols, bgr.rows, w, h);
 
     const float mean_vals[3] = {102.9801f, 115.9465f, 122.7717f};
     in.substract_mean_normalize(mean_vals, 0);
@@ -178,18 +163,17 @@ static int detect_fasterrcnn(const cv::Mat& bgr, std::vector<Object>& objects)
     ex1.input("data", in);
     ex1.input("im_info", im_info);
 
-    ncnn::Mat conv5_relu5; // feature
-    ncnn::Mat rois;        // all rois
+    ncnn::Mat conv5_relu5;  // feature
+    ncnn::Mat rois;         // all rois
     ex1.extract("conv5_relu5", conv5_relu5);
     ex1.extract("rois", rois);
 
     // step2, extract bbox and score for each roi
-    std::vector<std::vector<Object> > class_candidates;
-    for (int i = 0; i < rois.c; i++)
-    {
+    std::vector<std::vector<Object>> class_candidates;
+    for (int i = 0; i < rois.c; i++) {
         ncnn::Extractor ex2 = fasterrcnn.create_extractor();
 
-        ncnn::Mat roi = rois.channel(i); // get single roi
+        ncnn::Mat roi = rois.channel(i);  // get single roi
         ex2.input("conv5_relu5", conv5_relu5);
         ex2.input("rois", roi);
 
@@ -204,19 +188,16 @@ static int detect_fasterrcnn(const cv::Mat& bgr, std::vector<Object>& objects)
         // find class id with highest score
         int label = 0;
         float score = 0.f;
-        for (int i = 0; i < num_class; i++)
-        {
+        for (int i = 0; i < num_class; i++) {
             float class_score = cls_prob[i];
-            if (class_score > score)
-            {
+            if (class_score > score) {
                 label = i;
                 score = class_score;
             }
         }
 
         // ignore background or low score
-        if (label == 0 || score <= confidence_thresh)
-            continue;
+        if (label == 0 || score <= confidence_thresh) continue;
 
         //         fprintf(stderr, "%d = %f\n", label, score);
 
@@ -257,7 +238,8 @@ static int detect_fasterrcnn(const cv::Mat& bgr, std::vector<Object>& objects)
 
         // append object
         Object obj;
-        obj.rect = cv::Rect_<float>(obj_x1, obj_y1, obj_x2 - obj_x1 + 1, obj_y2 - obj_y1 + 1);
+        obj.rect = cv::Rect_<float>(obj_x1, obj_y1, obj_x2 - obj_x1 + 1,
+                                    obj_y2 - obj_y1 + 1);
         obj.label = label;
         obj.prob = score;
 
@@ -266,17 +248,15 @@ static int detect_fasterrcnn(const cv::Mat& bgr, std::vector<Object>& objects)
 
     // post process
     objects.clear();
-    for (int i = 0; i < (int)class_candidates.size(); i++)
-    {
-        std::vector<Object>& candidates = class_candidates[i];
+    for (int i = 0; i < (int)class_candidates.size(); i++) {
+        std::vector<Object> &candidates = class_candidates[i];
 
         qsort_descent_inplace(candidates);
 
         std::vector<int> picked;
         nms_sorted_bboxes(candidates, picked, nms_threshold);
 
-        for (int j = 0; j < (int)picked.size(); j++)
-        {
+        for (int j = 0; j < (int)picked.size(); j++) {
             int z = picked[j];
             objects.push_back(candidates[z]);
         }
@@ -284,29 +264,27 @@ static int detect_fasterrcnn(const cv::Mat& bgr, std::vector<Object>& objects)
 
     qsort_descent_inplace(objects);
 
-    if (max_per_image > 0 && max_per_image < objects.size())
-    {
+    if (max_per_image > 0 && max_per_image < objects.size()) {
         objects.resize(max_per_image);
     }
 
     return 0;
 }
 
-static void draw_objects(const cv::Mat& bgr, const std::vector<Object>& objects)
-{
-    static const char* class_names[] = {"background",
-                                        "aeroplane", "bicycle", "bird", "boat",
-                                        "bottle", "bus", "car", "cat", "chair",
-                                        "cow", "diningtable", "dog", "horse",
-                                        "motorbike", "person", "pottedplant",
-                                        "sheep", "sofa", "train", "tvmonitor"
-                                       };
+static void draw_objects(const cv::Mat &bgr,
+                         const std::vector<Object> &objects) {
+    static const char *class_names[] = {
+        "background", "aeroplane",   "bicycle", "bird",  "boat",
+        "bottle",     "bus",         "car",     "cat",   "chair",
+        "cow",        "diningtable", "dog",     "horse", "motorbike",
+        "person",     "pottedplant", "sheep",   "sofa",  "train",
+        "tvmonitor"
+    };
 
     cv::Mat image = bgr.clone();
 
-    for (size_t i = 0; i < objects.size(); i++)
-    {
-        const Object& obj = objects[i];
+    for (size_t i = 0; i < objects.size(); i++) {
+        const Object &obj = objects[i];
 
         fprintf(stderr, "%d = %.5f at %.2f %.2f %.2f x %.2f\n", obj.label, obj.prob,
                 obj.rect.x, obj.rect.y, obj.rect.width, obj.rect.height);
@@ -317,17 +295,19 @@ static void draw_objects(const cv::Mat& bgr, const std::vector<Object>& objects)
         sprintf(text, "%s %.1f%%", class_names[obj.label], obj.prob * 100);
 
         int baseLine = 0;
-        cv::Size label_size = cv::getTextSize(text, cv::FONT_HERSHEY_SIMPLEX, 0.5, 1, &baseLine);
+        cv::Size label_size =
+            cv::getTextSize(text, cv::FONT_HERSHEY_SIMPLEX, 0.5, 1, &baseLine);
 
         int x = obj.rect.x;
         int y = obj.rect.y - label_size.height - baseLine;
-        if (y < 0)
-            y = 0;
-        if (x + label_size.width > image.cols)
-            x = image.cols - label_size.width;
+        if (y < 0) y = 0;
+        if (x + label_size.width > image.cols) x = image.cols - label_size.width;
 
-        cv::rectangle(image, cv::Rect(cv::Point(x, y), cv::Size(label_size.width, label_size.height + baseLine)),
-                      cv::Scalar(255, 255, 255), -1);
+        cv::rectangle(
+            image,
+            cv::Rect(cv::Point(x, y),
+                     cv::Size(label_size.width, label_size.height + baseLine)),
+            cv::Scalar(255, 255, 255), -1);
 
         cv::putText(image, text, cv::Point(x, y + label_size.height),
                     cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 0, 0));
@@ -337,19 +317,16 @@ static void draw_objects(const cv::Mat& bgr, const std::vector<Object>& objects)
     cv::waitKey(0);
 }
 
-int main(int argc, char** argv)
-{
-    if (argc != 2)
-    {
+int main(int argc, char **argv) {
+    if (argc != 2) {
         fprintf(stderr, "Usage: %s [imagepath]\n", argv[0]);
         return -1;
     }
 
-    const char* imagepath = argv[1];
+    const char *imagepath = argv[1];
 
     cv::Mat m = cv::imread(imagepath, 1);
-    if (m.empty())
-    {
+    if (m.empty()) {
         fprintf(stderr, "cv::imread %s failed\n", imagepath);
         return -1;
     }

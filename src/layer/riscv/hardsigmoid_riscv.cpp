@@ -19,27 +19,25 @@
 
 #if __riscv_vector
 #include <riscv_vector.h>
-#endif // __riscv_vector
+#endif  // __riscv_vector
 
 namespace ncnn {
 
-HardSigmoid_riscv::HardSigmoid_riscv()
-{
+HardSigmoid_riscv::HardSigmoid_riscv() {
 #if __riscv_vector
     support_packing = true;
 #if __riscv_zfh
     support_fp16_storage = true;
 #endif
-#endif // __riscv_vector
+#endif  // __riscv_vector
 }
 
-int HardSigmoid_riscv::forward_inplace(Mat& bottom_top_blob, const Option& opt) const
-{
+int HardSigmoid_riscv::forward_inplace(Mat &bottom_top_blob,
+                                       const Option &opt) const {
 #if __riscv_vector && __riscv_zfh
     int elembits = bottom_top_blob.elembits();
 
-    if (opt.use_fp16_storage && elembits == 16)
-    {
+    if (opt.use_fp16_storage && elembits == 16) {
         return forward_inplace_fp16s(bottom_top_blob, opt);
     }
 #endif
@@ -52,14 +50,12 @@ int HardSigmoid_riscv::forward_inplace(Mat& bottom_top_blob, const Option& opt) 
     int size = w * h * d * elempack;
 
     #pragma omp parallel for num_threads(opt.num_threads)
-    for (int q = 0; q < channels; q++)
-    {
-        float* ptr = bottom_top_blob.channel(q);
+    for (int q = 0; q < channels; q++) {
+        float *ptr = bottom_top_blob.channel(q);
 
 #if __riscv_vector
         int n = size;
-        while (n > 0)
-        {
+        while (n > 0) {
             word_type vl = vsetvl_e32m8(n);
             vfloat32m8_t _p = vle32_v_f32m8(ptr, vl);
 
@@ -77,9 +73,8 @@ int HardSigmoid_riscv::forward_inplace(Mat& bottom_top_blob, const Option& opt) 
             ptr += vl;
             n -= vl;
         }
-#else  // __riscv_vector
-        for (int i = 0; i < size; i++)
-        {
+#else   // __riscv_vector
+        for (int i = 0; i < size; i++) {
             if (ptr[i] < lower)
                 ptr[i] = 0.f;
             else if (ptr[i] > upper)
@@ -87,15 +82,15 @@ int HardSigmoid_riscv::forward_inplace(Mat& bottom_top_blob, const Option& opt) 
             else
                 ptr[i] = ptr[i] * alpha + beta;
         }
-#endif // __riscv_vector
+#endif  // __riscv_vector
     }
 
     return 0;
 }
 
 #if __riscv_vector && __riscv_zfh
-int HardSigmoid_riscv::forward_inplace_fp16s(Mat& bottom_top_blob, const Option& opt) const
-{
+int HardSigmoid_riscv::forward_inplace_fp16s(Mat &bottom_top_blob,
+        const Option &opt) const {
     int w = bottom_top_blob.w;
     int h = bottom_top_blob.h;
     int d = bottom_top_blob.d;
@@ -104,13 +99,11 @@ int HardSigmoid_riscv::forward_inplace_fp16s(Mat& bottom_top_blob, const Option&
     int size = w * h * d * elempack;
 
     #pragma omp parallel for num_threads(opt.num_threads)
-    for (int q = 0; q < channels; q++)
-    {
-        __fp16* ptr = bottom_top_blob.channel(q);
+    for (int q = 0; q < channels; q++) {
+        __fp16 *ptr = bottom_top_blob.channel(q);
 
         int n = size;
-        while (n > 0)
-        {
+        while (n > 0) {
             word_type vl = vsetvl_e16m8(n);
             vfloat16m8_t _p = vle16_v_f16m8(ptr, vl);
 
@@ -134,4 +127,4 @@ int HardSigmoid_riscv::forward_inplace_fp16s(Mat& bottom_top_blob, const Option&
 }
 #endif
 
-} // namespace ncnn
+}  // namespace ncnn

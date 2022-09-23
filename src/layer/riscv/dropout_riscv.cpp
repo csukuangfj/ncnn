@@ -19,21 +19,19 @@
 
 #if __riscv_vector
 #include <riscv_vector.h>
-#endif // __riscv_vector
+#endif  // __riscv_vector
 
 namespace ncnn {
 
-Dropout_riscv::Dropout_riscv()
-{
+Dropout_riscv::Dropout_riscv() {
 #if __riscv_vector
     support_packing = true;
 #endif
 }
 
-int Dropout_riscv::forward_inplace(Mat& bottom_top_blob, const Option& opt) const
-{
-    if (scale == 1.f)
-    {
+int Dropout_riscv::forward_inplace(Mat &bottom_top_blob,
+                                   const Option &opt) const {
+    if (scale == 1.f) {
         return 0;
     }
 
@@ -45,14 +43,12 @@ int Dropout_riscv::forward_inplace(Mat& bottom_top_blob, const Option& opt) cons
     int size = w * h * d * elempack;
 
     #pragma omp parallel for num_threads(opt.num_threads)
-    for (int q = 0; q < channels; q++)
-    {
-        float* ptr = bottom_top_blob.channel(q);
+    for (int q = 0; q < channels; q++) {
+        float *ptr = bottom_top_blob.channel(q);
 
 #if __riscv_vector
         int n = size;
-        while (n > 0)
-        {
+        while (n > 0) {
             word_type vl = vsetvl_e32m8(n);
 
             vfloat32m8_t _p = vle32_v_f32m8(ptr, vl);
@@ -62,17 +58,16 @@ int Dropout_riscv::forward_inplace(Mat& bottom_top_blob, const Option& opt) cons
             ptr += vl;
             n -= vl;
         }
-#else  // __riscv_vector
-        for (int i = 0; i < size; i++)
-        {
+#else   // __riscv_vector
+        for (int i = 0; i < size; i++) {
             *ptr = *ptr * scale;
 
             ptr++;
         }
-#endif // __riscv_vector
+#endif  // __riscv_vector
     }
 
     return 0;
 }
 
-} // namespace ncnn
+}  // namespace ncnn

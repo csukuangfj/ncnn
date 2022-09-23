@@ -1,25 +1,28 @@
-// Tencent is pleased to support the open source community by making ncnn available.
+// Tencent is pleased to support the open source community by making ncnn
+// available.
 //
 // Copyright (C) 2020 THL A29 Limited, a Tencent company. All rights reserved.
 //
-// Licensed under the BSD 3-Clause License (the "License"); you may not use this file except
-// in compliance with the License. You may obtain a copy of the License at
+// Licensed under the BSD 3-Clause License (the "License"); you may not use this
+// file except in compliance with the License. You may obtain a copy of the
+// License at
 //
 // https://opensource.org/licenses/BSD-3-Clause
 //
-// Unless required by applicable law or agreed to in writing, software distributed
-// under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
-// CONDITIONS OF ANY KIND, either express or implied. See the License for the
-// specific language governing permissions and limitations under the License.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+// WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+// License for the specific language governing permissions and limitations under
+// the License.
 
-static void conv3x3s1_winograd63_transform_kernel_pack8to4_fp16sa_neon(const Mat& kernel, Mat& kernel_tm_pack8to4, int inch, int outch, const Option& opt)
-{
+static void conv3x3s1_winograd63_transform_kernel_pack8to4_fp16sa_neon(
+    const Mat &kernel, Mat &kernel_tm_pack8to4, int inch, int outch,
+    const Option &opt) {
     // winograd63 transform kernel
     Mat kernel_tm;
     kernel_tm.create(8 * 8, inch, outch);
 
-    const float ktm[8][3] = {
-        {1.0f, 0.0f, 0.0f},
+    const float ktm[8][3] = {{1.0f, 0.0f, 0.0f},
         {-2.0f / 9, -2.0f / 9, -2.0f / 9},
         {-2.0f / 9, 2.0f / 9, -2.0f / 9},
         {1.0f / 90, 1.0f / 45, 2.0f / 45},
@@ -30,35 +33,31 @@ static void conv3x3s1_winograd63_transform_kernel_pack8to4_fp16sa_neon(const Mat
     };
 
     #pragma omp parallel for num_threads(opt.num_threads)
-    for (int p = 0; p < outch; p++)
-    {
-        for (int q = 0; q < inch; q++)
-        {
-            const float* kernel0 = (const float*)kernel + p * inch * 9 + q * 9;
-            float* kernel_tm0 = kernel_tm.channel(p).row(q);
+    for (int p = 0; p < outch; p++) {
+        for (int q = 0; q < inch; q++) {
+            const float *kernel0 = (const float *)kernel + p * inch * 9 + q * 9;
+            float *kernel_tm0 = kernel_tm.channel(p).row(q);
 
             // transform kernel, transposed
-            const float* k0 = kernel0;
-            const float* k1 = kernel0 + 3;
-            const float* k2 = kernel0 + 6;
+            const float *k0 = kernel0;
+            const float *k1 = kernel0 + 3;
+            const float *k2 = kernel0 + 6;
 
             // h
             float tmp[8][3];
-            for (int i = 0; i < 8; i++)
-            {
+            for (int i = 0; i < 8; i++) {
                 tmp[i][0] = k0[0] * ktm[i][0] + k0[1] * ktm[i][1] + k0[2] * ktm[i][2];
                 tmp[i][1] = k1[0] * ktm[i][0] + k1[1] * ktm[i][1] + k1[2] * ktm[i][2];
                 tmp[i][2] = k2[0] * ktm[i][0] + k2[1] * ktm[i][1] + k2[2] * ktm[i][2];
             }
 
             // v
-            for (int j = 0; j < 8; j++)
-            {
-                float* tmpp = &tmp[j][0];
+            for (int j = 0; j < 8; j++) {
+                float *tmpp = &tmp[j][0];
 
-                for (int i = 0; i < 8; i++)
-                {
-                    kernel_tm0[j * 8 + i] = tmpp[0] * ktm[i][0] + tmpp[1] * ktm[i][1] + tmpp[2] * ktm[i][2];
+                for (int i = 0; i < 8; i++) {
+                    kernel_tm0[j * 8 + i] =
+                        tmpp[0] * ktm[i][0] + tmpp[1] * ktm[i][1] + tmpp[2] * ktm[i][2];
                 }
             }
         }
@@ -67,11 +66,11 @@ static void conv3x3s1_winograd63_transform_kernel_pack8to4_fp16sa_neon(const Mat
     // interleave
     // src = 64-inch-outch
     // dst = 4b-8a-inch/8a-64-outch/4b
-    kernel_tm_pack8to4.create(2 * inch / 8, 64, outch / 8 + (outch % 8) / 4, (size_t)2u * 32, 32);
+    kernel_tm_pack8to4.create(2 * inch / 8, 64, outch / 8 + (outch % 8) / 4,
+                              (size_t)2u * 32, 32);
 
     int p = 0;
-    for (; p + 7 < outch; p += 8)
-    {
+    for (; p + 7 < outch; p += 8) {
         const Mat k0 = kernel_tm.channel(p);
         const Mat k1 = kernel_tm.channel(p + 1);
         const Mat k2 = kernel_tm.channel(p + 2);
@@ -83,14 +82,11 @@ static void conv3x3s1_winograd63_transform_kernel_pack8to4_fp16sa_neon(const Mat
 
         Mat g0 = kernel_tm_pack8to4.channel(p / 8);
 
-        for (int k = 0; k < 64; k++)
-        {
-            __fp16* g00 = g0.row<__fp16>(k);
+        for (int k = 0; k < 64; k++) {
+            __fp16 *g00 = g0.row<__fp16>(k);
 
-            for (int q = 0; q + 7 < inch; q += 8)
-            {
-                for (int i = 0; i < 8; i++)
-                {
+            for (int q = 0; q + 7 < inch; q += 8) {
+                for (int i = 0; i < 8; i++) {
                     g00[0] = (__fp16)k0.row(q + i)[k];
                     g00[1] = (__fp16)k1.row(q + i)[k];
                     g00[2] = (__fp16)k2.row(q + i)[k];
@@ -105,8 +101,7 @@ static void conv3x3s1_winograd63_transform_kernel_pack8to4_fp16sa_neon(const Mat
             }
         }
     }
-    for (; p + 3 < outch; p += 4)
-    {
+    for (; p + 3 < outch; p += 4) {
         const Mat k0 = kernel_tm.channel(p);
         const Mat k1 = kernel_tm.channel(p + 1);
         const Mat k2 = kernel_tm.channel(p + 2);
@@ -114,14 +109,11 @@ static void conv3x3s1_winograd63_transform_kernel_pack8to4_fp16sa_neon(const Mat
 
         Mat g0 = kernel_tm_pack8to4.channel(p / 8 + (p % 8) / 4);
 
-        for (int k = 0; k < 64; k++)
-        {
-            __fp16* g00 = g0.row<__fp16>(k);
+        for (int k = 0; k < 64; k++) {
+            __fp16 *g00 = g0.row<__fp16>(k);
 
-            for (int q = 0; q + 7 < inch; q += 8)
-            {
-                for (int i = 0; i < 8; i++)
-                {
+            for (int q = 0; q + 7 < inch; q += 8) {
+                for (int i = 0; i < 8; i++) {
                     g00[0] = (__fp16)k0.row(q + i)[k];
                     g00[1] = (__fp16)k1.row(q + i)[k];
                     g00[2] = (__fp16)k2.row(q + i)[k];
@@ -134,8 +126,11 @@ static void conv3x3s1_winograd63_transform_kernel_pack8to4_fp16sa_neon(const Mat
     }
 }
 
-static void conv3x3s1_winograd63_pack8to4_fp16sa_neon(const Mat& bottom_blob, Mat& top_blob, const Mat& kernel_tm, const Mat& bias, const Option& opt)
-{
+static void conv3x3s1_winograd63_pack8to4_fp16sa_neon(const Mat &bottom_blob,
+        Mat &top_blob,
+        const Mat &kernel_tm,
+        const Mat &bias,
+        const Option &opt) {
     int w = bottom_blob.w;
     int h = bottom_blob.h;
     int inch = bottom_blob.c;
@@ -154,7 +149,8 @@ static void conv3x3s1_winograd63_pack8to4_fp16sa_neon(const Mat& bottom_blob, Ma
 
     w = outw + 2;
     h = outh + 2;
-    copy_make_border(bottom_blob, bottom_blob_bordered, 0, h - bottom_blob.h, 0, w - bottom_blob.w, BORDER_CONSTANT, 0.f, opt);
+    copy_make_border(bottom_blob, bottom_blob_bordered, 0, h - bottom_blob.h, 0,
+                     w - bottom_blob.w, BORDER_CONSTANT, 0.f, opt);
 
     // BEGIN transform input
     Mat bottom_blob_tm;
@@ -163,8 +159,10 @@ static void conv3x3s1_winograd63_pack8to4_fp16sa_neon(const Mat& bottom_blob, Ma
         int h_tiles = outh / 6 * 8;
         const int tiles = w_tiles * h_tiles;
 
-        bottom_blob_tm.create(tiles, 64, inch, elemsize, elempack, opt.workspace_allocator);
-        conv3x3s1_winograd63_transform_input_pack8_fp16sa_neon(bottom_blob_bordered, bottom_blob_tm, opt);
+        bottom_blob_tm.create(tiles, 64, inch, elemsize, elempack,
+                              opt.workspace_allocator);
+        conv3x3s1_winograd63_transform_input_pack8_fp16sa_neon(bottom_blob_bordered,
+                bottom_blob_tm, opt);
     }
     bottom_blob_bordered = Mat();
     // END transform input
@@ -178,32 +176,34 @@ static void conv3x3s1_winograd63_pack8to4_fp16sa_neon(const Mat& bottom_blob, Ma
         const int tiles = h_tm / 8 * w_tm / 8;
 
         // permute
-        //         bottom_blob_tm.create(tiles, 64, inch, elemsize, elempack, opt.workspace_allocator);
+        //         bottom_blob_tm.create(tiles, 64, inch, elemsize, elempack,
+        //         opt.workspace_allocator);
         Mat bottom_blob_tm2;
         if (tiles >= 8)
-            bottom_blob_tm2.create(8 * inch, tiles / 8 + (tiles % 8) / 4 + tiles % 4, 64, 2u * elempack, elempack, opt.workspace_allocator);
+            bottom_blob_tm2.create(8 * inch, tiles / 8 + (tiles % 8) / 4 + tiles % 4,
+                                   64, 2u * elempack, elempack,
+                                   opt.workspace_allocator);
         else if (tiles >= 4)
-            bottom_blob_tm2.create(4 * inch, tiles / 4 + tiles % 4, 64, 2u * elempack, elempack, opt.workspace_allocator);
-        else // if (tiles >= 1)
-            bottom_blob_tm2.create(1 * inch, tiles, 64, 2u * elempack, elempack, opt.workspace_allocator);
+            bottom_blob_tm2.create(4 * inch, tiles / 4 + tiles % 4, 64, 2u * elempack,
+                                   elempack, opt.workspace_allocator);
+        else  // if (tiles >= 1)
+            bottom_blob_tm2.create(1 * inch, tiles, 64, 2u * elempack, elempack,
+                                   opt.workspace_allocator);
 
         #pragma omp parallel for num_threads(opt.num_threads)
-        for (int r = 0; r < 64; r++)
-        {
+        for (int r = 0; r < 64; r++) {
             Mat tm2 = bottom_blob_tm2.channel(r);
 
             // tile
             int i = 0;
-            for (; i + 7 < tiles; i += 8)
-            {
-                __fp16* tm2p = tm2.row<__fp16>(i / 8);
+            for (; i + 7 < tiles; i += 8) {
+                __fp16 *tm2p = tm2.row<__fp16>(i / 8);
 
-                const __fp16* r0 = bottom_blob_tm;
+                const __fp16 *r0 = bottom_blob_tm;
 
                 r0 += (r * tiles + i) * 8;
 
-                for (int q = 0; q < inch; q++)
-                {
+                for (int q = 0; q < inch; q++) {
                     // transpose 8x8
                     asm volatile(
                         "prfm   pldl1keep, [%0, #512]   \n"
@@ -222,57 +222,51 @@ static void conv3x3s1_winograd63_pack8to4_fp16sa_neon(const Mat& bottom_blob, Ma
 
                         "st1    {v16.8h, v17.8h, v18.8h, v19.8h}, [%1], #64 \n"
                         "st1    {v20.8h, v21.8h, v22.8h, v23.8h}, [%1], #64 \n"
-                        : "=r"(r0),  // %0
-                        "=r"(tm2p) // %1
-                        : "0"(r0),
-                        "1"(tm2p)
-                        : "memory", "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v16", "v17", "v18", "v19", "v20", "v21", "v22", "v23");
+                        : "=r"(r0),   // %0
+                        "=r"(tm2p)  // %1
+                        : "0"(r0), "1"(tm2p)
+                        : "memory", "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v16",
+                        "v17", "v18", "v19", "v20", "v21", "v22", "v23");
 
                     r0 += bottom_blob_tm.cstep * 8;
                 }
             }
-            for (; i + 3 < tiles; i += 4)
-            {
-                __fp16* tm2p = tm2.row<__fp16>(i / 8 + (i % 8) / 4);
+            for (; i + 3 < tiles; i += 4) {
+                __fp16 *tm2p = tm2.row<__fp16>(i / 8 + (i % 8) / 4);
 
-                const __fp16* r0 = bottom_blob_tm;
+                const __fp16 *r0 = bottom_blob_tm;
 
                 r0 += (r * tiles + i) * 8;
 
-                for (int q = 0; q < inch; q++)
-                {
+                for (int q = 0; q < inch; q++) {
                     // transpose 8x4
                     asm volatile(
                         "prfm   pldl1keep, [%0, #256]   \n"
                         "ld1    {v0.8h, v1.8h, v2.8h, v3.8h}, [%0] \n"
                         "st4    {v0.8h, v1.8h, v2.8h, v3.8h}, [%1], #64 \n"
-                        : "=r"(r0),  // %0
-                        "=r"(tm2p) // %1
-                        : "0"(r0),
-                        "1"(tm2p)
+                        : "=r"(r0),   // %0
+                        "=r"(tm2p)  // %1
+                        : "0"(r0), "1"(tm2p)
                         : "memory", "v0", "v1", "v2", "v3");
 
                     r0 += bottom_blob_tm.cstep * 8;
                 }
             }
-            for (; i < tiles; i++)
-            {
-                __fp16* tm2p = tm2.row<__fp16>(i / 8 + (i % 8) / 4 + i % 4);
+            for (; i < tiles; i++) {
+                __fp16 *tm2p = tm2.row<__fp16>(i / 8 + (i % 8) / 4 + i % 4);
 
-                const __fp16* r0 = bottom_blob_tm;
+                const __fp16 *r0 = bottom_blob_tm;
 
                 r0 += (r * tiles + i) * 8;
 
-                for (int q = 0; q < inch; q++)
-                {
+                for (int q = 0; q < inch; q++) {
                     asm volatile(
                         "prfm   pldl1keep, [%0, #128]   \n"
                         "ld1    {v0.8h}, [%0]           \n"
                         "st1    {v0.8h}, [%1], #16      \n"
-                        : "=r"(r0),  // %0
-                        "=r"(tm2p) // %1
-                        : "0"(r0),
-                        "1"(tm2p)
+                        : "=r"(r0),   // %0
+                        "=r"(tm2p)  // %1
+                        : "0"(r0), "1"(tm2p)
                         : "memory", "v0");
 
                     r0 += bottom_blob_tm.cstep * 8;
@@ -291,27 +285,24 @@ static void conv3x3s1_winograd63_pack8to4_fp16sa_neon(const Mat& bottom_blob, Ma
         nn_outch = outch >> 1;
 
         #pragma omp parallel for num_threads(opt.num_threads)
-        for (int pp = 0; pp < nn_outch; pp++)
-        {
+        for (int pp = 0; pp < nn_outch; pp++) {
             int p = pp * 2;
 
-            __fp16* output0_tm = top_blob_tm.channel(p);
-            __fp16* output1_tm = top_blob_tm.channel(p + 1);
+            __fp16 *output0_tm = top_blob_tm.channel(p);
+            __fp16 *output1_tm = top_blob_tm.channel(p + 1);
 
             const Mat kernel01_tm = kernel_tm.channel(p / 2);
 
-            for (int r = 0; r < 64; r++)
-            {
+            for (int r = 0; r < 64; r++) {
                 const Mat bb2 = bottom_blob_tm2.channel(r);
 
                 int i = 0;
-                for (; i + 7 < tiles; i += 8)
-                {
-                    const __fp16* r0 = bb2.row<const __fp16>(i / 8);
+                for (; i + 7 < tiles; i += 8) {
+                    const __fp16 *r0 = bb2.row<const __fp16>(i / 8);
 
-                    const __fp16* kptr = kernel01_tm.row<const __fp16>(r);
+                    const __fp16 *kptr = kernel01_tm.row<const __fp16>(r);
 
-                    int nn = inch; // inch always > 0
+                    int nn = inch;  // inch always > 0
 
                     asm volatile(
                         "eor    v24.16b, v24.16b, v24.16b   \n"
@@ -428,25 +419,22 @@ static void conv3x3s1_winograd63_pack8to4_fp16sa_neon(const Mat& bottom_blob, Ma
                         "st1    {v24.4h, v25.4h, v26.4h, v27.4h}, [%2], #32 \n"
                         "st1    {v28.4h, v29.4h, v30.4h, v31.4h}, [%2], #32 \n"
 
-                        : "=r"(nn),         // %0
-                        "=r"(output0_tm), // %1
-                        "=r"(output1_tm), // %2
-                        "=r"(r0),         // %3
-                        "=r"(kptr)        // %4
-                        : "0"(nn),
-                        "1"(output0_tm),
-                        "2"(output1_tm),
-                        "3"(r0),
-                        "4"(kptr)
-                        : "cc", "memory", "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v16", "v17", "v18", "v19", "v20", "v21", "v22", "v23", "v24", "v25", "v26", "v27", "v28", "v29", "v30", "v31");
+                        : "=r"(nn),          // %0
+                        "=r"(output0_tm),  // %1
+                        "=r"(output1_tm),  // %2
+                        "=r"(r0),          // %3
+                        "=r"(kptr)         // %4
+                        : "0"(nn), "1"(output0_tm), "2"(output1_tm), "3"(r0), "4"(kptr)
+                        : "cc", "memory", "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7",
+                        "v16", "v17", "v18", "v19", "v20", "v21", "v22", "v23", "v24",
+                        "v25", "v26", "v27", "v28", "v29", "v30", "v31");
                 }
-                for (; i + 3 < tiles; i += 4)
-                {
-                    const __fp16* r0 = bb2.row<const __fp16>(i / 8 + (i % 8) / 4);
+                for (; i + 3 < tiles; i += 4) {
+                    const __fp16 *r0 = bb2.row<const __fp16>(i / 8 + (i % 8) / 4);
 
-                    const __fp16* kptr = kernel01_tm.row<const __fp16>(r);
+                    const __fp16 *kptr = kernel01_tm.row<const __fp16>(r);
 
-                    int nn = inch; // inch always > 0
+                    int nn = inch;  // inch always > 0
 
                     asm volatile(
                         "eor    v24.16b, v24.16b, v24.16b   \n"
@@ -518,28 +506,24 @@ static void conv3x3s1_winograd63_pack8to4_fp16sa_neon(const Mat& bottom_blob, Ma
 
                         "st1    {v24.4h, v25.4h, v26.4h, v27.4h}, [%2], #32 \n"
 
-                        : "=r"(nn),         // %0
-                        "=r"(output0_tm), // %1
-                        "=r"(output1_tm), // %2
-                        "=r"(r0),         // %3
-                        "=r"(kptr)        // %4
-                        : "0"(nn),
-                        "1"(output0_tm),
-                        "2"(output1_tm),
-                        "3"(r0),
-                        "4"(kptr)
-                        : "cc", "memory", "v0", "v1", "v2", "v3", "v16", "v17", "v18", "v19", "v20", "v21", "v22", "v23", "v24", "v25", "v26", "v27", "v28", "v29", "v30", "v31");
+                        : "=r"(nn),          // %0
+                        "=r"(output0_tm),  // %1
+                        "=r"(output1_tm),  // %2
+                        "=r"(r0),          // %3
+                        "=r"(kptr)         // %4
+                        : "0"(nn), "1"(output0_tm), "2"(output1_tm), "3"(r0), "4"(kptr)
+                        : "cc", "memory", "v0", "v1", "v2", "v3", "v16", "v17", "v18",
+                        "v19", "v20", "v21", "v22", "v23", "v24", "v25", "v26", "v27",
+                        "v28", "v29", "v30", "v31");
                 }
-                for (; i < tiles; i++)
-                {
-                    const __fp16* r0 = bb2.row<const __fp16>(i / 8 + (i % 8) / 4 + i % 4);
+                for (; i < tiles; i++) {
+                    const __fp16 *r0 = bb2.row<const __fp16>(i / 8 + (i % 8) / 4 + i % 4);
 
-                    const __fp16* kptr = kernel01_tm.row<const __fp16>(r);
+                    const __fp16 *kptr = kernel01_tm.row<const __fp16>(r);
 
                     float16x8_t _sum0 = vdupq_n_f16((__fp16)0.f);
 
-                    for (int q = 0; q < inch; q++)
-                    {
+                    for (int q = 0; q < inch; q++) {
                         float16x8_t _r0 = vld1q_f16(r0);
 
                         float16x8_t _k0 = vld1q_f16(kptr);
@@ -576,24 +560,21 @@ static void conv3x3s1_winograd63_pack8to4_fp16sa_neon(const Mat& bottom_blob, Ma
         remain_outch_start += nn_outch << 1;
 
         #pragma omp parallel for num_threads(opt.num_threads)
-        for (int p = remain_outch_start; p < outch; p++)
-        {
-            __fp16* output0_tm = top_blob_tm.channel(p);
+        for (int p = remain_outch_start; p < outch; p++) {
+            __fp16 *output0_tm = top_blob_tm.channel(p);
 
             const Mat kernel0_tm = kernel_tm.channel(p / 2 + p % 2);
 
-            for (int r = 0; r < 64; r++)
-            {
+            for (int r = 0; r < 64; r++) {
                 const Mat bb2 = bottom_blob_tm2.channel(r);
 
                 int i = 0;
-                for (; i + 7 < tiles; i += 8)
-                {
-                    const __fp16* r0 = bb2.row<const __fp16>(i / 8);
+                for (; i + 7 < tiles; i += 8) {
+                    const __fp16 *r0 = bb2.row<const __fp16>(i / 8);
 
-                    const __fp16* kptr = kernel0_tm.row<const __fp16>(r);
+                    const __fp16 *kptr = kernel0_tm.row<const __fp16>(r);
 
-                    int nn = inch; // inch always > 0
+                    int nn = inch;  // inch always > 0
 
                     asm volatile(
                         "eor    v24.16b, v24.16b, v24.16b   \n"
@@ -698,23 +679,21 @@ static void conv3x3s1_winograd63_pack8to4_fp16sa_neon(const Mat& bottom_blob, Ma
                         "st1    {v24.4h, v25.4h, v26.4h, v27.4h}, [%1], #32 \n"
                         "st1    {v28.4h, v29.4h, v30.4h, v31.4h}, [%1], #32 \n"
 
-                        : "=r"(nn),         // %0
-                        "=r"(output0_tm), // %1
-                        "=r"(r0),         // %2
-                        "=r"(kptr)        // %3
-                        : "0"(nn),
-                        "1"(output0_tm),
-                        "2"(r0),
-                        "3"(kptr)
-                        : "cc", "memory", "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v16", "v17", "v18", "v19", "v20", "v21", "v22", "v23", "v24", "v25", "v26", "v27", "v28", "v29", "v30", "v31");
+                        : "=r"(nn),          // %0
+                        "=r"(output0_tm),  // %1
+                        "=r"(r0),          // %2
+                        "=r"(kptr)         // %3
+                        : "0"(nn), "1"(output0_tm), "2"(r0), "3"(kptr)
+                        : "cc", "memory", "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7",
+                        "v16", "v17", "v18", "v19", "v20", "v21", "v22", "v23", "v24",
+                        "v25", "v26", "v27", "v28", "v29", "v30", "v31");
                 }
-                for (; i + 3 < tiles; i += 4)
-                {
-                    const __fp16* r0 = bb2.row<const __fp16>(i / 8 + (i % 8) / 4);
+                for (; i + 3 < tiles; i += 4) {
+                    const __fp16 *r0 = bb2.row<const __fp16>(i / 8 + (i % 8) / 4);
 
-                    const __fp16* kptr = kernel0_tm.row<const __fp16>(r);
+                    const __fp16 *kptr = kernel0_tm.row<const __fp16>(r);
 
-                    int nn = inch; // inch always > 0
+                    int nn = inch;  // inch always > 0
 
                     asm volatile(
                         "eor    v24.16b, v24.16b, v24.16b   \n"
@@ -775,26 +754,23 @@ static void conv3x3s1_winograd63_pack8to4_fp16sa_neon(const Mat& bottom_blob, Ma
 
                         "st1    {v24.4h, v25.4h, v26.4h, v27.4h}, [%1], #32 \n"
 
-                        : "=r"(nn),         // %0
-                        "=r"(output0_tm), // %1
-                        "=r"(r0),         // %2
-                        "=r"(kptr)        // %3
-                        : "0"(nn),
-                        "1"(output0_tm),
-                        "2"(r0),
-                        "3"(kptr)
-                        : "cc", "memory", "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v16", "v17", "v18", "v19", "v20", "v21", "v22", "v23", "v24", "v25", "v26", "v27");
+                        : "=r"(nn),          // %0
+                        "=r"(output0_tm),  // %1
+                        "=r"(r0),          // %2
+                        "=r"(kptr)         // %3
+                        : "0"(nn), "1"(output0_tm), "2"(r0), "3"(kptr)
+                        : "cc", "memory", "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7",
+                        "v16", "v17", "v18", "v19", "v20", "v21", "v22", "v23", "v24",
+                        "v25", "v26", "v27");
                 }
-                for (; i < tiles; i++)
-                {
-                    const __fp16* r0 = bb2.row<const __fp16>(i / 8 + (i % 8) / 4 + i % 4);
+                for (; i < tiles; i++) {
+                    const __fp16 *r0 = bb2.row<const __fp16>(i / 8 + (i % 8) / 4 + i % 4);
 
-                    const __fp16* kptr = kernel0_tm.row<const __fp16>(r);
+                    const __fp16 *kptr = kernel0_tm.row<const __fp16>(r);
 
                     float16x4_t _sum0 = vdup_n_f16((__fp16)0.f);
 
-                    for (int q = 0; q < inch; q++)
-                    {
+                    for (int q = 0; q < inch; q++) {
                         float16x8_t _r0 = vld1q_f16(r0);
 
                         float16x4_t _k0 = vld1_f16(kptr);
@@ -831,19 +807,20 @@ static void conv3x3s1_winograd63_pack8to4_fp16sa_neon(const Mat& bottom_blob, Ma
 
     // BEGIN transform output
     Mat top_blob_bordered;
-    if (outw == top_blob.w && outh == top_blob.h)
-    {
+    if (outw == top_blob.w && outh == top_blob.h) {
         top_blob_bordered = top_blob;
+    } else {
+        top_blob_bordered.create(outw, outh, outch, 2u * 4, 4,
+                                 opt.workspace_allocator);
     }
-    else
     {
-        top_blob_bordered.create(outw, outh, outch, 2u * 4, 4, opt.workspace_allocator);
-    }
-    {
-        conv3x3s1_winograd63_transform_output_pack4_fp16sa_neon(top_blob_tm, top_blob_bordered, bias, opt);
+        conv3x3s1_winograd63_transform_output_pack4_fp16sa_neon(
+            top_blob_tm, top_blob_bordered, bias, opt);
     }
     // END transform output
 
     // cut result pad
-    copy_cut_border(top_blob_bordered, top_blob, 0, top_blob_bordered.h - top_blob.h, 0, top_blob_bordered.w - top_blob.w, opt);
+    copy_cut_border(top_blob_bordered, top_blob, 0,
+                    top_blob_bordered.h - top_blob.h, 0,
+                    top_blob_bordered.w - top_blob.w, opt);
 }

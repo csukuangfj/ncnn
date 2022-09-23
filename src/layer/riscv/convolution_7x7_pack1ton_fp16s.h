@@ -1,19 +1,23 @@
-// Tencent is pleased to support the open source community by making ncnn available.
+// Tencent is pleased to support the open source community by making ncnn
+// available.
 //
 // Copyright (C) 2021 THL A29 Limited, a Tencent company. All rights reserved.
 //
-// Licensed under the BSD 3-Clause License (the "License"); you may not use this file except
-// in compliance with the License. You may obtain a copy of the License at
+// Licensed under the BSD 3-Clause License (the "License"); you may not use this
+// file except in compliance with the License. You may obtain a copy of the
+// License at
 //
 // https://opensource.org/licenses/BSD-3-Clause
 //
-// Unless required by applicable law or agreed to in writing, software distributed
-// under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
-// CONDITIONS OF ANY KIND, either express or implied. See the License for the
-// specific language governing permissions and limitations under the License.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+// WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+// License for the specific language governing permissions and limitations under
+// the License.
 
-static void conv7x7s2_pack1ton_fp16sa_rvv(const Mat& bottom_blob, Mat& top_blob, const Mat& kernel, const Mat& _bias, const Option& opt)
-{
+static void conv7x7s2_pack1ton_fp16sa_rvv(const Mat &bottom_blob, Mat &top_blob,
+        const Mat &kernel, const Mat &_bias,
+        const Option &opt) {
     const int packn = csrr_vlenb() / 2;
     const word_type vl = vsetvl_e16m1(packn);
 
@@ -26,39 +30,36 @@ static void conv7x7s2_pack1ton_fp16sa_rvv(const Mat& bottom_blob, Mat& top_blob,
 
     const int tailstep = w - 2 * outw + w;
 
-    const __fp16* bias = _bias;
+    const __fp16 *bias = _bias;
 
     #pragma omp parallel for num_threads(opt.num_threads)
-    for (int p = 0; p < outch; p++)
-    {
+    for (int p = 0; p < outch; p++) {
         Mat out0 = top_blob.channel(p);
 
-        vfloat16m1_t _bias0 = bias ? vle16_v_f16m1(bias + p * packn, vl) : vfmv_v_f_f16m1(0.f, vl);
+        vfloat16m1_t _bias0 =
+            bias ? vle16_v_f16m1(bias + p * packn, vl) : vfmv_v_f_f16m1(0.f, vl);
         out0.fill(_bias0);
 
-        for (int q = 0; q < inch; q++)
-        {
-            __fp16* outptr0 = out0;
+        for (int q = 0; q < inch; q++) {
+            __fp16 *outptr0 = out0;
 
             const Mat img0 = bottom_blob.channel(q);
 
-            const __fp16* r0 = img0.row<const __fp16>(0);
-            const __fp16* r1 = img0.row<const __fp16>(1);
-            const __fp16* r2 = img0.row<const __fp16>(2);
-            const __fp16* r3 = img0.row<const __fp16>(3);
-            const __fp16* r4 = img0.row<const __fp16>(4);
-            const __fp16* r5 = img0.row<const __fp16>(5);
-            const __fp16* r6 = img0.row<const __fp16>(6);
+            const __fp16 *r0 = img0.row<const __fp16>(0);
+            const __fp16 *r1 = img0.row<const __fp16>(1);
+            const __fp16 *r2 = img0.row<const __fp16>(2);
+            const __fp16 *r3 = img0.row<const __fp16>(3);
+            const __fp16 *r4 = img0.row<const __fp16>(4);
+            const __fp16 *r5 = img0.row<const __fp16>(5);
+            const __fp16 *r6 = img0.row<const __fp16>(6);
 
-            const __fp16* kptr = kernel.channel(p).row<const __fp16>(q);
+            const __fp16 *kptr = kernel.channel(p).row<const __fp16>(q);
 
             int i = 0;
 
-            for (; i < outh; i++)
-            {
+            for (; i < outh; i++) {
                 int j = 0;
-                for (; j + 7 < outw; j += 8)
-                {
+                for (; j + 7 < outw; j += 8) {
                     vfloat16m1_t _sum0 = vle16_v_f16m1(outptr0, vl);
                     vfloat16m1_t _sum1 = vle16_v_f16m1(outptr0 + packn, vl);
                     vfloat16m1_t _sum2 = vle16_v_f16m1(outptr0 + packn * 2, vl);
@@ -556,8 +557,7 @@ static void conv7x7s2_pack1ton_fp16sa_rvv(const Mat& bottom_blob, Mat& top_blob,
                     r5 += 16;
                     r6 += 16;
                 }
-                for (; j + 3 < outw; j += 4)
-                {
+                for (; j + 3 < outw; j += 4) {
                     vfloat16m1_t _sum0 = vle16_v_f16m1(outptr0, vl);
                     vfloat16m1_t _sum1 = vle16_v_f16m1(outptr0 + packn, vl);
                     vfloat16m1_t _sum2 = vle16_v_f16m1(outptr0 + packn * 2, vl);
@@ -851,8 +851,7 @@ static void conv7x7s2_pack1ton_fp16sa_rvv(const Mat& bottom_blob, Mat& top_blob,
                     r5 += 8;
                     r6 += 8;
                 }
-                for (; j < outw; j++)
-                {
+                for (; j < outw; j++) {
                     vfloat16m1_t _sum0 = vle16_v_f16m1(outptr0, vl);
 
                     vfloat16m1_t _k00 = vle16_v_f16m1(kptr, vl);

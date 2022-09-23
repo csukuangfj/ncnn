@@ -19,9 +19,9 @@ namespace pnnx {
 namespace ncnn {
 
 class F_glu : public GraphRewriterPass {
- public:
-  const char *match_pattern_graph() const {
-    return R"PNNXIR(7767517
+public:
+    const char *match_pattern_graph() const {
+        return R"PNNXIR(7767517
 3 2
 pnnx.Input           input          0 1 input
 F.glu                op_0           1 1 input out dim=%dim

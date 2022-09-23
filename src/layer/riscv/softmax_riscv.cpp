@@ -1,49 +1,51 @@
-// Xavier Hsinyuan is pleased to support the open source community by making ncnn available.
+// Xavier Hsinyuan is pleased to support the open source community by making
+// ncnn available.
 //
 // Copyright (C) 2021 Xavier Hsinyuan <me@lstlx.com>. All rights reserved.
 //
-// Licensed under the BSD 3-Clause License (the "License"); you may not use this file except
-// in compliance with the License. You may obtain a copy of the License at
+// Licensed under the BSD 3-Clause License (the "License"); you may not use this
+// file except in compliance with the License. You may obtain a copy of the
+// License at
 //
 // https://opensource.org/licenses/BSD-3-Clause
 //
-// Unless required by applicable law or agreed to in writing, software distributed
-// under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
-// CONDITIONS OF ANY KIND, either express or implied. See the License for the
-// specific language governing permissions and limitations under the License.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+// WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+// License for the specific language governing permissions and limitations under
+// the License.
 
 #include "softmax_riscv.h"
+
 #include <float.h>
 
 #if __riscv_vector
 #include <riscv_vector.h>
+
 #include "rvv_mathfun.h"
-#endif // __riscv_vector
+#endif  // __riscv_vector
 
 namespace ncnn {
 
-Softmax_riscv::Softmax_riscv()
-{
-}
+Softmax_riscv::Softmax_riscv() {}
 
-int Softmax_riscv::forward_inplace(Mat& bottom_top_blob, const Option& opt) const
-{
+int Softmax_riscv::forward_inplace(Mat &bottom_top_blob,
+                                   const Option &opt) const {
     int dims = bottom_top_blob.dims;
     size_t elemsize = bottom_top_blob.elemsize;
     int elempack = bottom_top_blob.elempack;
 
     int positive_axis = axis < 0 ? dims + axis : axis;
 #ifdef __riscv_vector
-    if (dims == 1) // positive_axis == 0
+    if (dims == 1)  // positive_axis == 0
     {
         int w = bottom_top_blob.w;
-        float* ptr = bottom_top_blob;
+        float *ptr = bottom_top_blob;
         float max = -FLT_MAX;
 
         int n = w * elempack;
-        float* ptr_vol = ptr;
-        while (n > 0)
-        {
+        float *ptr_vol = ptr;
+        while (n > 0) {
             word_type vl = vsetvl_e32m8(n);
 
             vfloat32m8_t _p = vle32_v_f32m8(ptr_vol, vl);
@@ -59,8 +61,7 @@ int Softmax_riscv::forward_inplace(Mat& bottom_top_blob, const Option& opt) cons
         float sum = 0.f;
         n = w * elempack;
         ptr_vol = ptr;
-        while (n > 0)
-        {
+        while (n > 0) {
             word_type vl = vsetvl_e32m8(n);
             vfloat32m1_t _sum = vfmv_s_f_f32m1(vundefined_f32m1(), sum, vl);
             vfloat32m8_t _p = vle32_v_f32m8(ptr_vol, vl);
@@ -78,8 +79,7 @@ int Softmax_riscv::forward_inplace(Mat& bottom_top_blob, const Option& opt) cons
 
         n = w * elempack;
         ptr_vol = ptr;
-        while (n > 0)
-        {
+        while (n > 0) {
             word_type vl = vsetvl_e32m8(n);
 
             vfloat32m8_t _p = vle32_v_f32m8(ptr_vol, vl);
@@ -94,24 +94,20 @@ int Softmax_riscv::forward_inplace(Mat& bottom_top_blob, const Option& opt) cons
         return 0;
     }
 
-    if (dims == 2 && positive_axis == 0)
-    {
+    if (dims == 2 && positive_axis == 0) {
         int w = bottom_top_blob.w;
         int h = bottom_top_blob.h;
 
         Mat max;
         max.create(w, elemsize, opt.workspace_allocator);
-        if (max.empty())
-            return -100;
+        if (max.empty()) return -100;
         max.fill(-FLT_MAX);
 
-        for (int i = 0; i < h; i++)
-        {
-            const float* ptr = bottom_top_blob.row(i);
-            float* ptr_max = max;
+        for (int i = 0; i < h; i++) {
+            const float *ptr = bottom_top_blob.row(i);
+            float *ptr_max = max;
             int n = w * elempack;
-            while (n > 0)
-            {
+            while (n > 0) {
                 word_type vl = vsetvl_e32m8(n);
 
                 vfloat32m8_t _max = vle32_v_f32m8(ptr_max, vl);
@@ -128,19 +124,16 @@ int Softmax_riscv::forward_inplace(Mat& bottom_top_blob, const Option& opt) cons
 
         Mat sum;
         sum.create(w, elemsize, opt.workspace_allocator);
-        if (sum.empty())
-            return -100;
+        if (sum.empty()) return -100;
         sum.fill(0.f);
 
-        for (int i = 0; i < h; i++)
-        {
-            float* ptr = bottom_top_blob.row(i);
-            float* ptr_max = max;
-            float* ptr_sum = sum;
+        for (int i = 0; i < h; i++) {
+            float *ptr = bottom_top_blob.row(i);
+            float *ptr_max = max;
+            float *ptr_sum = sum;
             int n = w * elempack;
 
-            while (n > 0)
-            {
+            while (n > 0) {
                 word_type vl = vsetvl_e32m8(n);
 
                 vfloat32m8_t _p = vle32_v_f32m8(ptr, vl);
@@ -160,14 +153,12 @@ int Softmax_riscv::forward_inplace(Mat& bottom_top_blob, const Option& opt) cons
             }
         }
 
-        for (int i = 0; i < h; i++)
-        {
-            float* ptr = bottom_top_blob.row(i);
-            float* ptr_sum = sum;
+        for (int i = 0; i < h; i++) {
+            float *ptr = bottom_top_blob.row(i);
+            float *ptr_sum = sum;
 
             int n = w * elempack;
-            while (n > 0)
-            {
+            while (n > 0) {
                 word_type vl = vsetvl_e32m8(n);
                 vfloat32m8_t _p = vle32_v_f32m8(ptr, vl);
                 vfloat32m8_t _sum = vle32_v_f32m8(ptr_sum, vl);
@@ -184,20 +175,17 @@ int Softmax_riscv::forward_inplace(Mat& bottom_top_blob, const Option& opt) cons
         return 0;
     }
 
-    if (dims == 2 && positive_axis == 1)
-    {
+    if (dims == 2 && positive_axis == 1) {
         int w = bottom_top_blob.w;
         int h = bottom_top_blob.h;
 
-        for (int i = 0; i < h; i++)
-        {
-            float* ptr = bottom_top_blob.row(i);
+        for (int i = 0; i < h; i++) {
+            float *ptr = bottom_top_blob.row(i);
             float m = -FLT_MAX;
 
             int n1 = w * elempack;
-            float* ptr1 = ptr;
-            while (n1 > 0)
-            {
+            float *ptr1 = ptr;
+            while (n1 > 0) {
                 word_type vl = vsetvl_e32m8(n1);
                 vfloat32m8_t _p = vle32_v_f32m8(ptr1, vl);
                 vfloat32m1_t _m = vfmv_s_f_f32m1(vundefined_f32m1(), m, vl);
@@ -212,9 +200,8 @@ int Softmax_riscv::forward_inplace(Mat& bottom_top_blob, const Option& opt) cons
 
             float s = 0.f;
             int n2 = w * elempack;
-            float* ptr2 = ptr;
-            while (n2 > 0)
-            {
+            float *ptr2 = ptr;
+            while (n2 > 0) {
                 word_type vl = vsetvl_e32m8(n2);
                 vfloat32m8_t _p = vle32_v_f32m8(ptr2, vl);
                 vfloat32m1_t _s = vfmv_s_f_f32m1(vundefined_f32m1(), s, vl);
@@ -230,9 +217,8 @@ int Softmax_riscv::forward_inplace(Mat& bottom_top_blob, const Option& opt) cons
             ptr2 = NULL;
 
             int n3 = w * elempack;
-            float* ptr3 = ptr;
-            while (n3 > 0)
-            {
+            float *ptr3 = ptr;
+            while (n3 > 0) {
                 word_type vl = vsetvl_e32m8(n3);
 
                 vfloat32m8_t _p = vle32_v_f32m8(ptr3, vl);
@@ -249,8 +235,7 @@ int Softmax_riscv::forward_inplace(Mat& bottom_top_blob, const Option& opt) cons
         return 0;
     }
 
-    if (dims == 3 && positive_axis == 0)
-    {
+    if (dims == 3 && positive_axis == 0) {
         int w = bottom_top_blob.w;
         int h = bottom_top_blob.h;
         int channels = bottom_top_blob.c;
@@ -258,17 +243,14 @@ int Softmax_riscv::forward_inplace(Mat& bottom_top_blob, const Option& opt) cons
 
         Mat max;
         max.create(w, h, elemsize, opt.workspace_allocator);
-        if (max.empty())
-            return -100;
+        if (max.empty()) return -100;
         max.fill(-FLT_MAX);
-        for (int q = 0; q < channels; q++)
-        {
-            const float* ptr = bottom_top_blob.channel(q);
+        for (int q = 0; q < channels; q++) {
+            const float *ptr = bottom_top_blob.channel(q);
 
-            float* ptr_max = max;
+            float *ptr_max = max;
             int n = size * elempack;
-            while (n > 0)
-            {
+            while (n > 0) {
                 word_type vl = vsetvl_e32m8(n);
 
                 vfloat32m8_t _max = vle32_v_f32m8(max, vl);
@@ -284,17 +266,14 @@ int Softmax_riscv::forward_inplace(Mat& bottom_top_blob, const Option& opt) cons
 
         Mat sum;
         sum.create(w, h, elemsize, opt.workspace_allocator);
-        if (sum.empty())
-            return -100;
+        if (sum.empty()) return -100;
         sum.fill(0.f);
-        for (int q = 0; q < channels; q++)
-        {
-            float* ptr = bottom_top_blob.channel(q);
-            float* ptr_sum = sum;
-            float* ptr_max = max;
+        for (int q = 0; q < channels; q++) {
+            float *ptr = bottom_top_blob.channel(q);
+            float *ptr_sum = sum;
+            float *ptr_max = max;
             int n = size * elempack;
-            while (n > 0)
-            {
+            while (n > 0) {
                 word_type vl = vsetvl_e32m8(n);
                 vfloat32m8_t _p = vle32_v_f32m8(ptr, vl);
                 vfloat32m8_t _max = vle32_v_f32m8(ptr_max, vl);
@@ -312,13 +291,11 @@ int Softmax_riscv::forward_inplace(Mat& bottom_top_blob, const Option& opt) cons
         }
 
         #pragma omp parallel for num_threads(opt.num_threads)
-        for (int q = 0; q < channels; q++)
-        {
-            float* ptr = bottom_top_blob.channel(q);
-            float* ptr_sum = sum;
+        for (int q = 0; q < channels; q++) {
+            float *ptr = bottom_top_blob.channel(q);
+            float *ptr_sum = sum;
             int n = size * elempack;
-            while (n > 0)
-            {
+            while (n > 0) {
                 word_type vl = vsetvl_e32m8(n);
                 vfloat32m8_t _p = vle32_v_f32m8(ptr, vl);
                 vfloat32m8_t _sum = vle32_v_f32m8(ptr_sum, vl);
@@ -335,29 +312,24 @@ int Softmax_riscv::forward_inplace(Mat& bottom_top_blob, const Option& opt) cons
         return 0;
     }
 
-    if (dims == 3 && positive_axis == 1)
-    {
+    if (dims == 3 && positive_axis == 1) {
         int w = bottom_top_blob.w;
         int h = bottom_top_blob.h;
         int channels = bottom_top_blob.c;
 
         Mat max;
         max.create(w, channels, elemsize, opt.workspace_allocator);
-        if (max.empty())
-            return -100;
+        if (max.empty()) return -100;
         max.fill(-FLT_MAX);
         #pragma omp parallel for num_threads(opt.num_threads)
-        for (int q = 0; q < channels; q++)
-        {
-            const float* ptr = bottom_top_blob.channel(q);
-            float* maxptr = max.row(q);
+        for (int q = 0; q < channels; q++) {
+            const float *ptr = bottom_top_blob.channel(q);
+            float *maxptr = max.row(q);
 
-            for (int i = 0; i < h; i++)
-            {
-                float* maxptr_vol = maxptr;
+            for (int i = 0; i < h; i++) {
+                float *maxptr_vol = maxptr;
                 int n = w * elempack;
-                while (n > 0)
-                {
+                while (n > 0) {
                     word_type vl = vsetvl_e32m8(n);
                     vfloat32m8_t _maxptr = vle32_v_f32m8(maxptr_vol, vl);
                     vfloat32m8_t _p = vle32_v_f32m8(ptr, vl);
@@ -374,24 +346,20 @@ int Softmax_riscv::forward_inplace(Mat& bottom_top_blob, const Option& opt) cons
 
         Mat sum;
         sum.create(w, channels, elemsize, opt.workspace_allocator);
-        if (sum.empty())
-            return -100;
+        if (sum.empty()) return -100;
         sum.fill(0.f);
         #pragma omp parallel for num_threads(opt.num_threads)
-        for (int q = 0; q < channels; q++)
-        {
-            float* ptr = bottom_top_blob.channel(q);
-            float* maxptr = max.row(q);
-            float* sumptr = sum.row(q);
+        for (int q = 0; q < channels; q++) {
+            float *ptr = bottom_top_blob.channel(q);
+            float *maxptr = max.row(q);
+            float *sumptr = sum.row(q);
 
-            for (int i = 0; i < h; i++)
-            {
-                float* sumptr_vol = sumptr;
-                float* maxptr_vol = maxptr;
+            for (int i = 0; i < h; i++) {
+                float *sumptr_vol = sumptr;
+                float *maxptr_vol = maxptr;
                 int n = w * elempack;
 
-                while (n)
-                {
+                while (n) {
                     word_type vl = vsetvl_e32m8(n);
                     vfloat32m8_t _p = vle32_v_f32m8(ptr, vl);
                     vfloat32m8_t _maxptr = vle32_v_f32m8(maxptr_vol, vl);
@@ -411,17 +379,14 @@ int Softmax_riscv::forward_inplace(Mat& bottom_top_blob, const Option& opt) cons
         }
 
         #pragma omp parallel for num_threads(opt.num_threads)
-        for (int q = 0; q < channels; q++)
-        {
-            float* ptr = bottom_top_blob.channel(q);
-            float* sumptr = sum.row(q);
+        for (int q = 0; q < channels; q++) {
+            float *ptr = bottom_top_blob.channel(q);
+            float *sumptr = sum.row(q);
 
-            for (int i = 0; i < h; i++)
-            {
-                float* sumptr_vol = sumptr;
+            for (int i = 0; i < h; i++) {
+                float *sumptr_vol = sumptr;
                 int n = w * elempack;
-                while (n > 0)
-                {
+                while (n > 0) {
                     word_type vl = vsetvl_e32m8(n);
                     vfloat32m8_t _p = vle32_v_f32m8(ptr, vl);
                     vfloat32m8_t _sumptr = vle32_v_f32m8(sumptr_vol, vl);
@@ -439,28 +404,26 @@ int Softmax_riscv::forward_inplace(Mat& bottom_top_blob, const Option& opt) cons
         return 0;
     }
 
-    if (dims == 3 && positive_axis == 2)
-    {
+    if (dims == 3 && positive_axis == 2) {
         int w = bottom_top_blob.w;
         int h = bottom_top_blob.h;
         int channels = bottom_top_blob.c;
 
         #pragma omp parallel for num_threads(opt.num_threads)
-        for (int q = 0; q < channels; q++)
-        {
-            float* ptr = bottom_top_blob.channel(q);
+        for (int q = 0; q < channels; q++) {
+            float *ptr = bottom_top_blob.channel(q);
 
-            for (int i = 0; i < h; i++)
-            {
+            for (int i = 0; i < h; i++) {
                 float max = -FLT_MAX;
                 int n1 = w * elempack;
-                float* ptr_1 = ptr;
-                while (n1 > 0)
-                {
+                float *ptr_1 = ptr;
+                while (n1 > 0) {
                     word_type vl = vsetvl_e32m8(n1);
                     vfloat32m8_t _p = vle32_v_f32m8(ptr_1, vl);
-                    vfloat32m1_t _scalar_max = vfmv_s_f_f32m1(vundefined_f32m1(), max, vl);
-                    _scalar_max = vfredmax_vs_f32m8_f32m1(_scalar_max, _p, _scalar_max, vl);
+                    vfloat32m1_t _scalar_max =
+                        vfmv_s_f_f32m1(vundefined_f32m1(), max, vl);
+                    _scalar_max =
+                        vfredmax_vs_f32m8_f32m1(_scalar_max, _p, _scalar_max, vl);
 
                     max = vfmv_f_s_f32m1_f32(_scalar_max);
                     n1 -= vl;
@@ -470,15 +433,16 @@ int Softmax_riscv::forward_inplace(Mat& bottom_top_blob, const Option& opt) cons
 
                 float sum = 0.f;
                 int n2 = w * elempack;
-                float* ptr_2 = ptr;
-                while (n2 > 0)
-                {
+                float *ptr_2 = ptr;
+                while (n2 > 0) {
                     word_type vl = vsetvl_e32m8(n2);
                     vfloat32m8_t _p = vle32_v_f32m8(ptr_2, vl);
-                    vfloat32m1_t _scalar_sum = vfmv_s_f_f32m1(vundefined_f32m1(), sum, vl);
+                    vfloat32m1_t _scalar_sum =
+                        vfmv_s_f_f32m1(vundefined_f32m1(), sum, vl);
 
                     _p = exp_ps(vfsub_vf_f32m8(_p, max, vl), vl);
-                    _scalar_sum = vfredusum_vs_f32m8_f32m1(_scalar_sum, _p, _scalar_sum, vl);
+                    _scalar_sum =
+                        vfredusum_vs_f32m8_f32m1(_scalar_sum, _p, _scalar_sum, vl);
 
                     vse32_v_f32m8(ptr_2, _p, vl);
                     sum = vfmv_f_s_f32m1_f32(_scalar_sum);
@@ -488,9 +452,8 @@ int Softmax_riscv::forward_inplace(Mat& bottom_top_blob, const Option& opt) cons
                 ptr_2 = NULL;
 
                 int n3 = w * elempack;
-                float* ptr_3 = ptr;
-                while (n3 > 0)
-                {
+                float *ptr_3 = ptr;
+                while (n3 > 0) {
                     word_type vl = vsetvl_e32m8(n3);
                     vfloat32m8_t _p = vle32_v_f32m8(ptr_3, vl);
 
@@ -513,4 +476,4 @@ int Softmax_riscv::forward_inplace(Mat& bottom_top_blob, const Option& opt) cons
     return Softmax::forward_inplace(bottom_top_blob, opt);
 }
 
-} // namespace ncnn
+}  // namespace ncnn

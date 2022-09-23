@@ -18,20 +18,22 @@
 namespace pnnx {
 
 class RelPositionalEncoding : public FuseModulePass {
- public:
-  const char *match_type_str() const {
-    return "__torch__.conformer.RelPositionalEncoding";
-  }
+public:
+    const char *match_type_str() const {
+        return "__torch__.conformer.RelPositionalEncoding";
+    }
 
-  const char *type_str() const { return "icefall.RelPositionalEncoding"; }
+    const char *type_str() const {
+        return "icefall.RelPositionalEncoding";
+    }
 
-  void write(Operator *op, const std::shared_ptr<torch::jit::Graph> &graph,
-             const torch::jit::Module &mod) const {
-    const auto &pe = mod.attr("pe").toTensor();
-    op->attrs["pe"] = pe;
-    // pe.sizes() is something like [1, 9999, 512]
-    // std::cout << pe.sizes() << "\n";
-  }
+    void write(Operator *op, const std::shared_ptr<torch::jit::Graph> &graph,
+               const torch::jit::Module &mod) const {
+        const auto &pe = mod.attr("pe").toTensor();
+        op->attrs["pe"] = pe;
+        // pe.sizes() is something like [1, 9999, 512]
+        // std::cout << pe.sizes() << "\n";
+    }
 };
 
 REGISTER_GLOBAL_PNNX_FUSE_MODULE_PASS(RelPositionalEncoding)

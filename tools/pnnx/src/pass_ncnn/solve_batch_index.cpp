@@ -1,16 +1,19 @@
-// Tencent is pleased to support the open source community by making ncnn available.
+// Tencent is pleased to support the open source community by making ncnn
+// available.
 //
 // Copyright (C) 2021 THL A29 Limited, a Tencent company. All rights reserved.
 //
-// Licensed under the BSD 3-Clause License (the "License"); you may not use this file except
-// in compliance with the License. You may obtain a copy of the License at
+// Licensed under the BSD 3-Clause License (the "License"); you may not use this
+// file except in compliance with the License. You may obtain a copy of the
+// License at
 //
 // https://opensource.org/licenses/BSD-3-Clause
 //
-// Unless required by applicable law or agreed to in writing, software distributed
-// under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
-// CONDITIONS OF ANY KIND, either express or implied. See the License for the
-// specific language governing permissions and limitations under the License.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+// WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+// License for the specific language governing permissions and limitations under
+// the License.
 
 #include "solve_batch_index.h"
 
@@ -20,9 +23,8 @@ namespace pnnx {
 
 namespace ncnn {
 
-static bool is_known_operator_with_batch_index_0(const Operator* op)
-{
-    static const char* operator_with_batch_index_0[] = {
+static bool is_known_operator_with_batch_index_0(const Operator *op) {
+    static const char *operator_with_batch_index_0[] = {
         "F.adaptive_avg_pool1d",
         "F.adaptive_avg_pool2d",
         "F.adaptive_avg_pool3d",
@@ -104,95 +106,72 @@ static bool is_known_operator_with_batch_index_0(const Operator* op)
         "nn.ZeroPad2d",
     };
 
-    const size_t operator_with_batch_index_0_count = sizeof(operator_with_batch_index_0) / sizeof(const char*);
-    for (size_t i = 0; i < operator_with_batch_index_0_count; i++)
-    {
-        if (op->type == operator_with_batch_index_0[i])
-            return true;
+    const size_t operator_with_batch_index_0_count =
+        sizeof(operator_with_batch_index_0) / sizeof(const char *);
+    for (size_t i = 0; i < operator_with_batch_index_0_count; i++) {
+        if (op->type == operator_with_batch_index_0[i]) return true;
     }
 
     return false;
 }
 
-static bool is_known_operator_with_batch_first_param(const Operator* op)
-{
-    return op->type == "nn.RNN" || op->type == "nn.LSTM" || op->type == "nn.GRU" || op->type == "nn.MultiheadAttention";
+static bool is_known_operator_with_batch_first_param(const Operator *op) {
+    return op->type == "nn.RNN" || op->type == "nn.LSTM" ||
+           op->type == "nn.GRU" || op->type == "nn.MultiheadAttention";
 }
 
-static void solve_batch_index_backward(Operand* operand);
-static void solve_batch_index_forward(Operand* operand)
-{
-    if (operand->params.find("__batch_index") == operand->params.end())
-        return;
+static void solve_batch_index_backward(Operand *operand);
+static void solve_batch_index_forward(Operand *operand) {
+    if (operand->params.find("__batch_index") == operand->params.end()) return;
 
     int batch_index = operand->params["__batch_index"].i;
 
-    for (Operator* op : operand->consumers)
-    {
-        if (is_known_operator_with_batch_index_0(op))
-            continue;
+    for (Operator *op : operand->consumers) {
+        if (is_known_operator_with_batch_index_0(op)) continue;
 
-        if (is_known_operator_with_batch_first_param(op))
-            continue;
+        if (is_known_operator_with_batch_first_param(op)) continue;
 
-        if (op->type == "torch.permute" || op->type == "Tensor.permute")
-        {
-            const std::vector<int>& dims = op->params.at("dims").ai;
+        if (op->type == "torch.permute" || op->type == "Tensor.permute") {
+            const std::vector<int> &dims = op->params.at("dims").ai;
 
             int batch_index_permuted = -1;
-            for (int i = 0; i < (int)dims.size(); i++)
-            {
-                if (dims[i] == batch_index)
-                {
+            for (int i = 0; i < (int)dims.size(); i++) {
+                if (dims[i] == batch_index) {
                     batch_index_permuted = i;
                     break;
                 }
             }
 
-            for (Operand* r : op->outputs)
-            {
-                if (r->params.find("__batch_index") != r->params.end())
-                    continue;
+            for (Operand *r : op->outputs) {
+                if (r->params.find("__batch_index") != r->params.end()) continue;
 
                 r->params["__batch_index"] = batch_index_permuted;
 
                 solve_batch_index_forward(r);
                 solve_batch_index_backward(r);
             }
-        }
-        else if (op->type == "Tensor.reshape" || op->type == "Tensor.view")
-        {
-            if (op->params.find("shape") == op->params.end())
-            {
+        } else if (op->type == "Tensor.reshape" || op->type == "Tensor.view") {
+            if (op->params.find("shape") == op->params.end()) {
                 continue;
             }
 
-            const std::vector<int>& shape = op->params.at("shape").ai;
+            const std::vector<int> &shape = op->params.at("shape").ai;
 
-            if (shape[batch_index] == 1)
-            {
-                for (Operand* r : op->outputs)
-                {
-                    if (r->params.find("__batch_index") != r->params.end())
-                        continue;
+            if (shape[batch_index] == 1) {
+                for (Operand *r : op->outputs) {
+                    if (r->params.find("__batch_index") != r->params.end()) continue;
 
                     r->params["__batch_index"] = batch_index;
 
                     solve_batch_index_forward(r);
                     solve_batch_index_backward(r);
                 }
-            }
-            else
-            {
+            } else {
                 // give up reshape across batch index
             }
-        }
-        else
-        {
-            for (Operand* r : op->outputs)
-            {
-                if (r->params.find("__batch_index") != r->params.end())
-                    continue;
+        } else {
+            for (Operand *r : op->outputs) {
+                if (r->params.find("__batch_index") != r->params.end()) continue;
 
                 r->params["__batch_index"] = batch_index;
 
@@ -203,70 +182,51 @@ static void solve_batch_index_forward(Operand* operand)
     }
 }
 
-static void solve_batch_index_backward(Operand* operand)
-{
-    if (operand->params.find("__batch_index") == operand->params.end())
-        return;
+static void solve_batch_index_backward(Operand *operand) {
+    if (operand->params.find("__batch_index") == operand->params.end()) return;
 
     int batch_index = operand->params["__batch_index"].i;
 
-    Operator* op = operand->producer;
-    if (is_known_operator_with_batch_index_0(op))
-        return;
+    Operator *op = operand->producer;
+    if (is_known_operator_with_batch_index_0(op)) return;
 
-    if (is_known_operator_with_batch_first_param(op))
-        return;
+    if (is_known_operator_with_batch_first_param(op)) return;
 
-    if (op->type == "torch.permute" || op->type == "Tensor.permute")
-    {
-        const std::vector<int>& dims = op->params.at("dims").ai;
+    if (op->type == "torch.permute" || op->type == "Tensor.permute") {
+        const std::vector<int> &dims = op->params.at("dims").ai;
 
         int batch_index_permuted = dims[batch_index];
 
-        for (Operand* r : op->inputs)
-        {
-            if (r->params.find("__batch_index") != r->params.end())
-                continue;
+        for (Operand *r : op->inputs) {
+            if (r->params.find("__batch_index") != r->params.end()) continue;
 
             r->params["__batch_index"] = batch_index_permuted;
 
             solve_batch_index_backward(r);
             solve_batch_index_forward(r);
         }
-    }
-    else if (op->type == "Tensor.reshape" || op->type == "Tensor.view")
-    {
-        if (op->params.find("shape") == op->params.end())
-        {
+    } else if (op->type == "Tensor.reshape" || op->type == "Tensor.view") {
+        if (op->params.find("shape") == op->params.end()) {
             return;
         }
 
-        const std::vector<int>& shape = op->params.at("shape").ai;
+        const std::vector<int> &shape = op->params.at("shape").ai;
 
-        if (shape[batch_index] == 1)
-        {
-            for (Operand* r : op->inputs)
-            {
-                if (r->params.find("__batch_index") != r->params.end())
-                    continue;
+        if (shape[batch_index] == 1) {
+            for (Operand *r : op->inputs) {
+                if (r->params.find("__batch_index") != r->params.end()) continue;
 
                 r->params["__batch_index"] = batch_index;
 
                 solve_batch_index_backward(r);
                 solve_batch_index_forward(r);
             }
-        }
-        else
-        {
+        } else {
             // give up reshape across batch index
         }
-    }
-    else
-    {
-        for (Operand* r : op->inputs)
-        {
-            if (r->params.find("__batch_index") != r->params.end())
-                continue;
+    } else {
+        for (Operand *r : op->inputs) {
+            if (r->params.find("__batch_index") != r->params.end()) continue;
 
             r->params["__batch_index"] = batch_index;
 
@@ -276,65 +236,54 @@ static void solve_batch_index_backward(Operand* operand)
     }
 }
 
-void solve_batch_index(Graph& graph)
-{
+void solve_batch_index(Graph &graph) {
     // assign known operator
-    for (Operator* op : graph.ops)
-    {
-        if (is_known_operator_with_batch_index_0(op))
-        {
+    for (Operator *op : graph.ops) {
+        if (is_known_operator_with_batch_index_0(op)) {
             op->inputs[0]->params["__batch_index"] = 0;
             op->outputs[0]->params["__batch_index"] = 0;
         }
 
-        if (is_known_operator_with_batch_first_param(op))
-        {
+        if (is_known_operator_with_batch_first_param(op)) {
             bool batch_first = false;
-            if (op->params.find("batch_first") != op->params.end())
-            {
+            if (op->params.find("batch_first") != op->params.end()) {
                 batch_first = op->params["batch_first"].b;
             }
 
             op->inputs[0]->params["__batch_index"] = batch_first ? 0 : 1;
             op->outputs[0]->params["__batch_index"] = batch_first ? 0 : 1;
 
-            for (size_t j = 1; j < op->inputs.size(); j++)
-            {
+            for (size_t j = 1; j < op->inputs.size(); j++) {
                 op->inputs[j]->params["__batch_index"] = 1;
             }
 
-            for (size_t j = 1; j < op->outputs.size(); j++)
-            {
+            for (size_t j = 1; j < op->outputs.size(); j++) {
                 op->outputs[j]->params["__batch_index"] = 1;
             }
         }
     }
 
     // batch index propagate
-    for (Operator* op : graph.ops)
-    {
-        for (Operand* r : op->inputs)
-        {
+    for (Operator *op : graph.ops) {
+        for (Operand *r : op->inputs) {
             solve_batch_index_backward(r);
         }
 
-        for (Operand* r : op->outputs)
-        {
+        for (Operand *r : op->outputs) {
             solve_batch_index_forward(r);
         }
     }
 
     // fallback axis 233 for unknown
-    for (Operand* r : graph.operands)
-    {
-        if (r->params.find("__batch_index") == r->params.end())
-        {
-            fprintf(stderr, "fallback batch axis 233 for operand %s\n", r->name.c_str());
+    for (Operand *r : graph.operands) {
+        if (r->params.find("__batch_index") == r->params.end()) {
+            fprintf(stderr, "fallback batch axis 233 for operand %s\n",
+                    r->name.c_str());
             r->params["__batch_index"] = 233;
         }
     }
 }
 
-} // namespace ncnn
+}  // namespace ncnn
 
-} // namespace pnnx
+}  // namespace pnnx

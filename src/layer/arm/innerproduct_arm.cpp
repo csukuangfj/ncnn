@@ -1,16 +1,19 @@
-// Tencent is pleased to support the open source community by making ncnn available.
+// Tencent is pleased to support the open source community by making ncnn
+// available.
 //
 // Copyright (C) 2017 THL A29 Limited, a Tencent company. All rights reserved.
 //
-// Licensed under the BSD 3-Clause License (the "License"); you may not use this file except
-// in compliance with the License. You may obtain a copy of the License at
+// Licensed under the BSD 3-Clause License (the "License"); you may not use this
+// file except in compliance with the License. You may obtain a copy of the
+// License at
 //
 // https://opensource.org/licenses/BSD-3-Clause
 //
-// Unless required by applicable law or agreed to in writing, software distributed
-// under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
-// CONDITIONS OF ANY KIND, either express or implied. See the License for the
-// specific language governing permissions and limitations under the License.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+// WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+// License for the specific language governing permissions and limitations under
+// the License.
 
 #include "innerproduct_arm.h"
 
@@ -18,11 +21,10 @@
 
 #if __ARM_NEON
 #include <arm_neon.h>
-#endif // __ARM_NEON
+#endif  // __ARM_NEON
 
 #include "arm_activation.h"
 #include "arm_usability.h"
-
 #include "cpu.h"
 
 namespace ncnn {
@@ -32,14 +34,13 @@ namespace ncnn {
 #include "innerproduct_gemm_fp16s.h"
 #endif
 
-InnerProduct_arm::InnerProduct_arm()
-{
+InnerProduct_arm::InnerProduct_arm() {
 #if __ARM_NEON
     support_packing = true;
 #if NCNN_ARM82
     support_fp16_storage = cpu_support_arm_asimdhp();
 #endif
-#endif // __ARM_NEON
+#endif  // __ARM_NEON
 
 #if NCNN_BF16
     support_bf16_storage = true;
@@ -48,8 +49,7 @@ InnerProduct_arm::InnerProduct_arm()
     flatten = 0;
 }
 
-int InnerProduct_arm::create_pipeline(const Option& opt)
-{
+int InnerProduct_arm::create_pipeline(const Option &opt) {
     {
         flatten = ncnn::create_layer(ncnn::LayerType::Flatten);
 
@@ -61,29 +61,25 @@ int InnerProduct_arm::create_pipeline(const Option& opt)
     }
 
 #if NCNN_INT8
-    if (opt.use_int8_inference && weight_data.elemsize == (size_t)1u)
-    {
+    if (opt.use_int8_inference && weight_data.elemsize == (size_t)1u) {
         return create_pipeline_int8_arm(opt);
     }
 #endif
 
 #if NCNN_ARM82
-    if (support_fp16_storage && opt.use_fp16_storage)
-    {
+    if (support_fp16_storage && opt.use_fp16_storage) {
         return create_pipeline_fp16s(opt);
     }
 #endif
 
 #if NCNN_BF16
-    if (opt.use_bf16_storage)
-    {
+    if (opt.use_bf16_storage) {
         return create_pipeline_bf16s(opt);
     }
 #endif
 
 #if (NCNN_VFPV4 && __ARM_NEON) || __aarch64__
-    if (cpu_support_arm_vfpv4() && opt.use_fp16_storage)
-    {
+    if (cpu_support_arm_vfpv4() && opt.use_fp16_storage) {
         return create_pipeline_fp16s(opt);
     }
 #endif
@@ -93,52 +89,43 @@ int InnerProduct_arm::create_pipeline(const Option& opt)
     int out_elempack = 1;
 
 #if __ARM_NEON
-    if (opt.use_packing_layout)
-    {
+    if (opt.use_packing_layout) {
         out_elempack = num_output % 4 == 0 ? 4 : 1;
     }
-#endif // __ARM_NEON
+#endif  // __ARM_NEON
 
-    if (out_elempack == 4)
-    {
+    if (out_elempack == 4) {
         // src = inch-outch
         // dst = pb-inch-outch/pb
         {
             Mat weight_data_r2 = weight_data.reshape(num_input, num_output);
 
-            weight_data_tm.create(num_input, num_output / out_elempack, (size_t)4u * out_elempack, out_elempack);
+            weight_data_tm.create(num_input, num_output / out_elempack,
+                                  (size_t)4u * out_elempack, out_elempack);
 
-            for (int q = 0; q + (out_elempack - 1) < num_output; q += out_elempack)
-            {
-                float* g0 = weight_data_tm.row(q / out_elempack);
+            for (int q = 0; q + (out_elempack - 1) < num_output; q += out_elempack) {
+                float *g0 = weight_data_tm.row(q / out_elempack);
 
-                for (int p = 0; p < num_input; p++)
-                {
-                    for (int j = 0; j < out_elempack; j++)
-                    {
+                for (int p = 0; p < num_input; p++) {
+                    for (int j = 0; j < out_elempack; j++) {
                         *g0++ = weight_data_r2.row(q + j)[p];
                     }
                 }
             }
         }
-    }
-    else
-    {
+    } else {
         weight_data_tm = weight_data;
     }
 
-    if (opt.lightmode)
-    {
+    if (opt.lightmode) {
         weight_data.release();
     }
 
     return 0;
 }
 
-int InnerProduct_arm::destroy_pipeline(const Option& opt)
-{
-    if (flatten)
-    {
+int InnerProduct_arm::destroy_pipeline(const Option &opt) {
+    if (flatten) {
         flatten->destroy_pipeline(opt);
         delete flatten;
         flatten = 0;
@@ -147,11 +134,10 @@ int InnerProduct_arm::destroy_pipeline(const Option& opt)
     return 0;
 }
 
-int InnerProduct_arm::forward(const Mat& bottom_blob, Mat& top_blob, const Option& opt) const
-{
+int InnerProduct_arm::forward(const Mat &bottom_blob, Mat &top_blob,
+                              const Option &opt) const {
 #if NCNN_INT8
-    if (opt.use_int8_inference && int8_scale_term)
-    {
+    if (opt.use_int8_inference && int8_scale_term) {
         return forward_int8_arm(bottom_blob, top_blob, opt);
     }
 #endif
@@ -159,8 +145,7 @@ int InnerProduct_arm::forward(const Mat& bottom_blob, Mat& top_blob, const Optio
     int elembits = bottom_blob.elembits();
 
 #if NCNN_ARM82
-    if (support_fp16_storage && opt.use_fp16_storage && elembits == 16)
-    {
+    if (support_fp16_storage && opt.use_fp16_storage && elembits == 16) {
         if (opt.use_fp16_arithmetic)
             return forward_fp16sa(bottom_blob, top_blob, opt);
         else
@@ -174,53 +159,46 @@ int InnerProduct_arm::forward(const Mat& bottom_blob, Mat& top_blob, const Optio
 #endif
 
 #if (NCNN_VFPV4 && __ARM_NEON) || __aarch64__
-    if (cpu_support_arm_vfpv4() && opt.use_fp16_storage)
-    {
+    if (cpu_support_arm_vfpv4() && opt.use_fp16_storage) {
         return forward_fp16s(bottom_blob, top_blob, opt);
     }
 #endif
 
     const int num_input = weight_data_size / num_output;
 
-    if (bottom_blob.dims == 2 && bottom_blob.w == num_input && bottom_blob.h * bottom_blob.elempack > 1)
-    {
+    if (bottom_blob.dims == 2 && bottom_blob.w == num_input &&
+            bottom_blob.h * bottom_blob.elempack > 1) {
         // gemm
         int h = bottom_blob.h;
         size_t elemsize = bottom_blob.elemsize;
         int elempack = bottom_blob.elempack;
 
         top_blob.create(num_output, h, elemsize, elempack, opt.blob_allocator);
-        if (top_blob.empty())
-            return -100;
+        if (top_blob.empty()) return -100;
 
         int num_output_elempack = 1;
 #if __ARM_NEON
-        if (opt.use_packing_layout)
-        {
+        if (opt.use_packing_layout) {
             num_output_elempack = num_output % 4 == 0 ? 4 : 1;
         }
 #endif
 
         #pragma omp parallel for num_threads(opt.num_threads)
-        for (int j = 0; j < h; j++)
-        {
+        for (int j = 0; j < h; j++) {
 #if __ARM_NEON
-            if (elempack == 4 && num_output_elempack == 4)
-            {
-                float* outptr = top_blob.row(j);
+            if (elempack == 4 && num_output_elempack == 4) {
+                float *outptr = top_blob.row(j);
 
-                for (int p = 0; p < num_output / num_output_elempack; p++)
-                {
-                    const float* kptr = weight_data_tm.row(p);
-                    const float* m = bottom_blob.row(j);
+                for (int p = 0; p < num_output / num_output_elempack; p++) {
+                    const float *kptr = weight_data_tm.row(p);
+                    const float *m = bottom_blob.row(j);
 
                     float32x4_t _sum0 = vdupq_n_f32(0.f);
                     float32x4_t _sum1 = vdupq_n_f32(0.f);
                     float32x4_t _sum2 = vdupq_n_f32(0.f);
                     float32x4_t _sum3 = vdupq_n_f32(0.f);
 
-                    if (bias_term)
-                    {
+                    if (bias_term) {
                         _sum0 = vdupq_n_f32(bias_data[p * 4 + 0]);
                         _sum1 = vdupq_n_f32(bias_data[p * 4 + 1]);
                         _sum2 = vdupq_n_f32(bias_data[p * 4 + 2]);
@@ -228,8 +206,7 @@ int InnerProduct_arm::forward(const Mat& bottom_blob, Mat& top_blob, const Optio
                     }
 
                     int i = 0;
-                    for (; i < num_input; i++)
-                    {
+                    for (; i < num_input; i++) {
                         float32x4_t _val = vld1q_f32(m);
                         float32x4_t _w = vld1q_f32(kptr);
 #if __aarch64__
@@ -260,28 +237,24 @@ int InnerProduct_arm::forward(const Mat& bottom_blob, Mat& top_blob, const Optio
                 }
             }
 
-            if (elempack == 1 && num_output_elempack == 4)
-            {
-                float* outptr = top_blob.row(j);
+            if (elempack == 1 && num_output_elempack == 4) {
+                float *outptr = top_blob.row(j);
 
-                for (int p = 0; p < num_output / num_output_elempack; p++)
-                {
-                    const float* kptr = weight_data_tm.row(p);
-                    const float* m = bottom_blob.row(j);
+                for (int p = 0; p < num_output / num_output_elempack; p++) {
+                    const float *kptr = weight_data_tm.row(p);
+                    const float *m = bottom_blob.row(j);
 
                     float32x4_t _sum0 = vdupq_n_f32(0.f);
                     float32x4_t _sum1 = vdupq_n_f32(0.f);
                     float32x4_t _sum2 = vdupq_n_f32(0.f);
                     float32x4_t _sum3 = vdupq_n_f32(0.f);
 
-                    if (bias_term)
-                    {
-                        _sum0 = vld1q_f32((const float*)bias_data + p * 4);
+                    if (bias_term) {
+                        _sum0 = vld1q_f32((const float *)bias_data + p * 4);
                     }
 
                     int i = 0;
-                    for (; i + 3 < num_input; i += 4)
-                    {
+                    for (; i + 3 < num_input; i += 4) {
                         float32x4_t _val = vld1q_f32(m);
 
                         float32x4_t _w0 = vld1q_f32(kptr);
@@ -304,8 +277,7 @@ int InnerProduct_arm::forward(const Mat& bottom_blob, Mat& top_blob, const Optio
                         m += 4;
                         kptr += 16;
                     }
-                    for (; i < num_input; i++)
-                    {
+                    for (; i < num_input; i++) {
                         float32x4_t _val = vld1q_dup_f32(m);
                         float32x4_t _k = vld1q_f32(kptr);
                         _sum0 = vmlaq_f32(_sum0, _val, _k);
@@ -325,24 +297,20 @@ int InnerProduct_arm::forward(const Mat& bottom_blob, Mat& top_blob, const Optio
                 }
             }
 
-            if (elempack == 4 && num_output_elempack == 1)
-            {
-                float* outptr = top_blob.row(j);
+            if (elempack == 4 && num_output_elempack == 1) {
+                float *outptr = top_blob.row(j);
 
-                for (int p = 0; p < num_output; p++)
-                {
-                    const float* kptr = (const float*)weight_data_tm + num_input * p;
-                    const float* m = bottom_blob.row(j);
+                for (int p = 0; p < num_output; p++) {
+                    const float *kptr = (const float *)weight_data_tm + num_input * p;
+                    const float *m = bottom_blob.row(j);
 
                     float32x4_t _sum = vdupq_n_f32(0.f);
 
-                    if (bias_term)
-                    {
+                    if (bias_term) {
                         _sum = vdupq_n_f32(bias_data[p]);
                     }
 
-                    for (int i = 0; i < num_input; i++)
-                    {
+                    for (int i = 0; i < num_input; i++) {
                         float32x4_t _val = vld1q_f32(m);
                         float32x4_t _k = vdupq_n_f32(kptr[0]);
                         _sum = vmlaq_f32(_sum, _val, _k);
@@ -357,29 +325,25 @@ int InnerProduct_arm::forward(const Mat& bottom_blob, Mat& top_blob, const Optio
                     outptr += 4;
                 }
             }
-#endif // __ARM_NEON
+#endif  // __ARM_NEON
 
-            if (elempack == 1 && num_output_elempack == 1)
-            {
-                float* outptr = top_blob.row(j);
+            if (elempack == 1 && num_output_elempack == 1) {
+                float *outptr = top_blob.row(j);
 
-                for (int p = 0; p < num_output; p++)
-                {
-                    const float* kptr = (const float*)weight_data_tm + num_input * p;
-                    const float* m = bottom_blob.row(j);
+                for (int p = 0; p < num_output; p++) {
+                    const float *kptr = (const float *)weight_data_tm + num_input * p;
+                    const float *m = bottom_blob.row(j);
 
                     float sum = 0.f;
 
-                    if (bias_term)
-                    {
+                    if (bias_term) {
                         sum = bias_data[p];
                     }
 
                     int i = 0;
 #if __ARM_NEON
                     float32x4_t _sum = vdupq_n_f32(0.f);
-                    for (; i + 3 < num_input; i += 4)
-                    {
+                    for (; i + 3 < num_input; i += 4) {
                         float32x4_t _val = vld1q_f32(m);
                         float32x4_t _k = vld1q_f32(kptr);
                         _sum = vmlaq_f32(_sum, _val, _k);
@@ -394,9 +358,8 @@ int InnerProduct_arm::forward(const Mat& bottom_blob, Mat& top_blob, const Optio
                     _ss = vpadd_f32(_ss, _ss);
                     sum += vget_lane_f32(_ss, 0);
 #endif
-#endif // __ARM_NEON
-                    for (; i < num_input; i++)
-                    {
+#endif  // __ARM_NEON
+                    for (; i < num_input; i++) {
                         sum += *m * *kptr;
 
                         m += 1;
@@ -416,8 +379,7 @@ int InnerProduct_arm::forward(const Mat& bottom_blob, Mat& top_blob, const Optio
 
     // flatten
     Mat bottom_blob_flattened = bottom_blob;
-    if (bottom_blob.dims != 1)
-    {
+    if (bottom_blob.dims != 1) {
         Option opt_flatten = opt;
         opt_flatten.blob_allocator = opt.workspace_allocator;
 
@@ -429,39 +391,38 @@ int InnerProduct_arm::forward(const Mat& bottom_blob, Mat& top_blob, const Optio
 
     int out_elempack = 1;
 #if __ARM_NEON
-    if (opt.use_packing_layout)
-    {
+    if (opt.use_packing_layout) {
         out_elempack = num_output % 4 == 0 ? 4 : 1;
     }
-#endif // __ARM_NEON
+#endif  // __ARM_NEON
     size_t out_elemsize = elemsize / elempack * out_elempack;
 
     if (bottom_blob.dims == 2 && bottom_blob.h == 1) {
-      top_blob.create(num_output / out_elempack, 1, out_elemsize, out_elempack, opt.blob_allocator);
+        top_blob.create(num_output / out_elempack, 1, out_elemsize, out_elempack,
+                        opt.blob_allocator);
     } else {
-      top_blob.create(num_output / out_elempack, out_elemsize, out_elempack, opt.blob_allocator);
+        top_blob.create(num_output / out_elempack, out_elemsize, out_elempack,
+                        opt.blob_allocator);
     }
-    if (top_blob.empty())
-        return -100;
+    if (top_blob.empty()) return -100;
 
 #if __ARM_NEON
-    if (out_elempack == 4)
-    {
+    if (out_elempack == 4) {
         #pragma omp parallel for num_threads(opt.num_threads)
-        for (int p = 0; p < num_output / out_elempack; p++)
-        {
-            float32x4_t _sum0 = bias_term ? vld1q_f32((const float*)bias_data + p * 4) : vdupq_n_f32(0.f);
+        for (int p = 0; p < num_output / out_elempack; p++) {
+            float32x4_t _sum0 = bias_term
+                                ? vld1q_f32((const float *)bias_data + p * 4)
+                                : vdupq_n_f32(0.f);
             float32x4_t _sum1 = vdupq_n_f32(0.f);
             float32x4_t _sum2 = vdupq_n_f32(0.f);
             float32x4_t _sum3 = vdupq_n_f32(0.f);
 
-            const float* kptr = weight_data_tm.row(p);
+            const float *kptr = weight_data_tm.row(p);
 
-            const float* sptr = bottom_blob_flattened;
+            const float *sptr = bottom_blob_flattened;
 
             int i = 0;
-            for (; i + 7 < num_input; i += 8)
-            {
+            for (; i + 7 < num_input; i += 8) {
 #if __aarch64__
                 asm volatile(
                     "prfm       pldl1keep, [%0, #256]     \n"
@@ -478,19 +439,16 @@ int InnerProduct_arm::forward(const Mat& bottom_blob, Mat& top_blob, const Optio
                     "fmla       %3.4s, v7.4s, v1.s[1]     \n"
                     "fmla       %4.4s, v8.4s, v1.s[2]     \n"
                     "fmla       %5.4s, v9.4s, v1.s[3]     \n"
-                    : "=r"(sptr),  // %0
-                    "=r"(kptr),  // %1
-                    "=w"(_sum0), // %2
-                    "=w"(_sum1), // %3
-                    "=w"(_sum2), // %4
-                    "=w"(_sum3)  // %5
-                    : "0"(sptr),
-                    "1"(kptr),
-                    "2"(_sum0),
-                    "3"(_sum1),
-                    "4"(_sum2),
+                    : "=r"(sptr),   // %0
+                    "=r"(kptr),   // %1
+                    "=w"(_sum0),  // %2
+                    "=w"(_sum1),  // %3
+                    "=w"(_sum2),  // %4
+                    "=w"(_sum3)   // %5
+                    : "0"(sptr), "1"(kptr), "2"(_sum0), "3"(_sum1), "4"(_sum2),
                     "5"(_sum3)
-                    : "cc", "memory", "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", "v9");
+                    : "cc", "memory", "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7",
+                    "v8", "v9");
 #else
                 asm volatile(
                     "pld        [%0, #256]          \n"
@@ -507,23 +465,19 @@ int InnerProduct_arm::forward(const Mat& bottom_blob, Mat& top_blob, const Optio
                     "vmla.f32   %q3, q7, d2[1]      \n"
                     "vmla.f32   %q4, q8, d3[0]      \n"
                     "vmla.f32   %q5, q9, d3[1]      \n"
-                    : "=r"(sptr),  // %0
-                    "=r"(kptr),  // %1
-                    "=w"(_sum0), // %2
-                    "=w"(_sum1), // %3
-                    "=w"(_sum2), // %4
-                    "=w"(_sum3)  // %5
-                    : "0"(sptr),
-                    "1"(kptr),
-                    "2"(_sum0),
-                    "3"(_sum1),
-                    "4"(_sum2),
+                    : "=r"(sptr),   // %0
+                    "=r"(kptr),   // %1
+                    "=w"(_sum0),  // %2
+                    "=w"(_sum1),  // %3
+                    "=w"(_sum2),  // %4
+                    "=w"(_sum3)   // %5
+                    : "0"(sptr), "1"(kptr), "2"(_sum0), "3"(_sum1), "4"(_sum2),
                     "5"(_sum3)
-                    : "cc", "memory", "q0", "q1", "q2", "q3", "q4", "q5", "q6", "q7", "q8", "q9");
+                    : "cc", "memory", "q0", "q1", "q2", "q3", "q4", "q5", "q6", "q7",
+                    "q8", "q9");
 #endif
             }
-            for (; i + 3 < num_input; i += 4)
-            {
+            for (; i + 3 < num_input; i += 4) {
                 float32x4_t _val = vld1q_f32(sptr);
 
                 float32x4_t _w0 = vld1q_f32(kptr);
@@ -546,8 +500,7 @@ int InnerProduct_arm::forward(const Mat& bottom_blob, Mat& top_blob, const Optio
                 sptr += 4;
                 kptr += 16;
             }
-            for (; i < num_input; i++)
-            {
+            for (; i < num_input; i++) {
                 float32x4_t _val = vld1q_dup_f32(sptr);
                 float32x4_t _w = vld1q_f32(kptr);
                 _sum0 = vmlaq_f32(_sum0, _val, _w);
@@ -562,22 +515,20 @@ int InnerProduct_arm::forward(const Mat& bottom_blob, Mat& top_blob, const Optio
 
             _sum0 = activation_ps(_sum0, activation_type, activation_params);
 
-            float* outptr = top_blob;
+            float *outptr = top_blob;
             vst1q_f32(outptr + p * 4, _sum0);
         }
     }
-#endif // __ARM_NEON
+#endif  // __ARM_NEON
 
-    if (out_elempack == 1)
-    {
-        const float* weight_data_ptr = weight_data_tm;
+    if (out_elempack == 1) {
+        const float *weight_data_ptr = weight_data_tm;
 
         int nn_num_output = num_output >> 2;
         int remain_num_output_start = nn_num_output << 2;
 
         #pragma omp parallel for num_threads(opt.num_threads)
-        for (int pp = 0; pp < nn_num_output; pp++)
-        {
+        for (int pp = 0; pp < nn_num_output; pp++) {
             int p = pp * 4;
 
             float sum0 = 0.f;
@@ -585,27 +536,26 @@ int InnerProduct_arm::forward(const Mat& bottom_blob, Mat& top_blob, const Optio
             float sum2 = 0.f;
             float sum3 = 0.f;
 
-            if (bias_term)
-            {
+            if (bias_term) {
                 sum0 = bias_data[p];
                 sum1 = bias_data[p + 1];
                 sum2 = bias_data[p + 2];
                 sum3 = bias_data[p + 3];
             }
 
-            const float* w0 = weight_data_ptr + num_input * p;
-            const float* w1 = weight_data_ptr + num_input * (p + 1);
-            const float* w2 = weight_data_ptr + num_input * (p + 2);
-            const float* w3 = weight_data_ptr + num_input * (p + 3);
+            const float *w0 = weight_data_ptr + num_input * p;
+            const float *w1 = weight_data_ptr + num_input * (p + 1);
+            const float *w2 = weight_data_ptr + num_input * (p + 2);
+            const float *w3 = weight_data_ptr + num_input * (p + 3);
 
-            const float* m = bottom_blob_flattened;
+            const float *m = bottom_blob_flattened;
 
 #if __ARM_NEON
             int nn = num_input >> 3;
             int remain = num_input & 7;
 #else
             int remain = num_input;
-#endif // __ARM_NEON
+#endif  // __ARM_NEON
 
 #if __ARM_NEON
             float32x4_t _sum0 = vdupq_n_f32(0.f);
@@ -613,8 +563,7 @@ int InnerProduct_arm::forward(const Mat& bottom_blob, Mat& top_blob, const Optio
             float32x4_t _sum2 = vdupq_n_f32(0.f);
             float32x4_t _sum3 = vdupq_n_f32(0.f);
 #if __aarch64__
-            if (nn > 0)
-            {
+            if (nn > 0) {
                 asm volatile(
                     "0:                                   \n"
                     "prfm       pldl1keep, [%1, #256]     \n"
@@ -637,31 +586,23 @@ int InnerProduct_arm::forward(const Mat& bottom_blob, Mat& top_blob, const Optio
                     "fmla       %8.4s, v1.4s, v7.4s       \n"
                     "fmla       %9.4s, v1.4s, v9.4s       \n"
                     "bne        0b                        \n"
-                    : "=r"(nn),    // %0
-                    "=r"(m),     // %1
-                    "=r"(w0),    // %2
-                    "=r"(w1),    // %3
-                    "=r"(w2),    // %4
-                    "=r"(w3),    // %5
-                    "=w"(_sum0), // %6
-                    "=w"(_sum1), // %7
-                    "=w"(_sum2), // %8
-                    "=w"(_sum3)  // %9
-                    : "0"(nn),
-                    "1"(m),
-                    "2"(w0),
-                    "3"(w1),
-                    "4"(w2),
-                    "5"(w3),
-                    "6"(_sum0),
-                    "7"(_sum1),
-                    "8"(_sum2),
-                    "9"(_sum3)
-                    : "cc", "memory", "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", "v9");
+                    : "=r"(nn),     // %0
+                    "=r"(m),      // %1
+                    "=r"(w0),     // %2
+                    "=r"(w1),     // %3
+                    "=r"(w2),     // %4
+                    "=r"(w3),     // %5
+                    "=w"(_sum0),  // %6
+                    "=w"(_sum1),  // %7
+                    "=w"(_sum2),  // %8
+                    "=w"(_sum3)   // %9
+                    : "0"(nn), "1"(m), "2"(w0), "3"(w1), "4"(w2), "5"(w3), "6"(_sum0),
+                    "7"(_sum1), "8"(_sum2), "9"(_sum3)
+                    : "cc", "memory", "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7",
+                    "v8", "v9");
             }
 #else
-            if (nn > 0)
-            {
+            if (nn > 0) {
                 asm volatile(
                     "0:                             \n"
                     "pld        [%1, #256]          \n"
@@ -684,32 +625,24 @@ int InnerProduct_arm::forward(const Mat& bottom_blob, Mat& top_blob, const Optio
                     "vmla.f32   %q8, q1, q7         \n"
                     "vmla.f32   %q9, q1, q9         \n"
                     "bne        0b                  \n"
-                    : "=r"(nn),    // %0
-                    "=r"(m),     // %1
-                    "=r"(w0),    // %2
-                    "=r"(w1),    // %3
-                    "=r"(w2),    // %4
-                    "=r"(w3),    // %5
-                    "=w"(_sum0), // %6
-                    "=w"(_sum1), // %7
-                    "=w"(_sum2), // %8
-                    "=w"(_sum3)  // %9
-                    : "0"(nn),
-                    "1"(m),
-                    "2"(w0),
-                    "3"(w1),
-                    "4"(w2),
-                    "5"(w3),
-                    "6"(_sum0),
-                    "7"(_sum1),
-                    "8"(_sum2),
-                    "9"(_sum3)
-                    : "cc", "memory", "q0", "q1", "q2", "q3", "q4", "q5", "q6", "q7", "q8", "q9");
+                    : "=r"(nn),     // %0
+                    "=r"(m),      // %1
+                    "=r"(w0),     // %2
+                    "=r"(w1),     // %3
+                    "=r"(w2),     // %4
+                    "=r"(w3),     // %5
+                    "=w"(_sum0),  // %6
+                    "=w"(_sum1),  // %7
+                    "=w"(_sum2),  // %8
+                    "=w"(_sum3)   // %9
+                    : "0"(nn), "1"(m), "2"(w0), "3"(w1), "4"(w2), "5"(w3), "6"(_sum0),
+                    "7"(_sum1), "8"(_sum2), "9"(_sum3)
+                    : "cc", "memory", "q0", "q1", "q2", "q3", "q4", "q5", "q6", "q7",
+                    "q8", "q9");
             }
-#endif // __aarch64__
-#endif // __ARM_NEON
-            for (; remain > 0; remain--)
-            {
+#endif  // __aarch64__
+#endif  // __ARM_NEON
+            for (; remain > 0; remain--) {
                 sum0 += *m * *w0;
                 sum1 += *m * *w1;
                 sum2 += *m * *w2;
@@ -736,7 +669,7 @@ int InnerProduct_arm::forward(const Mat& bottom_blob, Mat& top_blob, const Optio
             sum2 += vget_lane_f32(_sum23ss, 0);
             sum3 += vget_lane_f32(_sum23ss, 1);
 
-#endif // __ARM_NEON
+#endif  // __ARM_NEON
 
             sum0 = activation_ss(sum0, activation_type, activation_params);
             sum1 = activation_ss(sum1, activation_type, activation_params);
@@ -751,30 +684,27 @@ int InnerProduct_arm::forward(const Mat& bottom_blob, Mat& top_blob, const Optio
 
         // num_output
         #pragma omp parallel for num_threads(opt.num_threads)
-        for (int p = remain_num_output_start; p < num_output; p++)
-        {
+        for (int p = remain_num_output_start; p < num_output; p++) {
             float sum = 0.f;
 
-            if (bias_term)
-                sum = bias_data[p];
+            if (bias_term) sum = bias_data[p];
 
-            const float* w = weight_data_ptr + num_input * p;
+            const float *w = weight_data_ptr + num_input * p;
 
-            const float* m = bottom_blob_flattened;
+            const float *m = bottom_blob_flattened;
 
 #if __ARM_NEON
             int nn = num_input >> 3;
             int remain = num_input & 7;
 #else
             int remain = num_input;
-#endif // __ARM_NEON
+#endif  // __ARM_NEON
 
 #if __ARM_NEON
             float32x4_t _sum = vdupq_n_f32(0.f);
             float32x4_t _sum2 = vdupq_n_f32(0.f);
 #if __aarch64__
-            if (nn > 0)
-            {
+            if (nn > 0) {
                 asm volatile(
                     "0:                                   \n"
                     "prfm       pldl1keep, [%1, #256]     \n"
@@ -785,21 +715,16 @@ int InnerProduct_arm::forward(const Mat& bottom_blob, Mat& top_blob, const Optio
                     "subs       %w0, %w0, #1              \n"
                     "fmla       %4.4s, v1.4s, v3.4s       \n"
                     "bne        0b                        \n"
-                    : "=r"(nn),   // %0
-                    "=r"(m),    // %1
-                    "=r"(w),    // %2
-                    "=w"(_sum), // %3
-                    "=w"(_sum2) // %4
-                    : "0"(nn),
-                    "1"(m),
-                    "2"(w),
-                    "3"(_sum),
-                    "4"(_sum2)
+                    : "=r"(nn),    // %0
+                    "=r"(m),     // %1
+                    "=r"(w),     // %2
+                    "=w"(_sum),  // %3
+                    "=w"(_sum2)  // %4
+                    : "0"(nn), "1"(m), "2"(w), "3"(_sum), "4"(_sum2)
                     : "cc", "memory", "v0", "v1", "v2", "v3");
             }
 #else
-            if (nn > 0)
-            {
+            if (nn > 0) {
                 asm volatile(
                     "0:                             \n"
                     "pld        [%1, #256]          \n"
@@ -810,22 +735,17 @@ int InnerProduct_arm::forward(const Mat& bottom_blob, Mat& top_blob, const Optio
                     "subs       %0, #1              \n"
                     "vmla.f32   %q4, q1, q3         \n"
                     "bne        0b                  \n"
-                    : "=r"(nn),   // %0
-                    "=r"(m),    // %1
-                    "=r"(w),    // %2
-                    "=w"(_sum), // %3
-                    "=w"(_sum2) // %4
-                    : "0"(nn),
-                    "1"(m),
-                    "2"(w),
-                    "3"(_sum),
-                    "4"(_sum2)
+                    : "=r"(nn),    // %0
+                    "=r"(m),     // %1
+                    "=r"(w),     // %2
+                    "=w"(_sum),  // %3
+                    "=w"(_sum2)  // %4
+                    : "0"(nn), "1"(m), "2"(w), "3"(_sum), "4"(_sum2)
                     : "cc", "memory", "q0", "q1", "q2", "q3");
             }
-#endif // __aarch64__
-#endif // __ARM_NEON
-            for (; remain > 0; remain--)
-            {
+#endif  // __aarch64__
+#endif  // __ARM_NEON
+            for (; remain > 0; remain--) {
                 sum += *m * *w;
 
                 m++;
@@ -840,8 +760,8 @@ int InnerProduct_arm::forward(const Mat& bottom_blob, Mat& top_blob, const Optio
             float32x2_t _sumss = vadd_f32(vget_low_f32(_sum), vget_high_f32(_sum));
             _sumss = vpadd_f32(_sumss, _sumss);
             sum += vget_lane_f32(_sumss, 0);
-#endif // __aarch64__
-#endif // __ARM_NEON
+#endif  // __aarch64__
+#endif  // __ARM_NEON
 
             sum = activation_ss(sum, activation_type, activation_params);
 
@@ -853,51 +773,49 @@ int InnerProduct_arm::forward(const Mat& bottom_blob, Mat& top_blob, const Optio
 }
 
 #if (NCNN_VFPV4 && __ARM_NEON) || __aarch64__
-int InnerProduct_arm::create_pipeline_fp16s(const Option& opt)
-{
+int InnerProduct_arm::create_pipeline_fp16s(const Option &opt) {
     const int num_input = weight_data_size / num_output;
 
-    innerproduct_transform_kernel_fp16s_neon(weight_data, weight_data_tm, num_input, num_output, opt);
+    innerproduct_transform_kernel_fp16s_neon(weight_data, weight_data_tm,
+            num_input, num_output, opt);
 
 #if NCNN_ARM82
-    if (ncnn::cpu_support_arm_asimdhp() && opt.use_fp16_arithmetic)
-    {
+    if (ncnn::cpu_support_arm_asimdhp() && opt.use_fp16_arithmetic) {
         ncnn::cast_float32_to_float16(bias_data, bias_data_fp16, opt);
     }
 #endif
 
-    if (opt.lightmode)
-    {
+    if (opt.lightmode) {
         weight_data.release();
     }
 
     return 0;
 }
 
-int InnerProduct_arm::forward_fp16s(const Mat& bottom_blob, Mat& top_blob, const Option& opt) const
-{
+int InnerProduct_arm::forward_fp16s(const Mat &bottom_blob, Mat &top_blob,
+                                    const Option &opt) const {
     const int num_input = weight_data_size / num_output;
 
-    if (bottom_blob.dims == 2 && bottom_blob.w == num_input && bottom_blob.h * bottom_blob.elempack > 1)
-    {
+    if (bottom_blob.dims == 2 && bottom_blob.w == num_input &&
+            bottom_blob.h * bottom_blob.elempack > 1) {
         // gemm
         int h = bottom_blob.h;
         size_t elemsize = bottom_blob.elemsize;
         int elempack = bottom_blob.elempack;
 
         top_blob.create(num_output, h, elemsize, elempack, opt.blob_allocator);
-        if (top_blob.empty())
-            return -100;
+        if (top_blob.empty()) return -100;
 
-        innerproduct_gemm_fp16s_neon(bottom_blob, top_blob, weight_data_tm, bias_data, activation_type, activation_params, opt);
+        innerproduct_gemm_fp16s_neon(bottom_blob, top_blob, weight_data_tm,
+                                     bias_data, activation_type, activation_params,
+                                     opt);
 
         return 0;
     }
 
     // flatten
     Mat bottom_blob_flattened = bottom_blob;
-    if (bottom_blob.dims != 1)
-    {
+    if (bottom_blob.dims != 1) {
         Option opt_flatten = opt;
         opt_flatten.blob_allocator = opt.workspace_allocator;
 
@@ -908,123 +826,112 @@ int InnerProduct_arm::forward_fp16s(const Mat& bottom_blob, Mat& top_blob, const
     int elempack = bottom_blob_flattened.elempack;
 
     int out_elempack = 1;
-    if (opt.use_packing_layout)
-    {
+    if (opt.use_packing_layout) {
         out_elempack = num_output % 4 == 0 ? 4 : 1;
     }
     size_t out_elemsize = elemsize / elempack * out_elempack;
 
-    top_blob.create(num_output / out_elempack, out_elemsize, out_elempack, opt.blob_allocator);
-    if (top_blob.empty())
-        return -100;
+    top_blob.create(num_output / out_elempack, out_elemsize, out_elempack,
+                    opt.blob_allocator);
+    if (top_blob.empty()) return -100;
 
-    if (out_elempack == 4)
-    {
-        innerproduct_pack4_fp16s_neon(bottom_blob_flattened, top_blob, weight_data_tm, bias_data, activation_type, activation_params, opt);
+    if (out_elempack == 4) {
+        innerproduct_pack4_fp16s_neon(bottom_blob_flattened, top_blob,
+                                      weight_data_tm, bias_data, activation_type,
+                                      activation_params, opt);
     }
 
-    if (out_elempack == 1)
-    {
-        innerproduct_fp16s_neon(bottom_blob_flattened, top_blob, weight_data_tm, bias_data, activation_type, activation_params, opt);
+    if (out_elempack == 1) {
+        innerproduct_fp16s_neon(bottom_blob_flattened, top_blob, weight_data_tm,
+                                bias_data, activation_type, activation_params, opt);
     }
 
     return 0;
 }
-#endif // (NCNN_VFPV4 && __ARM_NEON) || __aarch64__
+#endif  // (NCNN_VFPV4 && __ARM_NEON) || __aarch64__
 
 #if NCNN_BF16
-int InnerProduct_arm::create_pipeline_bf16s(const Option& opt)
-{
+int InnerProduct_arm::create_pipeline_bf16s(const Option &opt) {
     const int num_input = weight_data_size / num_output;
 
     int out_elempack = 1;
 #if __ARM_NEON
-    if (opt.use_packing_layout)
-    {
+    if (opt.use_packing_layout) {
         out_elempack = num_output % 4 == 0 ? 4 : 1;
     }
-#endif // __ARM_NEON
+#endif  // __ARM_NEON
 
     // src = inch-outch
     // dst = pb-inch-outch/pb
     {
         Mat weight_data_r2 = weight_data.reshape(num_input, num_output);
 
-        weight_data_tm.create(num_input, num_output / out_elempack, (size_t)2u * out_elempack, out_elempack);
+        weight_data_tm.create(num_input, num_output / out_elempack,
+                              (size_t)2u * out_elempack, out_elempack);
 
-        for (int q = 0; q + (out_elempack - 1) < num_output; q += out_elempack)
-        {
-            unsigned short* g0 = weight_data_tm.row<unsigned short>(q / out_elempack);
+        for (int q = 0; q + (out_elempack - 1) < num_output; q += out_elempack) {
+            unsigned short *g0 = weight_data_tm.row<unsigned short>(q / out_elempack);
 
-            for (int p = 0; p < num_input; p++)
-            {
-                for (int j = 0; j < out_elempack; j++)
-                {
+            for (int p = 0; p < num_input; p++) {
+                for (int j = 0; j < out_elempack; j++) {
                     *g0++ = float32_to_bfloat16(weight_data_r2.row(q + j)[p]);
                 }
             }
         }
     }
 
-    if (opt.lightmode)
-    {
+    if (opt.lightmode) {
         weight_data.release();
     }
 
     return 0;
 }
 
-int InnerProduct_arm::forward_bf16s(const Mat& bottom_blob, Mat& top_blob, const Option& opt) const
-{
+int InnerProduct_arm::forward_bf16s(const Mat &bottom_blob, Mat &top_blob,
+                                    const Option &opt) const {
     const int num_input = weight_data_size / num_output;
 
-    if (bottom_blob.dims == 2 && bottom_blob.w == num_input && bottom_blob.h * bottom_blob.elempack > 1)
-    {
+    if (bottom_blob.dims == 2 && bottom_blob.w == num_input &&
+            bottom_blob.h * bottom_blob.elempack > 1) {
         // gemm
         int h = bottom_blob.h;
         size_t elemsize = bottom_blob.elemsize;
         int elempack = bottom_blob.elempack;
 
         top_blob.create(num_output, h, elemsize, elempack, opt.blob_allocator);
-        if (top_blob.empty())
-            return -100;
+        if (top_blob.empty()) return -100;
 
         int num_output_elempack = 1;
 #if __ARM_NEON
-        if (opt.use_packing_layout)
-        {
+        if (opt.use_packing_layout) {
             num_output_elempack = num_output % 4 == 0 ? 4 : 1;
         }
-#endif // __ARM_NEON
+#endif  // __ARM_NEON
 
         #pragma omp parallel for num_threads(opt.num_threads)
-        for (int j = 0; j < h; j++)
-        {
+        for (int j = 0; j < h; j++) {
 #if __ARM_NEON
-            if (elempack == 4 && num_output_elempack == 4)
-            {
-                unsigned short* outptr = top_blob.row<unsigned short>(j);
+            if (elempack == 4 && num_output_elempack == 4) {
+                unsigned short *outptr = top_blob.row<unsigned short>(j);
 
-                for (int p = 0; p < num_output / num_output_elempack; p++)
-                {
-                    const unsigned short* kptr = (const unsigned short*)weight_data_tm + num_input * p * 4;
-                    const unsigned short* m = bottom_blob.row<const unsigned short>(j);
+                for (int p = 0; p < num_output / num_output_elempack; p++) {
+                    const unsigned short *kptr =
+                        (const unsigned short *)weight_data_tm + num_input * p * 4;
+                    const unsigned short *m = bottom_blob.row<const unsigned short>(j);
 
                     float32x4_t _sum0 = vdupq_n_f32(0.f);
                     float32x4_t _sum1 = vdupq_n_f32(0.f);
                     float32x4_t _sum2 = vdupq_n_f32(0.f);
                     float32x4_t _sum3 = vdupq_n_f32(0.f);
 
-                    if (bias_term)
-                    {
+                    if (bias_term) {
                         _sum0 = vdupq_n_f32(bias_data[p * 4 + 0]);
                         _sum1 = vdupq_n_f32(bias_data[p * 4 + 1]);
                         _sum2 = vdupq_n_f32(bias_data[p * 4 + 2]);
                         _sum3 = vdupq_n_f32(bias_data[p * 4 + 3]);
                     }
 
-                    for (int i = 0; i < num_input; i++)
-                    {
+                    for (int i = 0; i < num_input; i++) {
                         float32x4_t _val = float2bfloat(vld1_u16(m));
                         float32x4_t _k = float2bfloat(vld1_u16(kptr));
 #if __aarch64__
@@ -1056,24 +963,21 @@ int InnerProduct_arm::forward_bf16s(const Mat& bottom_blob, Mat& top_blob, const
                 }
             }
 
-            if (elempack == 1 && num_output_elempack == 4)
-            {
-                unsigned short* outptr = top_blob.row<unsigned short>(j);
+            if (elempack == 1 && num_output_elempack == 4) {
+                unsigned short *outptr = top_blob.row<unsigned short>(j);
 
-                for (int p = 0; p < num_output / num_output_elempack; p++)
-                {
-                    const unsigned short* kptr = (const unsigned short*)weight_data_tm + num_input * p * 4;
-                    const unsigned short* m = bottom_blob.row<const unsigned short>(j);
+                for (int p = 0; p < num_output / num_output_elempack; p++) {
+                    const unsigned short *kptr =
+                        (const unsigned short *)weight_data_tm + num_input * p * 4;
+                    const unsigned short *m = bottom_blob.row<const unsigned short>(j);
 
                     float32x4_t _sum = vdupq_n_f32(0.f);
 
-                    if (bias_term)
-                    {
-                        _sum = vld1q_f32((const float*)bias_data + p * 4);
+                    if (bias_term) {
+                        _sum = vld1q_f32((const float *)bias_data + p * 4);
                     }
 
-                    for (int i = 0; i < num_input; i++)
-                    {
+                    for (int i = 0; i < num_input; i++) {
                         float32x4_t _val = vdupq_n_f32(bfloat16_to_float32(m[0]));
                         float32x4_t _k = float2bfloat(vld1_u16(kptr));
                         _sum = vmlaq_f32(_sum, _val, _k);
@@ -1089,24 +993,21 @@ int InnerProduct_arm::forward_bf16s(const Mat& bottom_blob, Mat& top_blob, const
                 }
             }
 
-            if (elempack == 4 && num_output_elempack == 1)
-            {
-                unsigned short* outptr = top_blob.row<unsigned short>(j);
+            if (elempack == 4 && num_output_elempack == 1) {
+                unsigned short *outptr = top_blob.row<unsigned short>(j);
 
-                for (int p = 0; p < num_output; p++)
-                {
-                    const unsigned short* kptr = (const unsigned short*)weight_data_tm + num_input * p;
-                    const unsigned short* m = bottom_blob.row<const unsigned short>(j);
+                for (int p = 0; p < num_output; p++) {
+                    const unsigned short *kptr =
+                        (const unsigned short *)weight_data_tm + num_input * p;
+                    const unsigned short *m = bottom_blob.row<const unsigned short>(j);
 
                     float32x4_t _sum = vdupq_n_f32(0.f);
 
-                    if (bias_term)
-                    {
+                    if (bias_term) {
                         _sum = vdupq_n_f32(bias_data[p]);
                     }
 
-                    for (int i = 0; i < num_input; i++)
-                    {
+                    for (int i = 0; i < num_input; i++) {
                         float32x4_t _val = float2bfloat(vld1_u16(m));
                         float32x4_t _k = vdupq_n_f32(bfloat16_to_float32(kptr[0]));
                         _sum = vmlaq_f32(_sum, _val, _k);
@@ -1121,26 +1022,23 @@ int InnerProduct_arm::forward_bf16s(const Mat& bottom_blob, Mat& top_blob, const
                     outptr += 4;
                 }
             }
-#endif // __ARM_NEON
+#endif  // __ARM_NEON
 
-            if (elempack == 1 && num_output_elempack == 1)
-            {
-                unsigned short* outptr = top_blob.row<unsigned short>(j);
+            if (elempack == 1 && num_output_elempack == 1) {
+                unsigned short *outptr = top_blob.row<unsigned short>(j);
 
-                for (int p = 0; p < num_output; p++)
-                {
-                    const unsigned short* kptr = (const unsigned short*)weight_data_tm + num_input * p;
-                    const unsigned short* m = bottom_blob.row<const unsigned short>(j);
+                for (int p = 0; p < num_output; p++) {
+                    const unsigned short *kptr =
+                        (const unsigned short *)weight_data_tm + num_input * p;
+                    const unsigned short *m = bottom_blob.row<const unsigned short>(j);
 
                     float sum = 0.f;
 
-                    if (bias_term)
-                    {
+                    if (bias_term) {
                         sum = bias_data[p];
                     }
 
-                    for (int i = 0; i < num_input; i++)
-                    {
+                    for (int i = 0; i < num_input; i++) {
                         sum += bfloat16_to_float32(*m) * bfloat16_to_float32(*kptr);
 
                         m += 1;
@@ -1160,8 +1058,7 @@ int InnerProduct_arm::forward_bf16s(const Mat& bottom_blob, Mat& top_blob, const
 
     // flatten
     Mat bottom_blob_flattened = bottom_blob;
-    if (bottom_blob.dims != 1)
-    {
+    if (bottom_blob.dims != 1) {
         Option opt_flatten = opt;
         opt_flatten.blob_allocator = opt.workspace_allocator;
 
@@ -1173,41 +1070,36 @@ int InnerProduct_arm::forward_bf16s(const Mat& bottom_blob, Mat& top_blob, const
 
     int out_elempack = 1;
 #if __ARM_NEON
-    if (opt.use_packing_layout)
-    {
+    if (opt.use_packing_layout) {
         out_elempack = num_output % 4 == 0 ? 4 : 1;
     }
-#endif // __ARM_NEON
+#endif  // __ARM_NEON
     size_t out_elemsize = elemsize / elempack * out_elempack;
 
-    top_blob.create(num_output / out_elempack, out_elemsize, out_elempack, opt.blob_allocator);
-    if (top_blob.empty())
-        return -100;
+    top_blob.create(num_output / out_elempack, out_elemsize, out_elempack,
+                    opt.blob_allocator);
+    if (top_blob.empty()) return -100;
 
 #if __ARM_NEON
-    if (out_elempack == 4)
-    {
+    if (out_elempack == 4) {
         // num_output
         #pragma omp parallel for num_threads(opt.num_threads)
-        for (int p = 0; p < num_output / out_elempack; p++)
-        {
+        for (int p = 0; p < num_output / out_elempack; p++) {
             float32x4_t _sum0 = vdupq_n_f32(0.f);
             float32x4_t _sum1 = vdupq_n_f32(0.f);
             float32x4_t _sum2 = vdupq_n_f32(0.f);
             float32x4_t _sum3 = vdupq_n_f32(0.f);
 
-            if (bias_term)
-            {
-                _sum0 = vld1q_f32(((const float*)bias_data) + p * 4);
+            if (bias_term) {
+                _sum0 = vld1q_f32(((const float *)bias_data) + p * 4);
             }
 
-            const unsigned short* kptr = weight_data_tm.row<const unsigned short>(p);
+            const unsigned short *kptr = weight_data_tm.row<const unsigned short>(p);
 
-            const unsigned short* sptr = bottom_blob_flattened;
+            const unsigned short *sptr = bottom_blob_flattened;
 
             int i = 0;
-            for (; i + 3 < num_input; i += 4)
-            {
+            for (; i + 3 < num_input; i += 4) {
                 float32x4_t _val = float2bfloat(vld1_u16(sptr));
 
                 float32x4_t _w0 = float2bfloat(vld1_u16(kptr));
@@ -1230,8 +1122,7 @@ int InnerProduct_arm::forward_bf16s(const Mat& bottom_blob, Mat& top_blob, const
                 sptr += 4;
                 kptr += 16;
             }
-            for (; i < num_input; i++)
-            {
+            for (; i < num_input; i++) {
                 float32x4_t _val = vdupq_n_f32(bfloat16_to_float32(sptr[0]));
 
                 float32x4_t _w = float2bfloat(vld1_u16(kptr));
@@ -1248,32 +1139,28 @@ int InnerProduct_arm::forward_bf16s(const Mat& bottom_blob, Mat& top_blob, const
 
             _sum0 = activation_ps(_sum0, activation_type, activation_params);
 
-            unsigned short* outptr = (unsigned short*)top_blob;
+            unsigned short *outptr = (unsigned short *)top_blob;
             vst1_u16(outptr + p * 4, bfloat2float(_sum0));
         }
     }
-#endif // __ARM_NEON
+#endif  // __ARM_NEON
 
-    if (out_elempack == 1)
-    {
+    if (out_elempack == 1) {
         // num_output
         #pragma omp parallel for num_threads(opt.num_threads)
-        for (int p = 0; p < num_output; p++)
-        {
+        for (int p = 0; p < num_output; p++) {
             float sum = 0.f;
 
-            if (bias_term)
-                sum = bias_data[p];
+            if (bias_term) sum = bias_data[p];
 
-            const unsigned short* kptr = weight_data_tm.row<unsigned short>(p);
+            const unsigned short *kptr = weight_data_tm.row<unsigned short>(p);
 
-            const unsigned short* sptr = bottom_blob_flattened;
+            const unsigned short *sptr = bottom_blob_flattened;
 
             int i = 0;
 #if __ARM_NEON
             float32x4_t _sum = vdupq_n_f32(0.f);
-            for (; i + 3 < num_input; i += 4)
-            {
+            for (; i + 3 < num_input; i += 4) {
                 float32x4_t _m = float2bfloat(vld1_u16(sptr));
                 float32x4_t _w = float2bfloat(vld1_u16(kptr));
 
@@ -1282,9 +1169,8 @@ int InnerProduct_arm::forward_bf16s(const Mat& bottom_blob, Mat& top_blob, const
                 sptr += 4;
                 kptr += 4;
             }
-#endif // __ARM_NEON
-            for (; i < num_input; i++)
-            {
+#endif  // __ARM_NEON
+            for (; i < num_input; i++) {
                 float v = bfloat16_to_float32(*sptr);
                 float k = bfloat16_to_float32(*kptr);
 
@@ -1301,29 +1187,27 @@ int InnerProduct_arm::forward_bf16s(const Mat& bottom_blob, Mat& top_blob, const
             float32x2_t _sumss = vadd_f32(vget_low_f32(_sum), vget_high_f32(_sum));
             _sumss = vpadd_f32(_sumss, _sumss);
             sum += vget_lane_f32(_sumss, 0);
-#endif // __aarch64__
-#endif // __ARM_NEON
+#endif  // __aarch64__
+#endif  // __ARM_NEON
 
             sum = activation_ss(sum, activation_type, activation_params);
 
-            unsigned short* outptr = (unsigned short*)top_blob;
+            unsigned short *outptr = (unsigned short *)top_blob;
             outptr[p] = float32_to_bfloat16(sum);
         }
     }
 
     return 0;
 }
-#endif // NCNN_BF16
+#endif  // NCNN_BF16
 
 #if NCNN_INT8
-int InnerProduct_arm::create_pipeline_int8_arm(const Option& opt)
-{
+int InnerProduct_arm::create_pipeline_int8_arm(const Option &opt) {
     const int num_input = weight_data_size / num_output;
 
     int out_elempack = 1;
 #if __ARM_NEON
-    if (opt.use_packing_layout)
-    {
+    if (opt.use_packing_layout) {
         out_elempack = num_output % 8 == 0 ? 8 : 1;
     }
 #endif
@@ -1333,16 +1217,14 @@ int InnerProduct_arm::create_pipeline_int8_arm(const Option& opt)
     {
         Mat weight_data_r2 = weight_data.reshape(num_input, num_output);
 
-        weight_data_tm.create(num_input, num_output / out_elempack, (size_t)out_elempack, out_elempack);
+        weight_data_tm.create(num_input, num_output / out_elempack,
+                              (size_t)out_elempack, out_elempack);
 
-        for (int q = 0; q + (out_elempack - 1) < num_output; q += out_elempack)
-        {
-            signed char* g0 = weight_data_tm.row<signed char>(q / out_elempack);
+        for (int q = 0; q + (out_elempack - 1) < num_output; q += out_elempack) {
+            signed char *g0 = weight_data_tm.row<signed char>(q / out_elempack);
 
-            for (int p = 0; p < num_input; p++)
-            {
-                for (int j = 0; j < out_elempack; j++)
-                {
+            for (int p = 0; p < num_input; p++) {
+                for (int j = 0; j < out_elempack; j++) {
                     *g0++ = weight_data_r2.row<signed char>(q + j)[p];
                 }
             }
@@ -1350,42 +1232,41 @@ int InnerProduct_arm::create_pipeline_int8_arm(const Option& opt)
     }
 
     scale_in_data.create(num_output);
-    for (int p = 0; p < num_output; p++)
-    {
+    for (int p = 0; p < num_output; p++) {
         // dequantize
         float scale_in;
         if (weight_data_int8_scales[p] == 0)
             scale_in = 0;
         else
-            scale_in = 1.f / (bottom_blob_int8_scales[0] * weight_data_int8_scales[p]);
+            scale_in =
+                1.f / (bottom_blob_int8_scales[0] * weight_data_int8_scales[p]);
 
         scale_in_data[p] = scale_in;
     }
 
-    if (opt.lightmode)
-    {
+    if (opt.lightmode) {
         weight_data.release();
     }
 
     return 0;
 }
 
-int InnerProduct_arm::forward_int8_arm(const Mat& bottom_blob, Mat& top_blob, const Option& opt) const
-{
+int InnerProduct_arm::forward_int8_arm(const Mat &bottom_blob, Mat &top_blob,
+                                       const Option &opt) const {
     const int num_input = weight_data_size / num_output;
 
     int elembits = bottom_blob.elembits();
 
     Mat bottom_blob_int8 = bottom_blob;
-    if (elembits != 8)
-    {
+    if (elembits != 8) {
         Option opt_q = opt;
         opt_q.blob_allocator = opt.workspace_allocator;
-        quantize_to_int8(bottom_blob, bottom_blob_int8, bottom_blob_int8_scales, opt_q);
+        quantize_to_int8(bottom_blob, bottom_blob_int8, bottom_blob_int8_scales,
+                         opt_q);
     }
 
-    if (bottom_blob_int8.dims == 2 && bottom_blob_int8.w == num_input && bottom_blob_int8.h * bottom_blob_int8.elempack > 1)
-    {
+    if (bottom_blob_int8.dims == 2 && bottom_blob_int8.w == num_input &&
+            bottom_blob_int8.h * bottom_blob_int8.elempack > 1) {
         // gemm
         Mat bottom_blob_int8_unpacked;
         Option opt_unpack = opt;
@@ -1396,41 +1277,40 @@ int InnerProduct_arm::forward_int8_arm(const Mat& bottom_blob, Mat& top_blob, co
 
         int out_elempack = 1;
 #if __ARM_NEON
-        if (opt.use_packing_layout)
-        {
+        if (opt.use_packing_layout) {
             out_elempack = h % 4 == 0 ? 4 : 1;
         }
 #endif
 
         int outh = h / out_elempack;
 
-        top_blob.create(num_output, outh, (size_t)(4u * out_elempack), out_elempack, opt.blob_allocator);
-        if (top_blob.empty())
-            return -100;
+        top_blob.create(num_output, outh, (size_t)(4u * out_elempack), out_elempack,
+                        opt.blob_allocator);
+        if (top_blob.empty()) return -100;
 
         int num_output_elempack = 1;
 #if __ARM_NEON
-        if (opt.use_packing_layout)
-        {
+        if (opt.use_packing_layout) {
             num_output_elempack = num_output % 8 == 0 ? 8 : 1;
         }
 #endif
 
 #if __ARM_NEON
-        if (num_output_elempack == 8 && out_elempack == 4)
-        {
+        if (num_output_elempack == 8 && out_elempack == 4) {
             #pragma omp parallel for num_threads(opt.num_threads)
-            for (int j = 0; j < outh; j++)
-            {
-                float* outptr = top_blob.row(j);
+            for (int j = 0; j < outh; j++) {
+                float *outptr = top_blob.row(j);
 
-                for (int p = 0; p < num_output / num_output_elempack; p++)
-                {
-                    const signed char* kptr = weight_data_tm.row<const signed char>(p);
-                    const signed char* m0 = bottom_blob_int8_unpacked.row<const signed char>(j * 4);
-                    const signed char* m1 = bottom_blob_int8_unpacked.row<const signed char>(j * 4 + 1);
-                    const signed char* m2 = bottom_blob_int8_unpacked.row<const signed char>(j * 4 + 2);
-                    const signed char* m3 = bottom_blob_int8_unpacked.row<const signed char>(j * 4 + 3);
+                for (int p = 0; p < num_output / num_output_elempack; p++) {
+                    const signed char *kptr = weight_data_tm.row<const signed char>(p);
+                    const signed char *m0 =
+                        bottom_blob_int8_unpacked.row<const signed char>(j * 4);
+                    const signed char *m1 =
+                        bottom_blob_int8_unpacked.row<const signed char>(j * 4 + 1);
+                    const signed char *m2 =
+                        bottom_blob_int8_unpacked.row<const signed char>(j * 4 + 2);
+                    const signed char *m3 =
+                        bottom_blob_int8_unpacked.row<const signed char>(j * 4 + 3);
 
                     int32x4_t _sum00 = vdupq_n_s32(0);
                     int32x4_t _sum01 = vdupq_n_s32(0);
@@ -1442,8 +1322,7 @@ int InnerProduct_arm::forward_int8_arm(const Mat& bottom_blob, Mat& top_blob, co
                     int32x4_t _sum31 = vdupq_n_s32(0);
 
                     int i = 0;
-                    for (; i < num_input; i++)
-                    {
+                    for (; i < num_input; i++) {
                         int8x8_t _val0 = vld1_dup_s8(m0);
                         int8x8_t _val1 = vld1_dup_s8(m1);
                         int8x8_t _val2 = vld1_dup_s8(m2);
@@ -1472,8 +1351,10 @@ int InnerProduct_arm::forward_int8_arm(const Mat& bottom_blob, Mat& top_blob, co
                     }
 
                     // dequantize and relu
-                    float32x4_t _scale_in0 = vld1q_f32((const float*)scale_in_data + p * 8);
-                    float32x4_t _scale_in1 = vld1q_f32((const float*)scale_in_data + p * 8 + 4);
+                    float32x4_t _scale_in0 =
+                        vld1q_f32((const float *)scale_in_data + p * 8);
+                    float32x4_t _scale_in1 =
+                        vld1q_f32((const float *)scale_in_data + p * 8 + 4);
 
                     float32x4_t _sumfp32_00 = vcvtq_f32_s32(_sum00);
                     float32x4_t _sumfp32_01 = vcvtq_f32_s32(_sum01);
@@ -1483,10 +1364,10 @@ int InnerProduct_arm::forward_int8_arm(const Mat& bottom_blob, Mat& top_blob, co
                     float32x4_t _sumfp32_21 = vcvtq_f32_s32(_sum21);
                     float32x4_t _sumfp32_30 = vcvtq_f32_s32(_sum30);
                     float32x4_t _sumfp32_31 = vcvtq_f32_s32(_sum31);
-                    if (bias_term)
-                    {
-                        float32x4_t _bias0 = vld1q_f32((const float*)bias_data + p * 8);
-                        float32x4_t _bias1 = vld1q_f32((const float*)bias_data + p * 8 + 4);
+                    if (bias_term) {
+                        float32x4_t _bias0 = vld1q_f32((const float *)bias_data + p * 8);
+                        float32x4_t _bias1 =
+                            vld1q_f32((const float *)bias_data + p * 8 + 4);
                         _sumfp32_00 = vmlaq_f32(_bias0, _sumfp32_00, _scale_in0);
                         _sumfp32_01 = vmlaq_f32(_bias1, _sumfp32_01, _scale_in1);
                         _sumfp32_10 = vmlaq_f32(_bias0, _sumfp32_10, _scale_in0);
@@ -1495,9 +1376,7 @@ int InnerProduct_arm::forward_int8_arm(const Mat& bottom_blob, Mat& top_blob, co
                         _sumfp32_21 = vmlaq_f32(_bias1, _sumfp32_21, _scale_in1);
                         _sumfp32_30 = vmlaq_f32(_bias0, _sumfp32_30, _scale_in0);
                         _sumfp32_31 = vmlaq_f32(_bias1, _sumfp32_31, _scale_in1);
-                    }
-                    else
-                    {
+                    } else {
                         _sumfp32_00 = vmulq_f32(_sumfp32_00, _scale_in0);
                         _sumfp32_01 = vmulq_f32(_sumfp32_01, _scale_in1);
                         _sumfp32_10 = vmulq_f32(_sumfp32_10, _scale_in0);
@@ -1508,14 +1387,22 @@ int InnerProduct_arm::forward_int8_arm(const Mat& bottom_blob, Mat& top_blob, co
                         _sumfp32_31 = vmulq_f32(_sumfp32_31, _scale_in1);
                     }
 
-                    _sumfp32_00 = activation_ps(_sumfp32_00, activation_type, activation_params);
-                    _sumfp32_01 = activation_ps(_sumfp32_01, activation_type, activation_params);
-                    _sumfp32_10 = activation_ps(_sumfp32_10, activation_type, activation_params);
-                    _sumfp32_11 = activation_ps(_sumfp32_11, activation_type, activation_params);
-                    _sumfp32_20 = activation_ps(_sumfp32_20, activation_type, activation_params);
-                    _sumfp32_21 = activation_ps(_sumfp32_21, activation_type, activation_params);
-                    _sumfp32_30 = activation_ps(_sumfp32_30, activation_type, activation_params);
-                    _sumfp32_31 = activation_ps(_sumfp32_31, activation_type, activation_params);
+                    _sumfp32_00 =
+                        activation_ps(_sumfp32_00, activation_type, activation_params);
+                    _sumfp32_01 =
+                        activation_ps(_sumfp32_01, activation_type, activation_params);
+                    _sumfp32_10 =
+                        activation_ps(_sumfp32_10, activation_type, activation_params);
+                    _sumfp32_11 =
+                        activation_ps(_sumfp32_11, activation_type, activation_params);
+                    _sumfp32_20 =
+                        activation_ps(_sumfp32_20, activation_type, activation_params);
+                    _sumfp32_21 =
+                        activation_ps(_sumfp32_21, activation_type, activation_params);
+                    _sumfp32_30 =
+                        activation_ps(_sumfp32_30, activation_type, activation_params);
+                    _sumfp32_31 =
+                        activation_ps(_sumfp32_31, activation_type, activation_params);
 
                     // transpose 4x8
                     float32x4x4_t _sumfp32_0;
@@ -1537,20 +1424,21 @@ int InnerProduct_arm::forward_int8_arm(const Mat& bottom_blob, Mat& top_blob, co
             }
         }
 
-        if (num_output_elempack == 1 && out_elempack == 4)
-        {
+        if (num_output_elempack == 1 && out_elempack == 4) {
             #pragma omp parallel for num_threads(opt.num_threads)
-            for (int j = 0; j < outh; j++)
-            {
-                float* outptr = top_blob.row(j);
+            for (int j = 0; j < outh; j++) {
+                float *outptr = top_blob.row(j);
 
-                for (int p = 0; p < num_output; p++)
-                {
-                    const signed char* kptr = weight_data_tm.row<const signed char>(p);
-                    const signed char* m0 = bottom_blob_int8_unpacked.row<const signed char>(j * 4);
-                    const signed char* m1 = bottom_blob_int8_unpacked.row<const signed char>(j * 4 + 1);
-                    const signed char* m2 = bottom_blob_int8_unpacked.row<const signed char>(j * 4 + 2);
-                    const signed char* m3 = bottom_blob_int8_unpacked.row<const signed char>(j * 4 + 3);
+                for (int p = 0; p < num_output; p++) {
+                    const signed char *kptr = weight_data_tm.row<const signed char>(p);
+                    const signed char *m0 =
+                        bottom_blob_int8_unpacked.row<const signed char>(j * 4);
+                    const signed char *m1 =
+                        bottom_blob_int8_unpacked.row<const signed char>(j * 4 + 1);
+                    const signed char *m2 =
+                        bottom_blob_int8_unpacked.row<const signed char>(j * 4 + 2);
+                    const signed char *m3 =
+                        bottom_blob_int8_unpacked.row<const signed char>(j * 4 + 3);
 
                     int sum0 = 0;
                     int sum1 = 0;
@@ -1563,8 +1451,7 @@ int InnerProduct_arm::forward_int8_arm(const Mat& bottom_blob, Mat& top_blob, co
                     int32x4_t _sum1 = vdupq_n_s32(0);
                     int32x4_t _sum2 = vdupq_n_s32(0);
                     int32x4_t _sum3 = vdupq_n_s32(0);
-                    for (; i + 7 < num_input; i += 8)
-                    {
+                    for (; i + 7 < num_input; i += 8) {
                         int8x8_t _val0 = vld1_s8(m0);
                         int8x8_t _val1 = vld1_s8(m1);
                         int8x8_t _val2 = vld1_s8(m2);
@@ -1607,8 +1494,7 @@ int InnerProduct_arm::forward_int8_arm(const Mat& bottom_blob, Mat& top_blob, co
                     sum2 = vget_lane_s32(_s223, 0);
                     sum3 = vget_lane_s32(_s223, 1);
 #endif
-                    for (; i < num_input; i++)
-                    {
+                    for (; i < num_input; i++) {
                         sum0 += *m0++ * kptr[0];
                         sum1 += *m1++ * kptr[0];
                         sum2 += *m2++ * kptr[0];
@@ -1622,41 +1508,41 @@ int InnerProduct_arm::forward_int8_arm(const Mat& bottom_blob, Mat& top_blob, co
                     float sumfp32_2 = sum2 * scale_in_data[p];
                     float sumfp32_3 = sum3 * scale_in_data[p];
 
-                    if (bias_term)
-                    {
+                    if (bias_term) {
                         sumfp32_0 += bias_data[p];
                         sumfp32_1 += bias_data[p];
                         sumfp32_2 += bias_data[p];
                         sumfp32_3 += bias_data[p];
                     }
 
-                    outptr[0] = activation_ss(sumfp32_0, activation_type, activation_params);
-                    outptr[1] = activation_ss(sumfp32_1, activation_type, activation_params);
-                    outptr[2] = activation_ss(sumfp32_2, activation_type, activation_params);
-                    outptr[3] = activation_ss(sumfp32_3, activation_type, activation_params);
+                    outptr[0] =
+                        activation_ss(sumfp32_0, activation_type, activation_params);
+                    outptr[1] =
+                        activation_ss(sumfp32_1, activation_type, activation_params);
+                    outptr[2] =
+                        activation_ss(sumfp32_2, activation_type, activation_params);
+                    outptr[3] =
+                        activation_ss(sumfp32_3, activation_type, activation_params);
                     outptr += 4;
                 }
             }
         }
 
-        if (num_output_elempack == 8 && out_elempack == 1)
-        {
+        if (num_output_elempack == 8 && out_elempack == 1) {
             #pragma omp parallel for num_threads(opt.num_threads)
-            for (int j = 0; j < outh; j++)
-            {
-                float* outptr = top_blob.row(j);
+            for (int j = 0; j < outh; j++) {
+                float *outptr = top_blob.row(j);
 
-                for (int p = 0; p < num_output / num_output_elempack; p++)
-                {
-                    const signed char* kptr = weight_data_tm.row<const signed char>(p);
-                    const signed char* m = bottom_blob_int8_unpacked.row<const signed char>(j);
+                for (int p = 0; p < num_output / num_output_elempack; p++) {
+                    const signed char *kptr = weight_data_tm.row<const signed char>(p);
+                    const signed char *m =
+                        bottom_blob_int8_unpacked.row<const signed char>(j);
 
                     int32x4_t _sum0 = vdupq_n_s32(0);
                     int32x4_t _sum1 = vdupq_n_s32(0);
 
                     int i = 0;
-                    for (; i + 3 < num_input; i += 4)
-                    {
+                    for (; i + 3 < num_input; i += 4) {
                         int8x8_t _val0 = vdup_n_s8(m[0]);
                         int8x8_t _val1 = vdup_n_s8(m[1]);
                         int8x8_t _val2 = vdup_n_s8(m[2]);
@@ -1678,8 +1564,7 @@ int InnerProduct_arm::forward_int8_arm(const Mat& bottom_blob, Mat& top_blob, co
                         m += 4;
                         kptr += 32;
                     }
-                    for (; i < num_input; i++)
-                    {
+                    for (; i < num_input; i++) {
                         int8x8_t _val = vld1_dup_s8(m);
                         int8x8_t _w = vld1_s8(kptr);
 
@@ -1692,27 +1577,29 @@ int InnerProduct_arm::forward_int8_arm(const Mat& bottom_blob, Mat& top_blob, co
                     }
 
                     // dequantize and relu
-                    float32x4_t _scale_in0 = vld1q_f32((const float*)scale_in_data + p * 8);
-                    float32x4_t _scale_in1 = vld1q_f32((const float*)scale_in_data + p * 8 + 4);
+                    float32x4_t _scale_in0 =
+                        vld1q_f32((const float *)scale_in_data + p * 8);
+                    float32x4_t _scale_in1 =
+                        vld1q_f32((const float *)scale_in_data + p * 8 + 4);
 
                     float32x4_t _sumfp32_0 = vcvtq_f32_s32(_sum0);
                     float32x4_t _sumfp32_1 = vcvtq_f32_s32(_sum1);
 
-                    if (bias_term)
-                    {
-                        float32x4_t _bias0 = vld1q_f32((const float*)bias_data + p * 8);
-                        float32x4_t _bias1 = vld1q_f32((const float*)bias_data + p * 8 + 4);
+                    if (bias_term) {
+                        float32x4_t _bias0 = vld1q_f32((const float *)bias_data + p * 8);
+                        float32x4_t _bias1 =
+                            vld1q_f32((const float *)bias_data + p * 8 + 4);
                         _sumfp32_0 = vmlaq_f32(_bias0, _sumfp32_0, _scale_in0);
                         _sumfp32_1 = vmlaq_f32(_bias1, _sumfp32_1, _scale_in1);
-                    }
-                    else
-                    {
+                    } else {
                         _sumfp32_0 = vmulq_f32(_sumfp32_0, _scale_in0);
                         _sumfp32_1 = vmulq_f32(_sumfp32_1, _scale_in1);
                     }
 
-                    _sumfp32_0 = activation_ps(_sumfp32_0, activation_type, activation_params);
-                    _sumfp32_1 = activation_ps(_sumfp32_1, activation_type, activation_params);
+                    _sumfp32_0 =
+                        activation_ps(_sumfp32_0, activation_type, activation_params);
+                    _sumfp32_1 =
+                        activation_ps(_sumfp32_1, activation_type, activation_params);
 
                     vst1q_f32(outptr, _sumfp32_0);
                     vst1q_f32(outptr + 4, _sumfp32_1);
@@ -1720,19 +1607,17 @@ int InnerProduct_arm::forward_int8_arm(const Mat& bottom_blob, Mat& top_blob, co
                 }
             }
         }
-#endif // __ARM_NEON
+#endif  // __ARM_NEON
 
-        if (num_output_elempack == 1 && out_elempack == 1)
-        {
+        if (num_output_elempack == 1 && out_elempack == 1) {
             #pragma omp parallel for num_threads(opt.num_threads)
-            for (int j = 0; j < outh; j++)
-            {
-                float* outptr = top_blob.row(j);
+            for (int j = 0; j < outh; j++) {
+                float *outptr = top_blob.row(j);
 
-                for (int p = 0; p < num_output; p++)
-                {
-                    const signed char* kptr = weight_data_tm.row<const signed char>(p);
-                    const signed char* m = bottom_blob_int8_unpacked.row<const signed char>(j);
+                for (int p = 0; p < num_output; p++) {
+                    const signed char *kptr = weight_data_tm.row<const signed char>(p);
+                    const signed char *m =
+                        bottom_blob_int8_unpacked.row<const signed char>(j);
 
                     int sum = 0;
 
@@ -1740,8 +1625,7 @@ int InnerProduct_arm::forward_int8_arm(const Mat& bottom_blob, Mat& top_blob, co
 #if __ARM_NEON
                     int32x4_t _sum0 = vdupq_n_s32(0);
                     int32x4_t _sum1 = vdupq_n_s32(0);
-                    for (; i + 7 < num_input; i += 8)
-                    {
+                    for (; i + 7 < num_input; i += 8) {
                         int8x8_t _val = vld1_s8(m);
                         int8x8_t _w = vld1_s8(kptr);
 
@@ -1761,19 +1645,18 @@ int InnerProduct_arm::forward_int8_arm(const Mat& bottom_blob, Mat& top_blob, co
                     _s2 = vpadd_s32(_s2, _s2);
                     sum = vget_lane_s32(_s2, 0);
 #endif
-#endif // __ARM_NEON
-                    for (; i < num_input; i++)
-                    {
+#endif  // __ARM_NEON
+                    for (; i < num_input; i++) {
                         sum += *m++ * *kptr++;
                     }
 
                     // dequantize and relu
                     float sumfp32 = sum * scale_in_data[p];
 
-                    if (bias_term)
-                        sumfp32 += bias_data[p];
+                    if (bias_term) sumfp32 += bias_data[p];
 
-                    outptr[0] = activation_ss(sumfp32, activation_type, activation_params);
+                    outptr[0] =
+                        activation_ss(sumfp32, activation_type, activation_params);
                     outptr += 1;
                 }
             }
@@ -1783,8 +1666,7 @@ int InnerProduct_arm::forward_int8_arm(const Mat& bottom_blob, Mat& top_blob, co
     }
 
     Mat bottom_blob_int8_flattened = bottom_blob_int8;
-    if (bottom_blob_int8.dims != 1)
-    {
+    if (bottom_blob_int8.dims != 1) {
         Option opt_flatten = opt;
         opt_flatten.blob_allocator = opt.workspace_allocator;
         flatten->forward(bottom_blob_int8, bottom_blob_int8_flattened, opt_flatten);
@@ -1794,32 +1676,28 @@ int InnerProduct_arm::forward_int8_arm(const Mat& bottom_blob, Mat& top_blob, co
 
     int out_elempack = 1;
 #if __ARM_NEON
-    if (opt.use_packing_layout)
-    {
+    if (opt.use_packing_layout) {
         out_elempack = num_output % 8 == 0 ? 8 : 1;
     }
 #endif
 
-    top_blob.create(num_output / out_elempack, (size_t)(4u * out_elempack), out_elempack, opt.blob_allocator);
-    if (top_blob.empty())
-        return -100;
+    top_blob.create(num_output / out_elempack, (size_t)(4u * out_elempack),
+                    out_elempack, opt.blob_allocator);
+    if (top_blob.empty()) return -100;
 
 #if __ARM_NEON
-    if (out_elempack == 8)
-    {
+    if (out_elempack == 8) {
         // num_output
         #pragma omp parallel for num_threads(opt.num_threads)
-        for (int p = 0; p < num_output / out_elempack; p++)
-        {
-            const signed char* kptr = weight_data_tm.row<const signed char>(p);
-            const signed char* sptr = bottom_blob_int8_flattened;
+        for (int p = 0; p < num_output / out_elempack; p++) {
+            const signed char *kptr = weight_data_tm.row<const signed char>(p);
+            const signed char *sptr = bottom_blob_int8_flattened;
 
             int32x4_t _sum0 = vdupq_n_s32(0);
             int32x4_t _sum1 = vdupq_n_s32(0);
 
             int i = 0;
-            for (; i + 1 < num_input; i += 2)
-            {
+            for (; i + 1 < num_input; i += 2) {
                 int8x8_t _val0 = vdup_n_s8(sptr[0]);
                 int8x8_t _val1 = vdup_n_s8(sptr[1]);
 
@@ -1835,8 +1713,7 @@ int InnerProduct_arm::forward_int8_arm(const Mat& bottom_blob, Mat& top_blob, co
                 sptr += 2;
                 kptr += 16;
             }
-            for (; i < num_input; i++)
-            {
+            for (; i < num_input; i++) {
                 int8x8_t _val = vdup_n_s8(sptr[0]);
 
                 int8x8_t _w = vld1_s8(kptr);
@@ -1850,49 +1727,46 @@ int InnerProduct_arm::forward_int8_arm(const Mat& bottom_blob, Mat& top_blob, co
             }
 
             // dequantize and relu
-            float32x4_t _scale_in0 = vld1q_f32((const float*)scale_in_data + p * 8);
-            float32x4_t _scale_in1 = vld1q_f32((const float*)scale_in_data + p * 8 + 4);
+            float32x4_t _scale_in0 = vld1q_f32((const float *)scale_in_data + p * 8);
+            float32x4_t _scale_in1 =
+                vld1q_f32((const float *)scale_in_data + p * 8 + 4);
 
             float32x4_t _sumfp32_0 = vcvtq_f32_s32(_sum0);
             float32x4_t _sumfp32_1 = vcvtq_f32_s32(_sum1);
 
-            if (bias_term)
-            {
-                float32x4_t _bias0 = vld1q_f32((const float*)bias_data + p * 8);
-                float32x4_t _bias1 = vld1q_f32((const float*)bias_data + p * 8 + 4);
+            if (bias_term) {
+                float32x4_t _bias0 = vld1q_f32((const float *)bias_data + p * 8);
+                float32x4_t _bias1 = vld1q_f32((const float *)bias_data + p * 8 + 4);
                 _sumfp32_0 = vmlaq_f32(_bias0, _sumfp32_0, _scale_in0);
                 _sumfp32_1 = vmlaq_f32(_bias1, _sumfp32_1, _scale_in1);
-            }
-            else
-            {
+            } else {
                 _sumfp32_0 = vmulq_f32(_sumfp32_0, _scale_in0);
                 _sumfp32_1 = vmulq_f32(_sumfp32_1, _scale_in1);
             }
 
-            _sumfp32_0 = activation_ps(_sumfp32_0, activation_type, activation_params);
-            _sumfp32_1 = activation_ps(_sumfp32_1, activation_type, activation_params);
+            _sumfp32_0 =
+                activation_ps(_sumfp32_0, activation_type, activation_params);
+            _sumfp32_1 =
+                activation_ps(_sumfp32_1, activation_type, activation_params);
 
-            float* outptr = (float*)top_blob + p * 8;
+            float *outptr = (float *)top_blob + p * 8;
             vst1q_f32(outptr, _sumfp32_0);
             vst1q_f32(outptr + 4, _sumfp32_1);
         }
     }
-#endif // __ARM_NEON
+#endif  // __ARM_NEON
 
-    if (out_elempack == 1)
-    {
+    if (out_elempack == 1) {
         // num_output
         #pragma omp parallel for num_threads(opt.num_threads)
-        for (int p = 0; p < num_output / out_elempack; p++)
-        {
-            const signed char* kptr = weight_data_tm.row<const signed char>(p);
-            const signed char* sptr = bottom_blob_int8_flattened;
+        for (int p = 0; p < num_output / out_elempack; p++) {
+            const signed char *kptr = weight_data_tm.row<const signed char>(p);
+            const signed char *sptr = bottom_blob_int8_flattened;
 
             int sum = 0;
 
             int i = 0;
-            for (; i < num_input; i++)
-            {
+            for (; i < num_input; i++) {
                 signed char val = sptr[0];
 
                 signed char w = kptr[0];
@@ -1906,8 +1780,7 @@ int InnerProduct_arm::forward_int8_arm(const Mat& bottom_blob, Mat& top_blob, co
             // dequantize and relu
             float sumfp32 = sum * scale_in_data[p];
 
-            if (bias_term)
-                sumfp32 += bias_data[p];
+            if (bias_term) sumfp32 += bias_data[p];
 
             sumfp32 = activation_ss(sumfp32, activation_type, activation_params);
 
@@ -1917,6 +1790,6 @@ int InnerProduct_arm::forward_int8_arm(const Mat& bottom_blob, Mat& top_blob, co
 
     return 0;
 }
-#endif // NCNN_INT8
+#endif  // NCNN_INT8
 
-} // namespace ncnn
+}  // namespace ncnn

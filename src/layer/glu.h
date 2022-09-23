@@ -20,16 +20,16 @@
 namespace ncnn {
 
 class GLU : public Layer {
- public:
-  GLU();
+public:
+    GLU();
 
-  virtual int load_param(const ParamDict &pd);
+    virtual int load_param(const ParamDict &pd);
 
-  virtual int forward(const Mat &bottom_blob, Mat &top_blob,
-                      const Option &opt) const;
+    virtual int forward(const Mat &bottom_blob, Mat &top_blob,
+                        const Option &opt) const;
 
- public:
-  int axis;
+public:
+    int axis;
 };
 
 }  // namespace ncnn

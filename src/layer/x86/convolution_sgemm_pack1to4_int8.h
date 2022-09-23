@@ -1,65 +1,74 @@
-// Tencent is pleased to support the open source community by making ncnn available.
+// Tencent is pleased to support the open source community by making ncnn
+// available.
 //
 // Copyright (C) 2022 THL A29 Limited, a Tencent company. All rights reserved.
 //
-// Licensed under the BSD 3-Clause License (the "License"); you may not use this file except
-// in compliance with the License. You may obtain a copy of the License at
+// Licensed under the BSD 3-Clause License (the "License"); you may not use this
+// file except in compliance with the License. You may obtain a copy of the
+// License at
 //
 // https://opensource.org/licenses/BSD-3-Clause
 //
-// Unless required by applicable law or agreed to in writing, software distributed
-// under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
-// CONDITIONS OF ANY KIND, either express or implied. See the License for the
-// specific language governing permissions and limitations under the License.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+// WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+// License for the specific language governing permissions and limitations under
+// the License.
 
 #if !(__AVX512VNNI__ || __AVXVNNI__ || __AVX2__ || __XOP__)
 #if NCNN_RUNTIME_CPU && NCNN_AVX512VNNI && __AVX512F__ && !__AVX512VNNI__
-void im2col_sgemm_pack1to4_int8_sse_avx512vnni(const Mat& bottom_im2col, Mat& top_blob, const Mat& kernel, const Option& opt);
+void im2col_sgemm_pack1to4_int8_sse_avx512vnni(const Mat &bottom_im2col,
+        Mat &top_blob, const Mat &kernel,
+        const Option &opt);
 #endif
 
 #if NCNN_RUNTIME_CPU && NCNN_AVXVNNI && __AVX2__ && !__AVXVNNI__
-void im2col_sgemm_pack1to4_int8_sse_avxvnni(const Mat& bottom_im2col, Mat& top_blob, const Mat& kernel, const Option& opt);
+void im2col_sgemm_pack1to4_int8_sse_avxvnni(const Mat &bottom_im2col,
+        Mat &top_blob, const Mat &kernel,
+        const Option &opt);
 #endif
 
 #if NCNN_RUNTIME_CPU && NCNN_AVX2 && __AVX__ && !__AVX2__
-void im2col_sgemm_pack1to4_int8_sse_avx2(const Mat& bottom_im2col, Mat& top_blob, const Mat& kernel, const Option& opt);
+void im2col_sgemm_pack1to4_int8_sse_avx2(const Mat &bottom_im2col,
+        Mat &top_blob, const Mat &kernel,
+        const Option &opt);
 #endif
 
 #if NCNN_RUNTIME_CPU && NCNN_XOP && __SSE2__ && !__XOP__
-void im2col_sgemm_pack1to4_int8_sse_xop(const Mat& bottom_im2col, Mat& top_blob, const Mat& kernel, const Option& opt);
+void im2col_sgemm_pack1to4_int8_sse_xop(const Mat &bottom_im2col, Mat &top_blob,
+                                        const Mat &kernel, const Option &opt);
 #endif
 #endif
 
-static void im2col_sgemm_pack1to4_int8_sse(const Mat& bottom_im2col, Mat& top_blob, const Mat& kernel, const Option& opt)
-{
+static void im2col_sgemm_pack1to4_int8_sse(const Mat &bottom_im2col,
+        Mat &top_blob, const Mat &kernel,
+        const Option &opt) {
 #if !(__AVX512VNNI__ || __AVXVNNI__ || __AVX2__ || __XOP__)
 #if NCNN_RUNTIME_CPU && NCNN_AVX512VNNI && __AVX512F__ && !__AVX512VNNI__
-    if (ncnn::cpu_support_x86_avx512_vnni())
-    {
-        im2col_sgemm_pack1to4_int8_sse_avx512vnni(bottom_im2col, top_blob, kernel, opt);
+    if (ncnn::cpu_support_x86_avx512_vnni()) {
+        im2col_sgemm_pack1to4_int8_sse_avx512vnni(bottom_im2col, top_blob, kernel,
+                opt);
         return;
     }
 #endif
 
 #if NCNN_RUNTIME_CPU && NCNN_AVXVNNI && __AVX2__ && !__AVXVNNI__
-    if (ncnn::cpu_support_x86_avx_vnni())
-    {
-        im2col_sgemm_pack1to4_int8_sse_avxvnni(bottom_im2col, top_blob, kernel, opt);
+    if (ncnn::cpu_support_x86_avx_vnni()) {
+        im2col_sgemm_pack1to4_int8_sse_avxvnni(bottom_im2col, top_blob, kernel,
+                                               opt);
         return;
     }
 #endif
 
 #if NCNN_RUNTIME_CPU && NCNN_AVX2 && __AVX__ && !__AVX2__
-    if (ncnn::cpu_support_x86_avx2())
-    {
+    if (ncnn::cpu_support_x86_avx2()) {
         im2col_sgemm_pack1to4_int8_sse_avx2(bottom_im2col, top_blob, kernel, opt);
         return;
     }
 #endif
 
 #if NCNN_RUNTIME_CPU && NCNN_XOP && __SSE2__ && !__XOP__
-    if (ncnn::cpu_support_x86_xop())
-    {
+    if (ncnn::cpu_support_x86_xop()) {
         im2col_sgemm_pack1to4_int8_sse_xop(bottom_im2col, top_blob, kernel, opt);
         return;
     }
@@ -76,34 +85,40 @@ static void im2col_sgemm_pack1to4_int8_sse(const Mat& bottom_im2col, Mat& top_bl
 
     // permute
     Mat tmp;
-    if (inch >= 4)
-    {
+    if (inch >= 4) {
 #if __AVX2__
         if (size >= 4)
-            tmp.create(4 * maxk, inch / 4 + inch % 4, size / 4 + (size % 4) / 2 + size % 2, 4u, 4, opt.workspace_allocator);
+            tmp.create(4 * maxk, inch / 4 + inch % 4,
+                       size / 4 + (size % 4) / 2 + size % 2, 4u, 4,
+                       opt.workspace_allocator);
         else if (size >= 2)
-            tmp.create(2 * maxk, inch / 4 + inch % 4, size / 2 + size % 2, 4u, 4, opt.workspace_allocator);
+            tmp.create(2 * maxk, inch / 4 + inch % 4, size / 2 + size % 2, 4u, 4,
+                       opt.workspace_allocator);
         else
-            tmp.create(maxk, inch / 4 + inch % 4, size, 4u, 4, opt.workspace_allocator);
+            tmp.create(maxk, inch / 4 + inch % 4, size, 4u, 4,
+                       opt.workspace_allocator);
 #else
         if (size >= 2)
-            tmp.create(2 * maxk, inch / 4 + inch % 4, size / 2 + size % 2, 4u, 4, opt.workspace_allocator);
+            tmp.create(2 * maxk, inch / 4 + inch % 4, size / 2 + size % 2, 4u, 4,
+                       opt.workspace_allocator);
         else
-            tmp.create(maxk, inch / 4 + inch % 4, size, 4u, 4, opt.workspace_allocator);
+            tmp.create(maxk, inch / 4 + inch % 4, size, 4u, 4,
+                       opt.workspace_allocator);
 #endif
-    }
-    else
-    {
+    } else {
 #if __AVX2__
         if (size >= 4)
-            tmp.create(4 * maxk, inch, size / 4 + (size % 4) / 2 + size % 2, 1u, 1, opt.workspace_allocator);
+            tmp.create(4 * maxk, inch, size / 4 + (size % 4) / 2 + size % 2, 1u, 1,
+                       opt.workspace_allocator);
         else if (size >= 2)
-            tmp.create(2 * maxk, inch, size / 2 + size % 2, 1u, 1, opt.workspace_allocator);
+            tmp.create(2 * maxk, inch, size / 2 + size % 2, 1u, 1,
+                       opt.workspace_allocator);
         else
             tmp.create(maxk, inch, size, 1u, 1, opt.workspace_allocator);
 #else
         if (size >= 2)
-            tmp.create(2 * maxk, inch, size / 2 + size % 2, 1u, 1, opt.workspace_allocator);
+            tmp.create(2 * maxk, inch, size / 2 + size % 2, 1u, 1,
+                       opt.workspace_allocator);
         else
             tmp.create(maxk, inch, size, 1u, 1, opt.workspace_allocator);
 #endif
@@ -114,22 +129,23 @@ static void im2col_sgemm_pack1to4_int8_sse(const Mat& bottom_im2col, Mat& top_bl
         int nn_size = size >> 2;
 
         #pragma omp parallel for num_threads(opt.num_threads)
-        for (int ii = 0; ii < nn_size; ii++)
-        {
+        for (int ii = 0; ii < nn_size; ii++) {
             int i = remain_size_start + ii * 4;
 
-            signed char* tmpptr = tmp.channel(i / 4);
+            signed char *tmpptr = tmp.channel(i / 4);
 
             int q = 0;
-            for (; q + 3 < inch; q += 4)
-            {
-                const signed char* img0 = (const signed char*)bottom_im2col.channel(q) + i;
-                const signed char* img1 = (const signed char*)bottom_im2col.channel(q + 1) + i;
-                const signed char* img2 = (const signed char*)bottom_im2col.channel(q + 2) + i;
-                const signed char* img3 = (const signed char*)bottom_im2col.channel(q + 3) + i;
+            for (; q + 3 < inch; q += 4) {
+                const signed char *img0 =
+                    (const signed char *)bottom_im2col.channel(q) + i;
+                const signed char *img1 =
+                    (const signed char *)bottom_im2col.channel(q + 1) + i;
+                const signed char *img2 =
+                    (const signed char *)bottom_im2col.channel(q + 2) + i;
+                const signed char *img3 =
+                    (const signed char *)bottom_im2col.channel(q + 3) + i;
 
-                for (int k = 0; k < maxk; k++)
-                {
+                for (int k = 0; k < maxk; k++) {
                     tmpptr[0] = img0[0];
                     tmpptr[1] = img1[0];
                     tmpptr[2] = img2[0];
@@ -154,12 +170,11 @@ static void im2col_sgemm_pack1to4_int8_sse(const Mat& bottom_im2col, Mat& top_bl
                     img3 += size;
                 }
             }
-            for (; q < inch; q++)
-            {
-                const signed char* img0 = (const signed char*)bottom_im2col.channel(q) + i;
+            for (; q < inch; q++) {
+                const signed char *img0 =
+                    (const signed char *)bottom_im2col.channel(q) + i;
 
-                for (int k = 0; k < maxk; k++)
-                {
+                for (int k = 0; k < maxk; k++) {
                     tmpptr[0] = img0[0];
                     tmpptr[1] = img0[1];
                     tmpptr[2] = img0[2];
@@ -180,26 +195,27 @@ static void im2col_sgemm_pack1to4_int8_sse(const Mat& bottom_im2col, Mat& top_bl
 #endif
 
         #pragma omp parallel for num_threads(opt.num_threads)
-        for (int ii = 0; ii < nn_size; ii++)
-        {
+        for (int ii = 0; ii < nn_size; ii++) {
             int i = remain_size_start + ii * 2;
 
 #if __AVX2__
-            signed char* tmpptr = tmp.channel(i / 4 + (i % 4) / 2);
+            signed char *tmpptr = tmp.channel(i / 4 + (i % 4) / 2);
 #else
-            signed char* tmpptr = tmp.channel(i / 2);
+            signed char *tmpptr = tmp.channel(i / 2);
 #endif
 
             int q = 0;
-            for (; q + 3 < inch; q += 4)
-            {
-                const signed char* img0 = (const signed char*)bottom_im2col.channel(q) + i;
-                const signed char* img1 = (const signed char*)bottom_im2col.channel(q + 1) + i;
-                const signed char* img2 = (const signed char*)bottom_im2col.channel(q + 2) + i;
-                const signed char* img3 = (const signed char*)bottom_im2col.channel(q + 3) + i;
+            for (; q + 3 < inch; q += 4) {
+                const signed char *img0 =
+                    (const signed char *)bottom_im2col.channel(q) + i;
+                const signed char *img1 =
+                    (const signed char *)bottom_im2col.channel(q + 1) + i;
+                const signed char *img2 =
+                    (const signed char *)bottom_im2col.channel(q + 2) + i;
+                const signed char *img3 =
+                    (const signed char *)bottom_im2col.channel(q + 3) + i;
 
-                for (int k = 0; k < maxk; k++)
-                {
+                for (int k = 0; k < maxk; k++) {
                     tmpptr[0] = img0[0];
                     tmpptr[1] = img1[0];
                     tmpptr[2] = img2[0];
@@ -216,12 +232,11 @@ static void im2col_sgemm_pack1to4_int8_sse(const Mat& bottom_im2col, Mat& top_bl
                     img3 += size;
                 }
             }
-            for (; q < inch; q++)
-            {
-                const signed char* img0 = (const signed char*)bottom_im2col.channel(q) + i;
+            for (; q < inch; q++) {
+                const signed char *img0 =
+                    (const signed char *)bottom_im2col.channel(q) + i;
 
-                for (int k = 0; k < maxk; k++)
-                {
+                for (int k = 0; k < maxk; k++) {
                     tmpptr[0] = img0[0];
                     tmpptr[1] = img0[1];
 
@@ -235,24 +250,25 @@ static void im2col_sgemm_pack1to4_int8_sse(const Mat& bottom_im2col, Mat& top_bl
         remain_size_start += nn_size << 1;
 
         #pragma omp parallel for num_threads(opt.num_threads)
-        for (int i = remain_size_start; i < size; i++)
-        {
+        for (int i = remain_size_start; i < size; i++) {
 #if __AVX2__
-            signed char* tmpptr = tmp.channel(i / 4 + (i % 4) / 2 + i % 2);
+            signed char *tmpptr = tmp.channel(i / 4 + (i % 4) / 2 + i % 2);
 #else
-            signed char* tmpptr = tmp.channel(i / 2 + i % 2);
+            signed char *tmpptr = tmp.channel(i / 2 + i % 2);
 #endif
 
             int q = 0;
-            for (; q + 3 < inch; q += 4)
-            {
-                const signed char* img0 = (const signed char*)bottom_im2col.channel(q) + i;
-                const signed char* img1 = (const signed char*)bottom_im2col.channel(q + 1) + i;
-                const signed char* img2 = (const signed char*)bottom_im2col.channel(q + 2) + i;
-                const signed char* img3 = (const signed char*)bottom_im2col.channel(q + 3) + i;
+            for (; q + 3 < inch; q += 4) {
+                const signed char *img0 =
+                    (const signed char *)bottom_im2col.channel(q) + i;
+                const signed char *img1 =
+                    (const signed char *)bottom_im2col.channel(q + 1) + i;
+                const signed char *img2 =
+                    (const signed char *)bottom_im2col.channel(q + 2) + i;
+                const signed char *img3 =
+                    (const signed char *)bottom_im2col.channel(q + 3) + i;
 
-                for (int k = 0; k < maxk; k++)
-                {
+                for (int k = 0; k < maxk; k++) {
                     tmpptr[0] = img0[0];
                     tmpptr[1] = img1[0];
                     tmpptr[2] = img2[0];
@@ -265,12 +281,11 @@ static void im2col_sgemm_pack1to4_int8_sse(const Mat& bottom_im2col, Mat& top_bl
                     img3 += size;
                 }
             }
-            for (; q < inch; q++)
-            {
-                const signed char* img0 = (const signed char*)bottom_im2col.channel(q) + i;
+            for (; q < inch; q++) {
+                const signed char *img0 =
+                    (const signed char *)bottom_im2col.channel(q) + i;
 
-                for (int k = 0; k < maxk; k++)
-                {
+                for (int k = 0; k < maxk; k++) {
                     tmpptr[0] = img0[0];
 
                     tmpptr += 1;
@@ -282,16 +297,14 @@ static void im2col_sgemm_pack1to4_int8_sse(const Mat& bottom_im2col, Mat& top_bl
     }
 
     #pragma omp parallel for num_threads(opt.num_threads)
-    for (int p = 0; p < outch; p++)
-    {
-        int* outptr0 = top_blob.channel(p);
+    for (int p = 0; p < outch; p++) {
+        int *outptr0 = top_blob.channel(p);
 
         int i = 0;
 #if __AVX2__
-        for (; i + 3 < size; i += 4)
-        {
-            const signed char* tmpptr = tmp.channel(i / 4);
-            const signed char* kptr0 = kernel.channel(p);
+        for (; i + 3 < size; i += 4) {
+            const signed char *tmpptr = tmp.channel(i / 4);
+            const signed char *kptr0 = kernel.channel(p);
 
             int nn4 = (inch / 4) * maxk;
             int nn1 = (inch % 4) * maxk;
@@ -299,8 +312,7 @@ static void im2col_sgemm_pack1to4_int8_sse(const Mat& bottom_im2col, Mat& top_bl
             __m256i _sum00_12 = _mm256_setzero_si256();
             __m256i _sum20_32 = _mm256_setzero_si256();
 
-            if (nn4 > 0)
-            {
+            if (nn4 > 0) {
 #if __AVXVNNI__ || __AVX512VNNI__
                 __m256i _sum10_02 = _mm256_setzero_si256();
                 __m256i _sum30_22 = _mm256_setzero_si256();
@@ -314,15 +326,16 @@ static void im2col_sgemm_pack1to4_int8_sse(const Mat& bottom_im2col, Mat& top_bl
 #endif
 
                 int j = 0;
-                for (; j < nn4; j++)
-                {
-                    __m128i _val0123 = _mm_loadu_si128((const __m128i*)tmpptr);
+                for (; j < nn4; j++) {
+                    __m128i _val0123 = _mm_loadu_si128((const __m128i *)tmpptr);
                     __m256i _val0123_16 = _mm256_cvtepi8_epi16(_val0123);
 
-                    __m256i _val01_16 = _mm256_permute4x64_epi64(_val0123_16, _MM_SHUFFLE(1, 1, 0, 0));
-                    __m256i _val23_16 = _mm256_permute4x64_epi64(_val0123_16, _MM_SHUFFLE(3, 3, 2, 2));
+                    __m256i _val01_16 =
+                        _mm256_permute4x64_epi64(_val0123_16, _MM_SHUFFLE(1, 1, 0, 0));
+                    __m256i _val23_16 =
+                        _mm256_permute4x64_epi64(_val0123_16, _MM_SHUFFLE(3, 3, 2, 2));
 
-                    __m128i _w01 = _mm_loadu_si128((const __m128i*)kptr0);
+                    __m128i _w01 = _mm_loadu_si128((const __m128i *)kptr0);
                     __m256i _w01_16 = _mm256_cvtepi8_epi16(_w01);
 
                     __m256i _val10_16 = _mm256_permute4x64_epi64(_val01_16, 78);
@@ -343,14 +356,22 @@ static void im2col_sgemm_pack1to4_int8_sse(const Mat& bottom_im2col, Mat& top_bl
                     __m256i _sl30_21 = _mm256_mullo_epi16(_val32_16, _w01_16);
                     __m256i _sh30_21 = _mm256_mulhi_epi16(_val32_16, _w01_16);
 
-                    _sum00_12 = _mm256_add_epi32(_sum00_12, _mm256_unpacklo_epi16(_sl00_11, _sh00_11));
-                    _sum10_02 = _mm256_add_epi32(_sum10_02, _mm256_unpacklo_epi16(_sl10_01, _sh10_01));
-                    _sum01_13 = _mm256_add_epi32(_sum01_13, _mm256_unpackhi_epi16(_sl00_11, _sh00_11));
-                    _sum11_03 = _mm256_add_epi32(_sum11_03, _mm256_unpackhi_epi16(_sl10_01, _sh10_01));
-                    _sum20_32 = _mm256_add_epi32(_sum20_32, _mm256_unpacklo_epi16(_sl20_31, _sh20_31));
-                    _sum30_22 = _mm256_add_epi32(_sum30_22, _mm256_unpacklo_epi16(_sl30_21, _sh30_21));
-                    _sum21_33 = _mm256_add_epi32(_sum21_33, _mm256_unpackhi_epi16(_sl20_31, _sh20_31));
-                    _sum31_23 = _mm256_add_epi32(_sum31_23, _mm256_unpackhi_epi16(_sl30_21, _sh30_21));
+                    _sum00_12 = _mm256_add_epi32(
+                                    _sum00_12, _mm256_unpacklo_epi16(_sl00_11, _sh00_11));
+                    _sum10_02 = _mm256_add_epi32(
+                                    _sum10_02, _mm256_unpacklo_epi16(_sl10_01, _sh10_01));
+                    _sum01_13 = _mm256_add_epi32(
+                                    _sum01_13, _mm256_unpackhi_epi16(_sl00_11, _sh00_11));
+                    _sum11_03 = _mm256_add_epi32(
+                                    _sum11_03, _mm256_unpackhi_epi16(_sl10_01, _sh10_01));
+                    _sum20_32 = _mm256_add_epi32(
+                                    _sum20_32, _mm256_unpacklo_epi16(_sl20_31, _sh20_31));
+                    _sum30_22 = _mm256_add_epi32(
+                                    _sum30_22, _mm256_unpacklo_epi16(_sl30_21, _sh30_21));
+                    _sum21_33 = _mm256_add_epi32(
+                                    _sum21_33, _mm256_unpackhi_epi16(_sl20_31, _sh20_31));
+                    _sum31_23 = _mm256_add_epi32(
+                                    _sum31_23, _mm256_unpackhi_epi16(_sl30_21, _sh30_21));
 #endif
 
                     tmpptr += 16;
@@ -361,8 +382,10 @@ static void im2col_sgemm_pack1to4_int8_sse(const Mat& bottom_im2col, Mat& top_bl
                 _sum00_12 = _mm256_hadd_epi32(_sum00_12, _sum10_02);
                 _sum20_32 = _mm256_hadd_epi32(_sum20_32, _sum30_22);
 
-                _sum00_12 = _mm256_permute4x64_epi64(_sum00_12, _MM_SHUFFLE(2, 1, 3, 0));
-                _sum20_32 = _mm256_permute4x64_epi64(_sum20_32, _MM_SHUFFLE(2, 1, 3, 0));
+                _sum00_12 =
+                    _mm256_permute4x64_epi64(_sum00_12, _MM_SHUFFLE(2, 1, 3, 0));
+                _sum20_32 =
+                    _mm256_permute4x64_epi64(_sum20_32, _MM_SHUFFLE(2, 1, 3, 0));
 #else
                 // transpose 4x8
                 {
@@ -408,12 +431,16 @@ static void im2col_sgemm_pack1to4_int8_sse(const Mat& bottom_im2col, Mat& top_bl
             __m128i _sum30 = _mm256_extracti128_si256(_sum20_32, 1);
 
             int j = 0;
-            for (; j < nn1; j++)
-            {
-                __m128i _val01 = _mm_set_epi16(tmpptr[1], tmpptr[1], tmpptr[1], tmpptr[1], tmpptr[0], tmpptr[0], tmpptr[0], tmpptr[0]);
-                __m128i _val23 = _mm_set_epi16(tmpptr[3], tmpptr[3], tmpptr[3], tmpptr[3], tmpptr[2], tmpptr[2], tmpptr[2], tmpptr[2]);
+            for (; j < nn1; j++) {
+                __m128i _val01 =
+                    _mm_set_epi16(tmpptr[1], tmpptr[1], tmpptr[1], tmpptr[1], tmpptr[0],
+                                  tmpptr[0], tmpptr[0], tmpptr[0]);
+                __m128i _val23 =
+                    _mm_set_epi16(tmpptr[3], tmpptr[3], tmpptr[3], tmpptr[3], tmpptr[2],
+                                  tmpptr[2], tmpptr[2], tmpptr[2]);
 
-                __m128i _w0123 = _mm_set_epi16(kptr0[3], kptr0[2], kptr0[1], kptr0[0], kptr0[3], kptr0[2], kptr0[1], kptr0[0]);
+                __m128i _w0123 = _mm_set_epi16(kptr0[3], kptr0[2], kptr0[1], kptr0[0],
+                                               kptr0[3], kptr0[2], kptr0[1], kptr0[0]);
 
                 __m128i _sl00 = _mm_mullo_epi16(_val01, _w0123);
                 __m128i _sh00 = _mm_mulhi_epi16(_val01, _w0123);
@@ -429,21 +456,20 @@ static void im2col_sgemm_pack1to4_int8_sse(const Mat& bottom_im2col, Mat& top_bl
                 kptr0 += 4;
             }
 
-            _mm_storeu_si128((__m128i*)outptr0, _sum00);
-            _mm_storeu_si128((__m128i*)(outptr0 + 4), _sum10);
-            _mm_storeu_si128((__m128i*)(outptr0 + 8), _sum20);
-            _mm_storeu_si128((__m128i*)(outptr0 + 12), _sum30);
+            _mm_storeu_si128((__m128i *)outptr0, _sum00);
+            _mm_storeu_si128((__m128i *)(outptr0 + 4), _sum10);
+            _mm_storeu_si128((__m128i *)(outptr0 + 8), _sum20);
+            _mm_storeu_si128((__m128i *)(outptr0 + 12), _sum30);
             outptr0 += 16;
         }
 #endif
-        for (; i + 1 < size; i += 2)
-        {
+        for (; i + 1 < size; i += 2) {
 #if __AVX2__
-            const signed char* tmpptr = tmp.channel(i / 4 + (i % 4) / 2);
+            const signed char *tmpptr = tmp.channel(i / 4 + (i % 4) / 2);
 #else
-            const signed char* tmpptr = tmp.channel(i / 2);
+            const signed char *tmpptr = tmp.channel(i / 2);
 #endif
-            const signed char* kptr0 = kernel.channel(p);
+            const signed char *kptr0 = kernel.channel(p);
 
             int nn4 = (inch / 4) * maxk;
             int nn1 = (inch % 4) * maxk;
@@ -455,8 +481,7 @@ static void im2col_sgemm_pack1to4_int8_sse(const Mat& bottom_im2col, Mat& top_bl
             __m128i _sum10 = _mm_setzero_si128();
 #endif
 
-            if (nn4 > 0)
-            {
+            if (nn4 > 0) {
 #if __AVX2__
 #if __AVXVNNI__ || __AVX512VNNI__
                 __m256i _sum10_02 = _mm256_setzero_si256();
@@ -480,15 +505,15 @@ static void im2col_sgemm_pack1to4_int8_sse(const Mat& bottom_im2col, Mat& top_bl
 #endif
 
                 int j = 0;
-                for (; j < nn4; j++)
-                {
+                for (; j < nn4; j++) {
 #if __AVX2__
-                    __m128i _val01 = _mm_loadu_si128((const __m128i*)tmpptr);
+                    __m128i _val01 = _mm_loadu_si128((const __m128i *)tmpptr);
                     __m256i _val01_16 = _mm256_cvtepi8_epi16(_val01);
 
-                    _val01_16 = _mm256_permute4x64_epi64(_val01_16, _MM_SHUFFLE(1, 1, 0, 0));
+                    _val01_16 =
+                        _mm256_permute4x64_epi64(_val01_16, _MM_SHUFFLE(1, 1, 0, 0));
 
-                    __m128i _w01 = _mm_loadu_si128((const __m128i*)kptr0);
+                    __m128i _w01 = _mm_loadu_si128((const __m128i *)kptr0);
                     __m256i _w01_16 = _mm256_cvtepi8_epi16(_w01);
 
                     __m256i _val10_16 = _mm256_permute4x64_epi64(_val01_16, 78);
@@ -502,13 +527,17 @@ static void im2col_sgemm_pack1to4_int8_sse(const Mat& bottom_im2col, Mat& top_bl
                     __m256i _sl10_01 = _mm256_mullo_epi16(_val10_16, _w01_16);
                     __m256i _sh10_01 = _mm256_mulhi_epi16(_val10_16, _w01_16);
 
-                    _sum00_12 = _mm256_add_epi32(_sum00_12, _mm256_unpacklo_epi16(_sl00_11, _sh00_11));
-                    _sum10_02 = _mm256_add_epi32(_sum10_02, _mm256_unpacklo_epi16(_sl10_01, _sh10_01));
-                    _sum01_13 = _mm256_add_epi32(_sum01_13, _mm256_unpackhi_epi16(_sl00_11, _sh00_11));
-                    _sum11_03 = _mm256_add_epi32(_sum11_03, _mm256_unpackhi_epi16(_sl10_01, _sh10_01));
+                    _sum00_12 = _mm256_add_epi32(
+                                    _sum00_12, _mm256_unpacklo_epi16(_sl00_11, _sh00_11));
+                    _sum10_02 = _mm256_add_epi32(
+                                    _sum10_02, _mm256_unpacklo_epi16(_sl10_01, _sh10_01));
+                    _sum01_13 = _mm256_add_epi32(
+                                    _sum01_13, _mm256_unpackhi_epi16(_sl00_11, _sh00_11));
+                    _sum11_03 = _mm256_add_epi32(
+                                    _sum11_03, _mm256_unpackhi_epi16(_sl10_01, _sh10_01));
 #endif
 #else
-                    __m128i _val01 = _mm_loadl_epi64((const __m128i*)tmpptr);
+                    __m128i _val01 = _mm_loadl_epi64((const __m128i *)tmpptr);
 #if __SSE4_1__
                     _val01 = _mm_cvtepi8_epi16(_val01);
 #else
@@ -519,7 +548,7 @@ static void im2col_sgemm_pack1to4_int8_sse(const Mat& bottom_im2col, Mat& top_bl
                     __m128i _val0 = _mm_shuffle_epi32(_val01, _MM_SHUFFLE(1, 0, 1, 0));
                     __m128i _val1 = _mm_shuffle_epi32(_val01, _MM_SHUFFLE(3, 2, 3, 2));
 
-                    __m128i _w01 = _mm_loadu_si128((const __m128i*)kptr0);
+                    __m128i _w01 = _mm_loadu_si128((const __m128i *)kptr0);
                     __m128i _extw01 = _mm_cmpgt_epi8(_mm_setzero_si128(), _w01);
                     __m128i _w0 = _mm_unpacklo_epi8(_w01, _extw01);
                     __m128i _w1 = _mm_unpackhi_epi8(_w01, _extw01);
@@ -558,7 +587,8 @@ static void im2col_sgemm_pack1to4_int8_sse(const Mat& bottom_im2col, Mat& top_bl
 #if __AVXVNNI__ || __AVX512VNNI__
                 _sum00_12 = _mm256_hadd_epi32(_sum00_12, _sum10_02);
 
-                _sum00_12 = _mm256_permute4x64_epi64(_sum00_12, _MM_SHUFFLE(2, 1, 3, 0));
+                _sum00_12 =
+                    _mm256_permute4x64_epi64(_sum00_12, _MM_SHUFFLE(2, 1, 3, 0));
 #else
                 // transpose 4x8
                 {
@@ -626,11 +656,12 @@ static void im2col_sgemm_pack1to4_int8_sse(const Mat& bottom_im2col, Mat& top_bl
 #endif
 
             int j = 0;
-            for (; j < nn1; j++)
-            {
-                __m128i _val = _mm_set_epi16(tmpptr[1], tmpptr[1], tmpptr[1], tmpptr[1], tmpptr[0], tmpptr[0], tmpptr[0], tmpptr[0]);
+            for (; j < nn1; j++) {
+                __m128i _val =
+                    _mm_set_epi16(tmpptr[1], tmpptr[1], tmpptr[1], tmpptr[1], tmpptr[0],
+                                  tmpptr[0], tmpptr[0], tmpptr[0]);
 
-                __m128i _w0123 = _mm_loadl_epi64((const __m128i*)kptr0);
+                __m128i _w0123 = _mm_loadl_epi64((const __m128i *)kptr0);
 #if __SSE4_1__
                 _w0123 = _mm_cvtepi8_epi16(_w0123);
 #else
@@ -650,34 +681,31 @@ static void im2col_sgemm_pack1to4_int8_sse(const Mat& bottom_im2col, Mat& top_bl
                 kptr0 += 4;
             }
 
-            _mm_storeu_si128((__m128i*)outptr0, _sum00);
-            _mm_storeu_si128((__m128i*)(outptr0 + 4), _sum10);
+            _mm_storeu_si128((__m128i *)outptr0, _sum00);
+            _mm_storeu_si128((__m128i *)(outptr0 + 4), _sum10);
             outptr0 += 8;
         }
-        for (; i < size; i++)
-        {
+        for (; i < size; i++) {
 #if __AVX2__
-            const signed char* tmpptr = tmp.channel(i / 4 + (i % 4) / 2 + i % 2);
+            const signed char *tmpptr = tmp.channel(i / 4 + (i % 4) / 2 + i % 2);
 #else
-            const signed char* tmpptr = tmp.channel(i / 2 + i % 2);
+            const signed char *tmpptr = tmp.channel(i / 2 + i % 2);
 #endif
-            const signed char* kptr0 = kernel.channel(p);
+            const signed char *kptr0 = kernel.channel(p);
 
             int nn4 = (inch / 4) * maxk;
             int nn1 = (inch % 4) * maxk;
 
             __m128i _sum0 = _mm_setzero_si128();
 
-            if (nn4 > 0)
-            {
+            if (nn4 > 0) {
                 __m128i _sum1 = _mm_setzero_si128();
                 __m128i _sum2 = _mm_setzero_si128();
                 __m128i _sum3 = _mm_setzero_si128();
 
                 int j = 0;
-                for (; j < nn4; j++)
-                {
-                    __m128i _val01 = _mm_loadl_epi64((const __m128i*)tmpptr);
+                for (; j < nn4; j++) {
+                    __m128i _val01 = _mm_loadl_epi64((const __m128i *)tmpptr);
 #if __SSE4_1__
                     __m128i _val0 = _mm_cvtepi8_epi16(_val01);
 #else
@@ -687,7 +715,7 @@ static void im2col_sgemm_pack1to4_int8_sse(const Mat& bottom_im2col, Mat& top_bl
 
                     _val0 = _mm_shuffle_epi32(_val0, _MM_SHUFFLE(1, 0, 1, 0));
 
-                    __m128i _w01 = _mm_loadu_si128((const __m128i*)kptr0);
+                    __m128i _w01 = _mm_loadu_si128((const __m128i *)kptr0);
                     __m128i _extw01 = _mm_cmpgt_epi8(_mm_setzero_si128(), _w01);
                     __m128i _w0 = _mm_unpacklo_epi8(_w01, _extw01);
                     __m128i _w1 = _mm_unpackhi_epi8(_w01, _extw01);
@@ -725,11 +753,10 @@ static void im2col_sgemm_pack1to4_int8_sse(const Mat& bottom_im2col, Mat& top_bl
             }
 
             int j = 0;
-            for (; j < nn1; j++)
-            {
+            for (; j < nn1; j++) {
                 __m128i _val = _mm_set1_epi16(tmpptr[0]);
 
-                __m128i _w0123 = _mm_loadl_epi64((const __m128i*)kptr0);
+                __m128i _w0123 = _mm_loadl_epi64((const __m128i *)kptr0);
 #if __SSE4_1__
                 _w0123 = _mm_cvtepi8_epi16(_w0123);
 #else
@@ -746,14 +773,15 @@ static void im2col_sgemm_pack1to4_int8_sse(const Mat& bottom_im2col, Mat& top_bl
                 kptr0 += 4;
             }
 
-            _mm_storeu_si128((__m128i*)outptr0, _sum0);
+            _mm_storeu_si128((__m128i *)outptr0, _sum0);
             outptr0 += 4;
         }
     }
 }
 
-static void convolution_im2col_sgemm_transform_kernel_pack1to4_int8_sse(const Mat& _kernel, Mat& kernel_tm, int inch, int outch, int kernel_w, int kernel_h)
-{
+static void convolution_im2col_sgemm_transform_kernel_pack1to4_int8_sse(
+    const Mat &_kernel, Mat &kernel_tm, int inch, int outch, int kernel_w,
+    int kernel_h) {
     const int maxk = kernel_w * kernel_h;
 
     // interleave
@@ -765,20 +793,16 @@ static void convolution_im2col_sgemm_transform_kernel_pack1to4_int8_sse(const Ma
     else
         kernel_tm.create(4 * maxk, inch, outch / 4, (size_t)1u);
 
-    for (int q = 0; q + 3 < outch; q += 4)
-    {
-        signed char* g00 = kernel_tm.channel(q / 4);
+    for (int q = 0; q + 3 < outch; q += 4) {
+        signed char *g00 = kernel_tm.channel(q / 4);
 
         int p = 0;
-        for (; p + 3 < inch; p += 4)
-        {
-            for (int k = 0; k < maxk; k++)
-            {
-                for (int i = 0; i < 4; i++)
-                {
-                    for (int j = 0; j < 4; j++)
-                    {
-                        const signed char* k00 = kernel.channel(q + i).row<const signed char>(p + j);
+        for (; p + 3 < inch; p += 4) {
+            for (int k = 0; k < maxk; k++) {
+                for (int i = 0; i < 4; i++) {
+                    for (int j = 0; j < 4; j++) {
+                        const signed char *k00 =
+                            kernel.channel(q + i).row<const signed char>(p + j);
 
                         g00[0] = k00[k];
 
@@ -787,13 +811,11 @@ static void convolution_im2col_sgemm_transform_kernel_pack1to4_int8_sse(const Ma
                 }
             }
         }
-        for (; p < inch; p++)
-        {
-            for (int k = 0; k < maxk; k++)
-            {
-                for (int i = 0; i < 4; i++)
-                {
-                    const signed char* k00 = kernel.channel(q + i).row<const signed char>(p);
+        for (; p < inch; p++) {
+            for (int k = 0; k < maxk; k++) {
+                for (int i = 0; i < 4; i++) {
+                    const signed char *k00 =
+                        kernel.channel(q + i).row<const signed char>(p);
 
                     g00[0] = k00[k];
 
@@ -804,8 +826,10 @@ static void convolution_im2col_sgemm_transform_kernel_pack1to4_int8_sse(const Ma
     }
 }
 
-static void convolution_im2col_sgemm_pack1to4_int8_sse(const Mat& bottom_blob, Mat& top_blob, const Mat& kernel, int kernel_w, int kernel_h, int dilation_w, int dilation_h, int stride_w, int stride_h, const Option& opt)
-{
+static void convolution_im2col_sgemm_pack1to4_int8_sse(
+    const Mat &bottom_blob, Mat &top_blob, const Mat &kernel, int kernel_w,
+    int kernel_h, int dilation_w, int dilation_h, int stride_w, int stride_h,
+    const Option &opt) {
     int w = bottom_blob.w;
     int inch = bottom_blob.c;
 
@@ -821,22 +845,18 @@ static void convolution_im2col_sgemm_pack1to4_int8_sse(const Mat& bottom_blob, M
         const int gap = w * stride_h - outw * stride_w;
 
         #pragma omp parallel for num_threads(opt.num_threads)
-        for (int p = 0; p < inch; p++)
-        {
+        for (int p = 0; p < inch; p++) {
             const Mat img = bottom_blob.channel(p);
-            signed char* ptr = bottom_im2col.channel(p);
+            signed char *ptr = bottom_im2col.channel(p);
 
-            for (int u = 0; u < kernel_h; u++)
-            {
-                for (int v = 0; v < kernel_w; v++)
-                {
-                    const signed char* sptr = img.row<const signed char>(dilation_h * u) + dilation_w * v;
+            for (int u = 0; u < kernel_h; u++) {
+                for (int v = 0; v < kernel_w; v++) {
+                    const signed char *sptr =
+                        img.row<const signed char>(dilation_h * u) + dilation_w * v;
 
-                    for (int i = 0; i < outh; i++)
-                    {
+                    for (int i = 0; i < outh; i++) {
                         int j = 0;
-                        for (; j + 3 < outw; j += 4)
-                        {
+                        for (; j + 3 < outw; j += 4) {
                             ptr[0] = sptr[0];
                             ptr[1] = sptr[stride_w];
                             ptr[2] = sptr[stride_w * 2];
@@ -845,16 +865,14 @@ static void convolution_im2col_sgemm_pack1to4_int8_sse(const Mat& bottom_blob, M
                             sptr += stride_w * 4;
                             ptr += 4;
                         }
-                        for (; j + 1 < outw; j += 2)
-                        {
+                        for (; j + 1 < outw; j += 2) {
                             ptr[0] = sptr[0];
                             ptr[1] = sptr[stride_w];
 
                             sptr += stride_w * 2;
                             ptr += 2;
                         }
-                        for (; j < outw; j++)
-                        {
+                        for (; j < outw; j++) {
                             ptr[0] = sptr[0];
 
                             sptr += stride_w;

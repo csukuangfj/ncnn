@@ -1,16 +1,19 @@
-// Tencent is pleased to support the open source community by making ncnn available.
+// Tencent is pleased to support the open source community by making ncnn
+// available.
 //
 // Copyright (C) 2019 THL A29 Limited, a Tencent company. All rights reserved.
 //
-// Licensed under the BSD 3-Clause License (the "License"); you may not use this file except
-// in compliance with the License. You may obtain a copy of the License at
+// Licensed under the BSD 3-Clause License (the "License"); you may not use this
+// file except in compliance with the License. You may obtain a copy of the
+// License at
 //
 // https://opensource.org/licenses/BSD-3-Clause
 //
-// Unless required by applicable law or agreed to in writing, software distributed
-// under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
-// CONDITIONS OF ANY KIND, either express or implied. See the License for the
-// specific language governing permissions and limitations under the License.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+// WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+// License for the specific language governing permissions and limitations under
+// the License.
 
 #include "packing_x86.h"
 
@@ -18,25 +21,21 @@
 
 namespace ncnn {
 
-Packing_x86::Packing_x86()
-{
+Packing_x86::Packing_x86() {
     support_packing = true;
 }
 
-int Packing_x86::forward(const Mat& bottom_blob, Mat& top_blob, const Option& opt) const
-{
+int Packing_x86::forward(const Mat &bottom_blob, Mat &top_blob,
+                         const Option &opt) const {
     int elembits = bottom_blob.elembits();
 
-    if (elembits == 8)
-        return forward_int8(bottom_blob, top_blob, opt);
+    if (elembits == 8) return forward_int8(bottom_blob, top_blob, opt);
 
-    if (use_padding)
-    {
+    if (use_padding) {
         return Packing::forward(bottom_blob, top_blob, opt);
     }
 
-    if (elembits != 32)
-    {
+    if (elembits != 32) {
         // non-fp32 type
         return Packing::forward(bottom_blob, top_blob, opt);
     }
@@ -44,8 +43,7 @@ int Packing_x86::forward(const Mat& bottom_blob, Mat& top_blob, const Option& op
     size_t elemsize = bottom_blob.elemsize;
     int elempack = bottom_blob.elempack;
 
-    if (elempack == out_elempack)
-    {
+    if (elempack == out_elempack) {
         top_blob = bottom_blob;
         return 0;
     }
@@ -63,8 +61,9 @@ int Packing_x86::forward(const Mat& bottom_blob, Mat& top_blob, const Option& op
     bool pack8to16 = elempack == 8 && out_elempack == 16;
     bool pack16to8 = elempack == 16 && out_elempack == 8;
 
-    if (!pack1to4 && !pack4to1 && !pack1to8 && !pack8to1 && !pack4to8 && !pack8to4 && !pack1to16 && !pack16to1 && !pack4to16 && !pack16to4 && !pack8to16 && !pack16to8)
-    {
+    if (!pack1to4 && !pack4to1 && !pack1to8 && !pack8to1 && !pack4to8 &&
+            !pack8to4 && !pack1to16 && !pack16to1 && !pack4to16 && !pack16to4 &&
+            !pack8to16 && !pack16to8) {
         return Packing::forward(bottom_blob, top_blob, opt);
     }
 
@@ -74,28 +73,23 @@ int Packing_x86::forward(const Mat& bottom_blob, Mat& top_blob, const Option& op
     int channels = bottom_blob.c;
     int dims = bottom_blob.dims;
 
-    if (!use_padding)
-    {
+    if (!use_padding) {
         // identity if use_padding not allowed
-        if (dims == 1 && w * elempack % out_elempack != 0)
-        {
+        if (dims == 1 && w * elempack % out_elempack != 0) {
             top_blob = bottom_blob;
             return 0;
         }
-        if (dims == 2 && h * elempack % out_elempack != 0)
-        {
+        if (dims == 2 && h * elempack % out_elempack != 0) {
             top_blob = bottom_blob;
             return 0;
         }
-        if ((dims == 3 || dims == 4) && channels * elempack % out_elempack != 0)
-        {
+        if ((dims == 3 || dims == 4) && channels * elempack % out_elempack != 0) {
             top_blob = bottom_blob;
             return 0;
         }
     }
 
-    if (dims == 1)
-    {
+    if (dims == 1) {
         top_blob = bottom_blob;
         top_blob.w = w * elempack / out_elempack;
         top_blob.cstep = w * elempack / out_elempack;
@@ -104,31 +98,26 @@ int Packing_x86::forward(const Mat& bottom_blob, Mat& top_blob, const Option& op
         return 0;
     }
 
-    if (dims == 2)
-    {
+    if (dims == 2) {
         int outh = h * elempack / out_elempack;
         size_t out_elemsize = elemsize / elempack * out_elempack;
 
         top_blob.create(w, outh, out_elemsize, out_elempack, opt.blob_allocator);
-        if (top_blob.empty())
-            return -100;
+        if (top_blob.empty()) return -100;
 
-        if (pack1to4)
-        {
+        if (pack1to4) {
             #pragma omp parallel for num_threads(opt.num_threads)
-            for (int i = 0; i < outh; i++)
-            {
-                const float* r0 = bottom_blob.row(i * 4);
-                const float* r1 = bottom_blob.row(i * 4 + 1);
-                const float* r2 = bottom_blob.row(i * 4 + 2);
-                const float* r3 = bottom_blob.row(i * 4 + 3);
+            for (int i = 0; i < outh; i++) {
+                const float *r0 = bottom_blob.row(i * 4);
+                const float *r1 = bottom_blob.row(i * 4 + 1);
+                const float *r2 = bottom_blob.row(i * 4 + 2);
+                const float *r3 = bottom_blob.row(i * 4 + 3);
 
-                float* outptr = top_blob.row(i);
+                float *outptr = top_blob.row(i);
 
                 int j = 0;
 #if __SSE2__
-                for (; j + 3 < w; j += 4)
-                {
+                for (; j + 3 < w; j += 4) {
                     // transpose 4x4
                     __m128 _r0 = _mm_loadu_ps(r0);
                     __m128 _r1 = _mm_loadu_ps(r1);
@@ -148,9 +137,8 @@ int Packing_x86::forward(const Mat& bottom_blob, Mat& top_blob, const Option& op
                     r3 += 4;
                     outptr += 16;
                 }
-#endif // __SSE2__
-                for (; j < w; j++)
-                {
+#endif  // __SSE2__
+                for (; j < w; j++) {
                     outptr[0] = *r0++;
                     outptr[1] = *r1++;
                     outptr[2] = *r2++;
@@ -160,22 +148,19 @@ int Packing_x86::forward(const Mat& bottom_blob, Mat& top_blob, const Option& op
                 }
             }
         }
-        if (pack4to1)
-        {
+        if (pack4to1) {
             #pragma omp parallel for num_threads(opt.num_threads)
-            for (int i = 0; i < h; i++)
-            {
-                const float* r0 = bottom_blob.row(i);
+            for (int i = 0; i < h; i++) {
+                const float *r0 = bottom_blob.row(i);
 
-                float* outptr0 = top_blob.row(i * 4);
-                float* outptr1 = top_blob.row(i * 4 + 1);
-                float* outptr2 = top_blob.row(i * 4 + 2);
-                float* outptr3 = top_blob.row(i * 4 + 3);
+                float *outptr0 = top_blob.row(i * 4);
+                float *outptr1 = top_blob.row(i * 4 + 1);
+                float *outptr2 = top_blob.row(i * 4 + 2);
+                float *outptr3 = top_blob.row(i * 4 + 3);
 
                 int j = 0;
 #if __SSE2__
-                for (; j + 3 < w; j += 4)
-                {
+                for (; j + 3 < w; j += 4) {
                     // transpose 4x4
                     __m128 _r0 = _mm_load_ps(r0);
                     __m128 _r1 = _mm_load_ps(r0 + 4);
@@ -195,9 +180,8 @@ int Packing_x86::forward(const Mat& bottom_blob, Mat& top_blob, const Option& op
                     outptr2 += 4;
                     outptr3 += 4;
                 }
-#endif // __SSE2__
-                for (; j < w; j++)
-                {
+#endif  // __SSE2__
+                for (; j < w; j++) {
                     *outptr0++ = r0[0];
                     *outptr1++ = r0[1];
                     *outptr2++ = r0[2];
@@ -207,26 +191,23 @@ int Packing_x86::forward(const Mat& bottom_blob, Mat& top_blob, const Option& op
                 }
             }
         }
-        if (pack1to8)
-        {
+        if (pack1to8) {
             #pragma omp parallel for num_threads(opt.num_threads)
-            for (int i = 0; i < outh; i++)
-            {
-                const float* r0 = bottom_blob.row(i * 8);
-                const float* r1 = bottom_blob.row(i * 8 + 1);
-                const float* r2 = bottom_blob.row(i * 8 + 2);
-                const float* r3 = bottom_blob.row(i * 8 + 3);
-                const float* r4 = bottom_blob.row(i * 8 + 4);
-                const float* r5 = bottom_blob.row(i * 8 + 5);
-                const float* r6 = bottom_blob.row(i * 8 + 6);
-                const float* r7 = bottom_blob.row(i * 8 + 7);
+            for (int i = 0; i < outh; i++) {
+                const float *r0 = bottom_blob.row(i * 8);
+                const float *r1 = bottom_blob.row(i * 8 + 1);
+                const float *r2 = bottom_blob.row(i * 8 + 2);
+                const float *r3 = bottom_blob.row(i * 8 + 3);
+                const float *r4 = bottom_blob.row(i * 8 + 4);
+                const float *r5 = bottom_blob.row(i * 8 + 5);
+                const float *r6 = bottom_blob.row(i * 8 + 6);
+                const float *r7 = bottom_blob.row(i * 8 + 7);
 
-                float* outptr = top_blob.row(i);
+                float *outptr = top_blob.row(i);
 
                 int j = 0;
 #if __AVX__
-                for (; j + 7 < w; j += 8)
-                {
+                for (; j + 7 < w; j += 8) {
                     __m256 _row0 = _mm256_loadu_ps(r0);
                     __m256 _row1 = _mm256_loadu_ps(r1);
                     __m256 _row2 = _mm256_loadu_ps(r2);
@@ -254,9 +235,8 @@ int Packing_x86::forward(const Mat& bottom_blob, Mat& top_blob, const Option& op
                     r7 += 8;
                     outptr += 64;
                 }
-#endif // __AVX__
-                for (; j < w; j++)
-                {
+#endif  // __AVX__
+                for (; j < w; j++) {
                     outptr[0] = *r0++;
                     outptr[1] = *r1++;
                     outptr[2] = *r2++;
@@ -270,26 +250,23 @@ int Packing_x86::forward(const Mat& bottom_blob, Mat& top_blob, const Option& op
                 }
             }
         }
-        if (pack8to1)
-        {
+        if (pack8to1) {
             #pragma omp parallel for num_threads(opt.num_threads)
-            for (int i = 0; i < h; i++)
-            {
-                const float* r0 = bottom_blob.row(i);
+            for (int i = 0; i < h; i++) {
+                const float *r0 = bottom_blob.row(i);
 
-                float* outptr0 = top_blob.row(i * 8);
-                float* outptr1 = top_blob.row(i * 8 + 1);
-                float* outptr2 = top_blob.row(i * 8 + 2);
-                float* outptr3 = top_blob.row(i * 8 + 3);
-                float* outptr4 = top_blob.row(i * 8 + 4);
-                float* outptr5 = top_blob.row(i * 8 + 5);
-                float* outptr6 = top_blob.row(i * 8 + 6);
-                float* outptr7 = top_blob.row(i * 8 + 7);
+                float *outptr0 = top_blob.row(i * 8);
+                float *outptr1 = top_blob.row(i * 8 + 1);
+                float *outptr2 = top_blob.row(i * 8 + 2);
+                float *outptr3 = top_blob.row(i * 8 + 3);
+                float *outptr4 = top_blob.row(i * 8 + 4);
+                float *outptr5 = top_blob.row(i * 8 + 5);
+                float *outptr6 = top_blob.row(i * 8 + 6);
+                float *outptr7 = top_blob.row(i * 8 + 7);
 
                 int j = 0;
 #if __AVX__
-                for (; j + 7 < w; j += 8)
-                {
+                for (; j + 7 < w; j += 8) {
                     __m256 _row0 = _mm256_loadu_ps(r0);
                     __m256 _row1 = _mm256_loadu_ps(r0 + 8);
                     __m256 _row2 = _mm256_loadu_ps(r0 + 16);
@@ -318,9 +295,8 @@ int Packing_x86::forward(const Mat& bottom_blob, Mat& top_blob, const Option& op
                     outptr6 += 8;
                     outptr7 += 8;
                 }
-#endif // __AVX__
-                for (; j < w; j++)
-                {
+#endif  // __AVX__
+                for (; j < w; j++) {
                     *outptr0++ = r0[0];
                     *outptr1++ = r0[1];
                     *outptr2++ = r0[2];
@@ -334,18 +310,15 @@ int Packing_x86::forward(const Mat& bottom_blob, Mat& top_blob, const Option& op
                 }
             }
         }
-        if (pack4to8)
-        {
+        if (pack4to8) {
             #pragma omp parallel for num_threads(opt.num_threads)
-            for (int i = 0; i < outh; i++)
-            {
-                const float* r0 = bottom_blob.row(i * 2);
-                const float* r1 = bottom_blob.row(i * 2 + 1);
+            for (int i = 0; i < outh; i++) {
+                const float *r0 = bottom_blob.row(i * 2);
+                const float *r1 = bottom_blob.row(i * 2 + 1);
 
-                float* outptr = top_blob.row(i);
+                float *outptr = top_blob.row(i);
 
-                for (int j = 0; j < w; j++)
-                {
+                for (int j = 0; j < w; j++) {
                     outptr[0] = r0[0];
                     outptr[1] = r0[1];
                     outptr[2] = r0[2];
@@ -361,18 +334,15 @@ int Packing_x86::forward(const Mat& bottom_blob, Mat& top_blob, const Option& op
                 }
             }
         }
-        if (pack8to4)
-        {
+        if (pack8to4) {
             #pragma omp parallel for num_threads(opt.num_threads)
-            for (int i = 0; i < h; i++)
-            {
-                const float* r0 = bottom_blob.row(i);
+            for (int i = 0; i < h; i++) {
+                const float *r0 = bottom_blob.row(i);
 
-                float* outptr0 = top_blob.row(i * 2);
-                float* outptr1 = top_blob.row(i * 2 + 1);
+                float *outptr0 = top_blob.row(i * 2);
+                float *outptr1 = top_blob.row(i * 2 + 1);
 
-                for (int j = 0; j < w; j++)
-                {
+                for (int j = 0; j < w; j++) {
                     outptr0[0] = r0[0];
                     outptr0[1] = r0[1];
                     outptr0[2] = r0[2];
@@ -388,34 +358,31 @@ int Packing_x86::forward(const Mat& bottom_blob, Mat& top_blob, const Option& op
                 }
             }
         }
-        if (pack1to16)
-        {
+        if (pack1to16) {
             #pragma omp parallel for num_threads(opt.num_threads)
-            for (int i = 0; i < outh; i++)
-            {
-                const float* r0 = bottom_blob.row(i * 16);
-                const float* r1 = bottom_blob.row(i * 16 + 1);
-                const float* r2 = bottom_blob.row(i * 16 + 2);
-                const float* r3 = bottom_blob.row(i * 16 + 3);
-                const float* r4 = bottom_blob.row(i * 16 + 4);
-                const float* r5 = bottom_blob.row(i * 16 + 5);
-                const float* r6 = bottom_blob.row(i * 16 + 6);
-                const float* r7 = bottom_blob.row(i * 16 + 7);
-                const float* r8 = bottom_blob.row(i * 16 + 8);
-                const float* r9 = bottom_blob.row(i * 16 + 9);
-                const float* ra = bottom_blob.row(i * 16 + 10);
-                const float* rb = bottom_blob.row(i * 16 + 11);
-                const float* rc = bottom_blob.row(i * 16 + 12);
-                const float* rd = bottom_blob.row(i * 16 + 13);
-                const float* re = bottom_blob.row(i * 16 + 14);
-                const float* rf = bottom_blob.row(i * 16 + 15);
+            for (int i = 0; i < outh; i++) {
+                const float *r0 = bottom_blob.row(i * 16);
+                const float *r1 = bottom_blob.row(i * 16 + 1);
+                const float *r2 = bottom_blob.row(i * 16 + 2);
+                const float *r3 = bottom_blob.row(i * 16 + 3);
+                const float *r4 = bottom_blob.row(i * 16 + 4);
+                const float *r5 = bottom_blob.row(i * 16 + 5);
+                const float *r6 = bottom_blob.row(i * 16 + 6);
+                const float *r7 = bottom_blob.row(i * 16 + 7);
+                const float *r8 = bottom_blob.row(i * 16 + 8);
+                const float *r9 = bottom_blob.row(i * 16 + 9);
+                const float *ra = bottom_blob.row(i * 16 + 10);
+                const float *rb = bottom_blob.row(i * 16 + 11);
+                const float *rc = bottom_blob.row(i * 16 + 12);
+                const float *rd = bottom_blob.row(i * 16 + 13);
+                const float *re = bottom_blob.row(i * 16 + 14);
+                const float *rf = bottom_blob.row(i * 16 + 15);
 
-                float* outptr = top_blob.row(i);
+                float *outptr = top_blob.row(i);
 
                 int j = 0;
 #if __AVX512F__
-                for (; j + 15 < w; j += 16)
-                {
+                for (; j + 15 < w; j += 16) {
                     __m512 _r0 = _mm512_loadu_ps(r0);
                     __m512 _r1 = _mm512_loadu_ps(r1);
                     __m512 _r2 = _mm512_loadu_ps(r2);
@@ -432,7 +399,8 @@ int Packing_x86::forward(const Mat& bottom_blob, Mat& top_blob, const Option& op
                     __m512 _rd = _mm512_loadu_ps(rd);
                     __m512 _re = _mm512_loadu_ps(re);
                     __m512 _rf = _mm512_loadu_ps(rf);
-                    transpose16_ps(_r0, _r1, _r2, _r3, _r4, _r5, _r6, _r7, _r8, _r9, _ra, _rb, _rc, _rd, _re, _rf);
+                    transpose16_ps(_r0, _r1, _r2, _r3, _r4, _r5, _r6, _r7, _r8, _r9, _ra,
+                                   _rb, _rc, _rd, _re, _rf);
                     _mm512_storeu_ps(outptr, _r0);
                     _mm512_storeu_ps(outptr + 16, _r1);
                     _mm512_storeu_ps(outptr + 16 * 2, _r2);
@@ -467,9 +435,8 @@ int Packing_x86::forward(const Mat& bottom_blob, Mat& top_blob, const Option& op
                     rf += 16;
                     outptr += 256;
                 }
-#endif // __AVX512F__
-                for (; j < w; j++)
-                {
+#endif  // __AVX512F__
+                for (; j < w; j++) {
                     outptr[0] = *r0++;
                     outptr[1] = *r1++;
                     outptr[2] = *r2++;
@@ -491,34 +458,31 @@ int Packing_x86::forward(const Mat& bottom_blob, Mat& top_blob, const Option& op
                 }
             }
         }
-        if (pack16to1)
-        {
+        if (pack16to1) {
             #pragma omp parallel for num_threads(opt.num_threads)
-            for (int i = 0; i < h; i++)
-            {
-                const float* r0 = bottom_blob.row(i);
+            for (int i = 0; i < h; i++) {
+                const float *r0 = bottom_blob.row(i);
 
-                float* outptr0 = top_blob.row(i * 16);
-                float* outptr1 = top_blob.row(i * 16 + 1);
-                float* outptr2 = top_blob.row(i * 16 + 2);
-                float* outptr3 = top_blob.row(i * 16 + 3);
-                float* outptr4 = top_blob.row(i * 16 + 4);
-                float* outptr5 = top_blob.row(i * 16 + 5);
-                float* outptr6 = top_blob.row(i * 16 + 6);
-                float* outptr7 = top_blob.row(i * 16 + 7);
-                float* outptr8 = top_blob.row(i * 16 + 8);
-                float* outptr9 = top_blob.row(i * 16 + 9);
-                float* outptra = top_blob.row(i * 16 + 10);
-                float* outptrb = top_blob.row(i * 16 + 11);
-                float* outptrc = top_blob.row(i * 16 + 12);
-                float* outptrd = top_blob.row(i * 16 + 13);
-                float* outptre = top_blob.row(i * 16 + 14);
-                float* outptrf = top_blob.row(i * 16 + 15);
+                float *outptr0 = top_blob.row(i * 16);
+                float *outptr1 = top_blob.row(i * 16 + 1);
+                float *outptr2 = top_blob.row(i * 16 + 2);
+                float *outptr3 = top_blob.row(i * 16 + 3);
+                float *outptr4 = top_blob.row(i * 16 + 4);
+                float *outptr5 = top_blob.row(i * 16 + 5);
+                float *outptr6 = top_blob.row(i * 16 + 6);
+                float *outptr7 = top_blob.row(i * 16 + 7);
+                float *outptr8 = top_blob.row(i * 16 + 8);
+                float *outptr9 = top_blob.row(i * 16 + 9);
+                float *outptra = top_blob.row(i * 16 + 10);
+                float *outptrb = top_blob.row(i * 16 + 11);
+                float *outptrc = top_blob.row(i * 16 + 12);
+                float *outptrd = top_blob.row(i * 16 + 13);
+                float *outptre = top_blob.row(i * 16 + 14);
+                float *outptrf = top_blob.row(i * 16 + 15);
 
                 int j = 0;
 #if __AVX512F__
-                for (; j + 15 < w; j += 16)
-                {
+                for (; j + 15 < w; j += 16) {
                     __m512 _r0 = _mm512_loadu_ps(r0);
                     __m512 _r1 = _mm512_loadu_ps(r0 + 16);
                     __m512 _r2 = _mm512_loadu_ps(r0 + 16 * 2);
@@ -535,7 +499,8 @@ int Packing_x86::forward(const Mat& bottom_blob, Mat& top_blob, const Option& op
                     __m512 _rd = _mm512_loadu_ps(r0 + 16 * 13);
                     __m512 _re = _mm512_loadu_ps(r0 + 16 * 14);
                     __m512 _rf = _mm512_loadu_ps(r0 + 16 * 15);
-                    transpose16_ps(_r0, _r1, _r2, _r3, _r4, _r5, _r6, _r7, _r8, _r9, _ra, _rb, _rc, _rd, _re, _rf);
+                    transpose16_ps(_r0, _r1, _r2, _r3, _r4, _r5, _r6, _r7, _r8, _r9, _ra,
+                                   _rb, _rc, _rd, _re, _rf);
                     _mm512_storeu_ps(outptr0, _r0);
                     _mm512_storeu_ps(outptr1, _r1);
                     _mm512_storeu_ps(outptr2, _r2);
@@ -571,9 +536,8 @@ int Packing_x86::forward(const Mat& bottom_blob, Mat& top_blob, const Option& op
                     outptre += 16;
                     outptrf += 16;
                 }
-#endif // __AVX512F__
-                for (; j < w; j++)
-                {
+#endif  // __AVX512F__
+                for (; j < w; j++) {
                     *outptr0++ = r0[0];
                     *outptr1++ = r0[1];
                     *outptr2++ = r0[2];
@@ -595,20 +559,17 @@ int Packing_x86::forward(const Mat& bottom_blob, Mat& top_blob, const Option& op
                 }
             }
         }
-        if (pack4to16)
-        {
+        if (pack4to16) {
             #pragma omp parallel for num_threads(opt.num_threads)
-            for (int i = 0; i < outh; i++)
-            {
-                const float* r0 = bottom_blob.row(i * 4);
-                const float* r1 = bottom_blob.row(i * 4 + 1);
-                const float* r2 = bottom_blob.row(i * 4 + 2);
-                const float* r3 = bottom_blob.row(i * 4 + 3);
+            for (int i = 0; i < outh; i++) {
+                const float *r0 = bottom_blob.row(i * 4);
+                const float *r1 = bottom_blob.row(i * 4 + 1);
+                const float *r2 = bottom_blob.row(i * 4 + 2);
+                const float *r3 = bottom_blob.row(i * 4 + 3);
 
-                float* outptr = top_blob.row(i);
+                float *outptr = top_blob.row(i);
 
-                for (int j = 0; j < w; j++)
-                {
+                for (int j = 0; j < w; j++) {
                     outptr[0] = r0[0];
                     outptr[1] = r0[1];
                     outptr[2] = r0[2];
@@ -634,20 +595,17 @@ int Packing_x86::forward(const Mat& bottom_blob, Mat& top_blob, const Option& op
                 }
             }
         }
-        if (pack16to4)
-        {
+        if (pack16to4) {
             #pragma omp parallel for num_threads(opt.num_threads)
-            for (int i = 0; i < h; i++)
-            {
-                const float* r0 = bottom_blob.row(i);
+            for (int i = 0; i < h; i++) {
+                const float *r0 = bottom_blob.row(i);
 
-                float* outptr0 = top_blob.row(i * 4);
-                float* outptr1 = top_blob.row(i * 4 + 1);
-                float* outptr2 = top_blob.row(i * 4 + 2);
-                float* outptr3 = top_blob.row(i * 4 + 3);
+                float *outptr0 = top_blob.row(i * 4);
+                float *outptr1 = top_blob.row(i * 4 + 1);
+                float *outptr2 = top_blob.row(i * 4 + 2);
+                float *outptr3 = top_blob.row(i * 4 + 3);
 
-                for (int j = 0; j < w; j++)
-                {
+                for (int j = 0; j < w; j++) {
                     outptr0[0] = r0[0];
                     outptr0[1] = r0[1];
                     outptr0[2] = r0[2];
@@ -673,18 +631,15 @@ int Packing_x86::forward(const Mat& bottom_blob, Mat& top_blob, const Option& op
                 }
             }
         }
-        if (pack8to16)
-        {
+        if (pack8to16) {
             #pragma omp parallel for num_threads(opt.num_threads)
-            for (int i = 0; i < outh; i++)
-            {
-                const float* r0 = bottom_blob.row(i * 2);
-                const float* r1 = bottom_blob.row(i * 2 + 1);
+            for (int i = 0; i < outh; i++) {
+                const float *r0 = bottom_blob.row(i * 2);
+                const float *r1 = bottom_blob.row(i * 2 + 1);
 
-                float* outptr = top_blob.row(i);
+                float *outptr = top_blob.row(i);
 
-                for (int j = 0; j < w; j++)
-                {
+                for (int j = 0; j < w; j++) {
                     outptr[0] = r0[0];
                     outptr[1] = r0[1];
                     outptr[2] = r0[2];
@@ -708,18 +663,15 @@ int Packing_x86::forward(const Mat& bottom_blob, Mat& top_blob, const Option& op
                 }
             }
         }
-        if (pack16to8)
-        {
+        if (pack16to8) {
             #pragma omp parallel for num_threads(opt.num_threads)
-            for (int i = 0; i < h; i++)
-            {
-                const float* r0 = bottom_blob.row(i);
+            for (int i = 0; i < h; i++) {
+                const float *r0 = bottom_blob.row(i);
 
-                float* outptr0 = top_blob.row(i * 2);
-                float* outptr1 = top_blob.row(i * 2 + 1);
+                float *outptr0 = top_blob.row(i * 2);
+                float *outptr1 = top_blob.row(i * 2 + 1);
 
-                for (int j = 0; j < w; j++)
-                {
+                for (int j = 0; j < w; j++) {
                     outptr0[0] = r0[0];
                     outptr0[1] = r0[1];
                     outptr0[2] = r0[2];
@@ -747,35 +699,32 @@ int Packing_x86::forward(const Mat& bottom_blob, Mat& top_blob, const Option& op
         return 0;
     }
 
-    if (dims == 3 || dims == 4)
-    {
+    if (dims == 3 || dims == 4) {
         int size = w * h * d;
         int outc = channels * elempack / out_elempack;
         size_t out_elemsize = elemsize / elempack * out_elempack;
 
         if (dims == 3)
-            top_blob.create(w, h, outc, out_elemsize, out_elempack, opt.blob_allocator);
-        else // if (dims == 4)
-            top_blob.create(w, h, d, outc, out_elemsize, out_elempack, opt.blob_allocator);
-        if (top_blob.empty())
-            return -100;
+            top_blob.create(w, h, outc, out_elemsize, out_elempack,
+                            opt.blob_allocator);
+        else  // if (dims == 4)
+            top_blob.create(w, h, d, outc, out_elemsize, out_elempack,
+                            opt.blob_allocator);
+        if (top_blob.empty()) return -100;
 
-        if (pack1to4)
-        {
+        if (pack1to4) {
             #pragma omp parallel for num_threads(opt.num_threads)
-            for (int q = 0; q < outc; q++)
-            {
-                const float* r0 = bottom_blob.channel(q * 4);
-                const float* r1 = bottom_blob.channel(q * 4 + 1);
-                const float* r2 = bottom_blob.channel(q * 4 + 2);
-                const float* r3 = bottom_blob.channel(q * 4 + 3);
+            for (int q = 0; q < outc; q++) {
+                const float *r0 = bottom_blob.channel(q * 4);
+                const float *r1 = bottom_blob.channel(q * 4 + 1);
+                const float *r2 = bottom_blob.channel(q * 4 + 2);
+                const float *r3 = bottom_blob.channel(q * 4 + 3);
 
-                float* outptr = top_blob.channel(q);
+                float *outptr = top_blob.channel(q);
 
                 int i = 0;
 #if __SSE2__
-                for (; i + 3 < size; i += 4)
-                {
+                for (; i + 3 < size; i += 4) {
                     // transpose 4x4
                     __m128 _r0 = _mm_loadu_ps(r0);
                     __m128 _r1 = _mm_loadu_ps(r1);
@@ -795,9 +744,8 @@ int Packing_x86::forward(const Mat& bottom_blob, Mat& top_blob, const Option& op
                     r3 += 4;
                     outptr += 16;
                 }
-#endif // __SSE2__
-                for (; i < size; i++)
-                {
+#endif  // __SSE2__
+                for (; i < size; i++) {
                     outptr[0] = *r0++;
                     outptr[1] = *r1++;
                     outptr[2] = *r2++;
@@ -807,22 +755,19 @@ int Packing_x86::forward(const Mat& bottom_blob, Mat& top_blob, const Option& op
                 }
             }
         }
-        if (pack4to1)
-        {
+        if (pack4to1) {
             #pragma omp parallel for num_threads(opt.num_threads)
-            for (int q = 0; q < channels; q++)
-            {
-                const float* r0 = bottom_blob.channel(q);
+            for (int q = 0; q < channels; q++) {
+                const float *r0 = bottom_blob.channel(q);
 
-                float* outptr0 = top_blob.channel(q * 4);
-                float* outptr1 = top_blob.channel(q * 4 + 1);
-                float* outptr2 = top_blob.channel(q * 4 + 2);
-                float* outptr3 = top_blob.channel(q * 4 + 3);
+                float *outptr0 = top_blob.channel(q * 4);
+                float *outptr1 = top_blob.channel(q * 4 + 1);
+                float *outptr2 = top_blob.channel(q * 4 + 2);
+                float *outptr3 = top_blob.channel(q * 4 + 3);
 
                 int i = 0;
 #if __SSE2__
-                for (; i + 3 < size; i += 4)
-                {
+                for (; i + 3 < size; i += 4) {
                     // transpose 4x4
                     __m128 _r0 = _mm_load_ps(r0);
                     __m128 _r1 = _mm_load_ps(r0 + 4);
@@ -842,9 +787,8 @@ int Packing_x86::forward(const Mat& bottom_blob, Mat& top_blob, const Option& op
                     outptr2 += 4;
                     outptr3 += 4;
                 }
-#endif // __SSE2__
-                for (; i < size; i++)
-                {
+#endif  // __SSE2__
+                for (; i < size; i++) {
                     *outptr0++ = r0[0];
                     *outptr1++ = r0[1];
                     *outptr2++ = r0[2];
@@ -854,26 +798,23 @@ int Packing_x86::forward(const Mat& bottom_blob, Mat& top_blob, const Option& op
                 }
             }
         }
-        if (pack1to8)
-        {
+        if (pack1to8) {
             #pragma omp parallel for num_threads(opt.num_threads)
-            for (int q = 0; q < outc; q++)
-            {
-                const float* r0 = bottom_blob.channel(q * 8);
-                const float* r1 = bottom_blob.channel(q * 8 + 1);
-                const float* r2 = bottom_blob.channel(q * 8 + 2);
-                const float* r3 = bottom_blob.channel(q * 8 + 3);
-                const float* r4 = bottom_blob.channel(q * 8 + 4);
-                const float* r5 = bottom_blob.channel(q * 8 + 5);
-                const float* r6 = bottom_blob.channel(q * 8 + 6);
-                const float* r7 = bottom_blob.channel(q * 8 + 7);
+            for (int q = 0; q < outc; q++) {
+                const float *r0 = bottom_blob.channel(q * 8);
+                const float *r1 = bottom_blob.channel(q * 8 + 1);
+                const float *r2 = bottom_blob.channel(q * 8 + 2);
+                const float *r3 = bottom_blob.channel(q * 8 + 3);
+                const float *r4 = bottom_blob.channel(q * 8 + 4);
+                const float *r5 = bottom_blob.channel(q * 8 + 5);
+                const float *r6 = bottom_blob.channel(q * 8 + 6);
+                const float *r7 = bottom_blob.channel(q * 8 + 7);
 
-                float* outptr = top_blob.channel(q);
+                float *outptr = top_blob.channel(q);
 
                 int i = 0;
 #if __AVX__
-                for (; i + 7 < size; i += 8)
-                {
+                for (; i + 7 < size; i += 8) {
                     __m256 _row0 = _mm256_loadu_ps(r0);
                     __m256 _row1 = _mm256_loadu_ps(r1);
                     __m256 _row2 = _mm256_loadu_ps(r2);
@@ -901,9 +842,8 @@ int Packing_x86::forward(const Mat& bottom_blob, Mat& top_blob, const Option& op
                     r7 += 8;
                     outptr += 64;
                 }
-#endif // __AVX__
-                for (; i < size; i++)
-                {
+#endif  // __AVX__
+                for (; i < size; i++) {
                     outptr[0] = *r0++;
                     outptr[1] = *r1++;
                     outptr[2] = *r2++;
@@ -917,26 +857,23 @@ int Packing_x86::forward(const Mat& bottom_blob, Mat& top_blob, const Option& op
                 }
             }
         }
-        if (pack8to1)
-        {
+        if (pack8to1) {
             #pragma omp parallel for num_threads(opt.num_threads)
-            for (int q = 0; q < channels; q++)
-            {
-                const float* r0 = bottom_blob.channel(q);
+            for (int q = 0; q < channels; q++) {
+                const float *r0 = bottom_blob.channel(q);
 
-                float* outptr0 = top_blob.channel(q * 8);
-                float* outptr1 = top_blob.channel(q * 8 + 1);
-                float* outptr2 = top_blob.channel(q * 8 + 2);
-                float* outptr3 = top_blob.channel(q * 8 + 3);
-                float* outptr4 = top_blob.channel(q * 8 + 4);
-                float* outptr5 = top_blob.channel(q * 8 + 5);
-                float* outptr6 = top_blob.channel(q * 8 + 6);
-                float* outptr7 = top_blob.channel(q * 8 + 7);
+                float *outptr0 = top_blob.channel(q * 8);
+                float *outptr1 = top_blob.channel(q * 8 + 1);
+                float *outptr2 = top_blob.channel(q * 8 + 2);
+                float *outptr3 = top_blob.channel(q * 8 + 3);
+                float *outptr4 = top_blob.channel(q * 8 + 4);
+                float *outptr5 = top_blob.channel(q * 8 + 5);
+                float *outptr6 = top_blob.channel(q * 8 + 6);
+                float *outptr7 = top_blob.channel(q * 8 + 7);
 
                 int i = 0;
 #if __AVX__
-                for (; i + 7 < size; i += 8)
-                {
+                for (; i + 7 < size; i += 8) {
                     __m256 _row0 = _mm256_loadu_ps(r0);
                     __m256 _row1 = _mm256_loadu_ps(r0 + 8);
                     __m256 _row2 = _mm256_loadu_ps(r0 + 16);
@@ -965,9 +902,8 @@ int Packing_x86::forward(const Mat& bottom_blob, Mat& top_blob, const Option& op
                     outptr6 += 8;
                     outptr7 += 8;
                 }
-#endif // __AVX__
-                for (; i < size; i++)
-                {
+#endif  // __AVX__
+                for (; i < size; i++) {
                     *outptr0++ = r0[0];
                     *outptr1++ = r0[1];
                     *outptr2++ = r0[2];
@@ -981,18 +917,15 @@ int Packing_x86::forward(const Mat& bottom_blob, Mat& top_blob, const Option& op
                 }
             }
         }
-        if (pack4to8)
-        {
+        if (pack4to8) {
             #pragma omp parallel for num_threads(opt.num_threads)
-            for (int q = 0; q < outc; q++)
-            {
-                const float* r0 = bottom_blob.channel(q * 2);
-                const float* r1 = bottom_blob.channel(q * 2 + 1);
+            for (int q = 0; q < outc; q++) {
+                const float *r0 = bottom_blob.channel(q * 2);
+                const float *r1 = bottom_blob.channel(q * 2 + 1);
 
-                float* outptr = top_blob.channel(q);
+                float *outptr = top_blob.channel(q);
 
-                for (int i = 0; i < size; i++)
-                {
+                for (int i = 0; i < size; i++) {
                     outptr[0] = r0[0];
                     outptr[1] = r0[1];
                     outptr[2] = r0[2];
@@ -1008,18 +941,15 @@ int Packing_x86::forward(const Mat& bottom_blob, Mat& top_blob, const Option& op
                 }
             }
         }
-        if (pack8to4)
-        {
+        if (pack8to4) {
             #pragma omp parallel for num_threads(opt.num_threads)
-            for (int q = 0; q < channels; q++)
-            {
-                const float* r0 = bottom_blob.channel(q);
+            for (int q = 0; q < channels; q++) {
+                const float *r0 = bottom_blob.channel(q);
 
-                float* outptr0 = top_blob.channel(q * 2);
-                float* outptr1 = top_blob.channel(q * 2 + 1);
+                float *outptr0 = top_blob.channel(q * 2);
+                float *outptr1 = top_blob.channel(q * 2 + 1);
 
-                for (int i = 0; i < size; i++)
-                {
+                for (int i = 0; i < size; i++) {
                     outptr0[0] = r0[0];
                     outptr0[1] = r0[1];
                     outptr0[2] = r0[2];
@@ -1035,34 +965,31 @@ int Packing_x86::forward(const Mat& bottom_blob, Mat& top_blob, const Option& op
                 }
             }
         }
-        if (pack1to16)
-        {
+        if (pack1to16) {
             #pragma omp parallel for num_threads(opt.num_threads)
-            for (int q = 0; q < outc; q++)
-            {
-                const float* r0 = bottom_blob.channel(q * 16);
-                const float* r1 = bottom_blob.channel(q * 16 + 1);
-                const float* r2 = bottom_blob.channel(q * 16 + 2);
-                const float* r3 = bottom_blob.channel(q * 16 + 3);
-                const float* r4 = bottom_blob.channel(q * 16 + 4);
-                const float* r5 = bottom_blob.channel(q * 16 + 5);
-                const float* r6 = bottom_blob.channel(q * 16 + 6);
-                const float* r7 = bottom_blob.channel(q * 16 + 7);
-                const float* r8 = bottom_blob.channel(q * 16 + 8);
-                const float* r9 = bottom_blob.channel(q * 16 + 9);
-                const float* ra = bottom_blob.channel(q * 16 + 10);
-                const float* rb = bottom_blob.channel(q * 16 + 11);
-                const float* rc = bottom_blob.channel(q * 16 + 12);
-                const float* rd = bottom_blob.channel(q * 16 + 13);
-                const float* re = bottom_blob.channel(q * 16 + 14);
-                const float* rf = bottom_blob.channel(q * 16 + 15);
+            for (int q = 0; q < outc; q++) {
+                const float *r0 = bottom_blob.channel(q * 16);
+                const float *r1 = bottom_blob.channel(q * 16 + 1);
+                const float *r2 = bottom_blob.channel(q * 16 + 2);
+                const float *r3 = bottom_blob.channel(q * 16 + 3);
+                const float *r4 = bottom_blob.channel(q * 16 + 4);
+                const float *r5 = bottom_blob.channel(q * 16 + 5);
+                const float *r6 = bottom_blob.channel(q * 16 + 6);
+                const float *r7 = bottom_blob.channel(q * 16 + 7);
+                const float *r8 = bottom_blob.channel(q * 16 + 8);
+                const float *r9 = bottom_blob.channel(q * 16 + 9);
+                const float *ra = bottom_blob.channel(q * 16 + 10);
+                const float *rb = bottom_blob.channel(q * 16 + 11);
+                const float *rc = bottom_blob.channel(q * 16 + 12);
+                const float *rd = bottom_blob.channel(q * 16 + 13);
+                const float *re = bottom_blob.channel(q * 16 + 14);
+                const float *rf = bottom_blob.channel(q * 16 + 15);
 
-                float* outptr = top_blob.channel(q);
+                float *outptr = top_blob.channel(q);
 
                 int i = 0;
 #if __AVX512F__
-                for (; i + 15 < size; i += 16)
-                {
+                for (; i + 15 < size; i += 16) {
                     __m512 _r0 = _mm512_loadu_ps(r0);
                     __m512 _r1 = _mm512_loadu_ps(r1);
                     __m512 _r2 = _mm512_loadu_ps(r2);
@@ -1079,7 +1006,8 @@ int Packing_x86::forward(const Mat& bottom_blob, Mat& top_blob, const Option& op
                     __m512 _rd = _mm512_loadu_ps(rd);
                     __m512 _re = _mm512_loadu_ps(re);
                     __m512 _rf = _mm512_loadu_ps(rf);
-                    transpose16_ps(_r0, _r1, _r2, _r3, _r4, _r5, _r6, _r7, _r8, _r9, _ra, _rb, _rc, _rd, _re, _rf);
+                    transpose16_ps(_r0, _r1, _r2, _r3, _r4, _r5, _r6, _r7, _r8, _r9, _ra,
+                                   _rb, _rc, _rd, _re, _rf);
                     _mm512_storeu_ps(outptr, _r0);
                     _mm512_storeu_ps(outptr + 16, _r1);
                     _mm512_storeu_ps(outptr + 16 * 2, _r2);
@@ -1114,9 +1042,8 @@ int Packing_x86::forward(const Mat& bottom_blob, Mat& top_blob, const Option& op
                     rf += 16;
                     outptr += 256;
                 }
-#endif // __AVX512F__
-                for (; i < size; i++)
-                {
+#endif  // __AVX512F__
+                for (; i < size; i++) {
                     outptr[0] = *r0++;
                     outptr[1] = *r1++;
                     outptr[2] = *r2++;
@@ -1138,34 +1065,31 @@ int Packing_x86::forward(const Mat& bottom_blob, Mat& top_blob, const Option& op
                 }
             }
         }
-        if (pack16to1)
-        {
+        if (pack16to1) {
             #pragma omp parallel for num_threads(opt.num_threads)
-            for (int q = 0; q < channels; q++)
-            {
-                const float* r0 = bottom_blob.channel(q);
+            for (int q = 0; q < channels; q++) {
+                const float *r0 = bottom_blob.channel(q);
 
-                float* outptr0 = top_blob.channel(q * 16);
-                float* outptr1 = top_blob.channel(q * 16 + 1);
-                float* outptr2 = top_blob.channel(q * 16 + 2);
-                float* outptr3 = top_blob.channel(q * 16 + 3);
-                float* outptr4 = top_blob.channel(q * 16 + 4);
-                float* outptr5 = top_blob.channel(q * 16 + 5);
-                float* outptr6 = top_blob.channel(q * 16 + 6);
-                float* outptr7 = top_blob.channel(q * 16 + 7);
-                float* outptr8 = top_blob.channel(q * 16 + 8);
-                float* outptr9 = top_blob.channel(q * 16 + 9);
-                float* outptra = top_blob.channel(q * 16 + 10);
-                float* outptrb = top_blob.channel(q * 16 + 11);
-                float* outptrc = top_blob.channel(q * 16 + 12);
-                float* outptrd = top_blob.channel(q * 16 + 13);
-                float* outptre = top_blob.channel(q * 16 + 14);
-                float* outptrf = top_blob.channel(q * 16 + 15);
+                float *outptr0 = top_blob.channel(q * 16);
+                float *outptr1 = top_blob.channel(q * 16 + 1);
+                float *outptr2 = top_blob.channel(q * 16 + 2);
+                float *outptr3 = top_blob.channel(q * 16 + 3);
+                float *outptr4 = top_blob.channel(q * 16 + 4);
+                float *outptr5 = top_blob.channel(q * 16 + 5);
+                float *outptr6 = top_blob.channel(q * 16 + 6);
+                float *outptr7 = top_blob.channel(q * 16 + 7);
+                float *outptr8 = top_blob.channel(q * 16 + 8);
+                float *outptr9 = top_blob.channel(q * 16 + 9);
+                float *outptra = top_blob.channel(q * 16 + 10);
+                float *outptrb = top_blob.channel(q * 16 + 11);
+                float *outptrc = top_blob.channel(q * 16 + 12);
+                float *outptrd = top_blob.channel(q * 16 + 13);
+                float *outptre = top_blob.channel(q * 16 + 14);
+                float *outptrf = top_blob.channel(q * 16 + 15);
 
                 int i = 0;
 #if __AVX512F__
-                for (; i + 15 < size; i += 16)
-                {
+                for (; i + 15 < size; i += 16) {
                     __m512 _r0 = _mm512_loadu_ps(r0);
                     __m512 _r1 = _mm512_loadu_ps(r0 + 16);
                     __m512 _r2 = _mm512_loadu_ps(r0 + 16 * 2);
@@ -1182,7 +1106,8 @@ int Packing_x86::forward(const Mat& bottom_blob, Mat& top_blob, const Option& op
                     __m512 _rd = _mm512_loadu_ps(r0 + 16 * 13);
                     __m512 _re = _mm512_loadu_ps(r0 + 16 * 14);
                     __m512 _rf = _mm512_loadu_ps(r0 + 16 * 15);
-                    transpose16_ps(_r0, _r1, _r2, _r3, _r4, _r5, _r6, _r7, _r8, _r9, _ra, _rb, _rc, _rd, _re, _rf);
+                    transpose16_ps(_r0, _r1, _r2, _r3, _r4, _r5, _r6, _r7, _r8, _r9, _ra,
+                                   _rb, _rc, _rd, _re, _rf);
                     _mm512_storeu_ps(outptr0, _r0);
                     _mm512_storeu_ps(outptr1, _r1);
                     _mm512_storeu_ps(outptr2, _r2);
@@ -1218,9 +1143,8 @@ int Packing_x86::forward(const Mat& bottom_blob, Mat& top_blob, const Option& op
                     outptre += 16;
                     outptrf += 16;
                 }
-#endif // __AVX512F__
-                for (; i < size; i++)
-                {
+#endif  // __AVX512F__
+                for (; i < size; i++) {
                     *outptr0++ = r0[0];
                     *outptr1++ = r0[1];
                     *outptr2++ = r0[2];
@@ -1242,20 +1166,17 @@ int Packing_x86::forward(const Mat& bottom_blob, Mat& top_blob, const Option& op
                 }
             }
         }
-        if (pack4to16)
-        {
+        if (pack4to16) {
             #pragma omp parallel for num_threads(opt.num_threads)
-            for (int q = 0; q < outc; q++)
-            {
-                const float* r0 = bottom_blob.channel(q * 4);
-                const float* r1 = bottom_blob.channel(q * 4 + 1);
-                const float* r2 = bottom_blob.channel(q * 4 + 2);
-                const float* r3 = bottom_blob.channel(q * 4 + 3);
+            for (int q = 0; q < outc; q++) {
+                const float *r0 = bottom_blob.channel(q * 4);
+                const float *r1 = bottom_blob.channel(q * 4 + 1);
+                const float *r2 = bottom_blob.channel(q * 4 + 2);
+                const float *r3 = bottom_blob.channel(q * 4 + 3);
 
-                float* outptr = top_blob.channel(q);
+                float *outptr = top_blob.channel(q);
 
-                for (int i = 0; i < size; i++)
-                {
+                for (int i = 0; i < size; i++) {
                     outptr[0] = r0[0];
                     outptr[1] = r0[1];
                     outptr[2] = r0[2];
@@ -1281,20 +1202,17 @@ int Packing_x86::forward(const Mat& bottom_blob, Mat& top_blob, const Option& op
                 }
             }
         }
-        if (pack16to4)
-        {
+        if (pack16to4) {
             #pragma omp parallel for num_threads(opt.num_threads)
-            for (int q = 0; q < channels; q++)
-            {
-                const float* r0 = bottom_blob.channel(q);
+            for (int q = 0; q < channels; q++) {
+                const float *r0 = bottom_blob.channel(q);
 
-                float* outptr0 = top_blob.channel(q * 4);
-                float* outptr1 = top_blob.channel(q * 4 + 1);
-                float* outptr2 = top_blob.channel(q * 4 + 2);
-                float* outptr3 = top_blob.channel(q * 4 + 3);
+                float *outptr0 = top_blob.channel(q * 4);
+                float *outptr1 = top_blob.channel(q * 4 + 1);
+                float *outptr2 = top_blob.channel(q * 4 + 2);
+                float *outptr3 = top_blob.channel(q * 4 + 3);
 
-                for (int i = 0; i < size; i++)
-                {
+                for (int i = 0; i < size; i++) {
                     outptr0[0] = r0[0];
                     outptr0[1] = r0[1];
                     outptr0[2] = r0[2];
@@ -1320,18 +1238,15 @@ int Packing_x86::forward(const Mat& bottom_blob, Mat& top_blob, const Option& op
                 }
             }
         }
-        if (pack8to16)
-        {
+        if (pack8to16) {
             #pragma omp parallel for num_threads(opt.num_threads)
-            for (int q = 0; q < outc; q++)
-            {
-                const float* r0 = bottom_blob.channel(q * 2);
-                const float* r1 = bottom_blob.channel(q * 2 + 1);
+            for (int q = 0; q < outc; q++) {
+                const float *r0 = bottom_blob.channel(q * 2);
+                const float *r1 = bottom_blob.channel(q * 2 + 1);
 
-                float* outptr = top_blob.channel(q);
+                float *outptr = top_blob.channel(q);
 
-                for (int i = 0; i < size; i++)
-                {
+                for (int i = 0; i < size; i++) {
                     outptr[0] = r0[0];
                     outptr[1] = r0[1];
                     outptr[2] = r0[2];
@@ -1355,18 +1270,15 @@ int Packing_x86::forward(const Mat& bottom_blob, Mat& top_blob, const Option& op
                 }
             }
         }
-        if (pack16to8)
-        {
+        if (pack16to8) {
             #pragma omp parallel for num_threads(opt.num_threads)
-            for (int q = 0; q < channels; q++)
-            {
-                const float* r0 = bottom_blob.channel(q);
+            for (int q = 0; q < channels; q++) {
+                const float *r0 = bottom_blob.channel(q);
 
-                float* outptr0 = top_blob.channel(q * 2);
-                float* outptr1 = top_blob.channel(q * 2 + 1);
+                float *outptr0 = top_blob.channel(q * 2);
+                float *outptr1 = top_blob.channel(q * 2 + 1);
 
-                for (int i = 0; i < size; i++)
-                {
+                for (int i = 0; i < size; i++) {
                     outptr0[0] = r0[0];
                     outptr0[1] = r0[1];
                     outptr0[2] = r0[2];
@@ -1397,18 +1309,16 @@ int Packing_x86::forward(const Mat& bottom_blob, Mat& top_blob, const Option& op
     return 0;
 }
 
-int Packing_x86::forward_int8(const Mat& bottom_blob, Mat& top_blob, const Option& opt) const
-{
-    if (use_padding)
-    {
+int Packing_x86::forward_int8(const Mat &bottom_blob, Mat &top_blob,
+                              const Option &opt) const {
+    if (use_padding) {
         return Packing::forward(bottom_blob, top_blob, opt);
     }
 
     size_t elemsize = bottom_blob.elemsize;
     int elempack = bottom_blob.elempack;
 
-    if (elempack == out_elempack)
-    {
+    if (elempack == out_elempack) {
         top_blob = bottom_blob;
         return 0;
     }
@@ -1416,8 +1326,7 @@ int Packing_x86::forward_int8(const Mat& bottom_blob, Mat& top_blob, const Optio
     bool pack1to8 = elempack == 1 && out_elempack == 8;
     bool pack8to1 = elempack == 8 && out_elempack == 1;
 
-    if (!pack1to8 && !pack8to1)
-    {
+    if (!pack1to8 && !pack8to1) {
         return Packing::forward(bottom_blob, top_blob, opt);
     }
 
@@ -1427,28 +1336,23 @@ int Packing_x86::forward_int8(const Mat& bottom_blob, Mat& top_blob, const Optio
     int channels = bottom_blob.c;
     int dims = bottom_blob.dims;
 
-    if (!use_padding)
-    {
+    if (!use_padding) {
         // identity if use_padding not allowed
-        if (dims == 1 && w * elempack % out_elempack != 0)
-        {
+        if (dims == 1 && w * elempack % out_elempack != 0) {
             top_blob = bottom_blob;
             return 0;
         }
-        if (dims == 2 && h * elempack % out_elempack != 0)
-        {
+        if (dims == 2 && h * elempack % out_elempack != 0) {
             top_blob = bottom_blob;
             return 0;
         }
-        if ((dims == 3 || dims == 4) && channels * elempack % out_elempack != 0)
-        {
+        if ((dims == 3 || dims == 4) && channels * elempack % out_elempack != 0) {
             top_blob = bottom_blob;
             return 0;
         }
     }
 
-    if (dims == 1)
-    {
+    if (dims == 1) {
         top_blob = bottom_blob;
         top_blob.w = w * elempack / out_elempack;
         top_blob.cstep = w * elempack / out_elempack;
@@ -1457,34 +1361,29 @@ int Packing_x86::forward_int8(const Mat& bottom_blob, Mat& top_blob, const Optio
         return 0;
     }
 
-    if (dims == 2)
-    {
+    if (dims == 2) {
         int outh = h * elempack / out_elempack;
         size_t out_elemsize = elemsize / elempack * out_elempack;
 
         top_blob.create(w, outh, out_elemsize, out_elempack, opt.blob_allocator);
-        if (top_blob.empty())
-            return -100;
+        if (top_blob.empty()) return -100;
 
-        if (pack1to8)
-        {
+        if (pack1to8) {
             #pragma omp parallel for num_threads(opt.num_threads)
-            for (int i = 0; i < outh; i++)
-            {
-                const signed char* r0 = bottom_blob.row<const signed char>(i * 8);
-                const signed char* r1 = bottom_blob.row<const signed char>(i * 8 + 1);
-                const signed char* r2 = bottom_blob.row<const signed char>(i * 8 + 2);
-                const signed char* r3 = bottom_blob.row<const signed char>(i * 8 + 3);
-                const signed char* r4 = bottom_blob.row<const signed char>(i * 8 + 4);
-                const signed char* r5 = bottom_blob.row<const signed char>(i * 8 + 5);
-                const signed char* r6 = bottom_blob.row<const signed char>(i * 8 + 6);
-                const signed char* r7 = bottom_blob.row<const signed char>(i * 8 + 7);
+            for (int i = 0; i < outh; i++) {
+                const signed char *r0 = bottom_blob.row<const signed char>(i * 8);
+                const signed char *r1 = bottom_blob.row<const signed char>(i * 8 + 1);
+                const signed char *r2 = bottom_blob.row<const signed char>(i * 8 + 2);
+                const signed char *r3 = bottom_blob.row<const signed char>(i * 8 + 3);
+                const signed char *r4 = bottom_blob.row<const signed char>(i * 8 + 4);
+                const signed char *r5 = bottom_blob.row<const signed char>(i * 8 + 5);
+                const signed char *r6 = bottom_blob.row<const signed char>(i * 8 + 6);
+                const signed char *r7 = bottom_blob.row<const signed char>(i * 8 + 7);
 
-                signed char* outptr = top_blob.row<signed char>(i);
+                signed char *outptr = top_blob.row<signed char>(i);
 
                 int j = 0;
-                for (; j < w; j++)
-                {
+                for (; j < w; j++) {
                     outptr[0] = *r0++;
                     outptr[1] = *r1++;
                     outptr[2] = *r2++;
@@ -1498,25 +1397,22 @@ int Packing_x86::forward_int8(const Mat& bottom_blob, Mat& top_blob, const Optio
                 }
             }
         }
-        if (pack8to1)
-        {
+        if (pack8to1) {
             #pragma omp parallel for num_threads(opt.num_threads)
-            for (int i = 0; i < h; i++)
-            {
-                const signed char* r0 = bottom_blob.row<const signed char>(i);
+            for (int i = 0; i < h; i++) {
+                const signed char *r0 = bottom_blob.row<const signed char>(i);
 
-                signed char* outptr0 = top_blob.row<signed char>(i * 8);
-                signed char* outptr1 = top_blob.row<signed char>(i * 8 + 1);
-                signed char* outptr2 = top_blob.row<signed char>(i * 8 + 2);
-                signed char* outptr3 = top_blob.row<signed char>(i * 8 + 3);
-                signed char* outptr4 = top_blob.row<signed char>(i * 8 + 4);
-                signed char* outptr5 = top_blob.row<signed char>(i * 8 + 5);
-                signed char* outptr6 = top_blob.row<signed char>(i * 8 + 6);
-                signed char* outptr7 = top_blob.row<signed char>(i * 8 + 7);
+                signed char *outptr0 = top_blob.row<signed char>(i * 8);
+                signed char *outptr1 = top_blob.row<signed char>(i * 8 + 1);
+                signed char *outptr2 = top_blob.row<signed char>(i * 8 + 2);
+                signed char *outptr3 = top_blob.row<signed char>(i * 8 + 3);
+                signed char *outptr4 = top_blob.row<signed char>(i * 8 + 4);
+                signed char *outptr5 = top_blob.row<signed char>(i * 8 + 5);
+                signed char *outptr6 = top_blob.row<signed char>(i * 8 + 6);
+                signed char *outptr7 = top_blob.row<signed char>(i * 8 + 7);
 
                 int j = 0;
-                for (; j < w; j++)
-                {
+                for (; j < w; j++) {
                     *outptr0++ = r0[0];
                     *outptr1++ = r0[1];
                     *outptr2++ = r0[2];
@@ -1534,38 +1430,35 @@ int Packing_x86::forward_int8(const Mat& bottom_blob, Mat& top_blob, const Optio
         return 0;
     }
 
-    if (dims == 3 || dims == 4)
-    {
+    if (dims == 3 || dims == 4) {
         int size = w * h * d;
         int outc = channels * elempack / out_elempack;
         size_t out_elemsize = elemsize / elempack * out_elempack;
 
         if (dims == 3)
-            top_blob.create(w, h, outc, out_elemsize, out_elempack, opt.blob_allocator);
-        else // if (dims == 4)
-            top_blob.create(w, h, d, outc, out_elemsize, out_elempack, opt.blob_allocator);
-        if (top_blob.empty())
-            return -100;
+            top_blob.create(w, h, outc, out_elemsize, out_elempack,
+                            opt.blob_allocator);
+        else  // if (dims == 4)
+            top_blob.create(w, h, d, outc, out_elemsize, out_elempack,
+                            opt.blob_allocator);
+        if (top_blob.empty()) return -100;
 
-        if (pack1to8)
-        {
+        if (pack1to8) {
             #pragma omp parallel for num_threads(opt.num_threads)
-            for (int q = 0; q < outc; q++)
-            {
-                const signed char* r0 = bottom_blob.channel(q * 8);
-                const signed char* r1 = bottom_blob.channel(q * 8 + 1);
-                const signed char* r2 = bottom_blob.channel(q * 8 + 2);
-                const signed char* r3 = bottom_blob.channel(q * 8 + 3);
-                const signed char* r4 = bottom_blob.channel(q * 8 + 4);
-                const signed char* r5 = bottom_blob.channel(q * 8 + 5);
-                const signed char* r6 = bottom_blob.channel(q * 8 + 6);
-                const signed char* r7 = bottom_blob.channel(q * 8 + 7);
+            for (int q = 0; q < outc; q++) {
+                const signed char *r0 = bottom_blob.channel(q * 8);
+                const signed char *r1 = bottom_blob.channel(q * 8 + 1);
+                const signed char *r2 = bottom_blob.channel(q * 8 + 2);
+                const signed char *r3 = bottom_blob.channel(q * 8 + 3);
+                const signed char *r4 = bottom_blob.channel(q * 8 + 4);
+                const signed char *r5 = bottom_blob.channel(q * 8 + 5);
+                const signed char *r6 = bottom_blob.channel(q * 8 + 6);
+                const signed char *r7 = bottom_blob.channel(q * 8 + 7);
 
-                signed char* outptr = top_blob.channel(q);
+                signed char *outptr = top_blob.channel(q);
 
                 int i = 0;
-                for (; i < size; i++)
-                {
+                for (; i < size; i++) {
                     outptr[0] = *r0++;
                     outptr[1] = *r1++;
                     outptr[2] = *r2++;
@@ -1579,25 +1472,22 @@ int Packing_x86::forward_int8(const Mat& bottom_blob, Mat& top_blob, const Optio
                 }
             }
         }
-        if (pack8to1)
-        {
+        if (pack8to1) {
             #pragma omp parallel for num_threads(opt.num_threads)
-            for (int q = 0; q < channels; q++)
-            {
-                const signed char* r0 = bottom_blob.channel(q);
+            for (int q = 0; q < channels; q++) {
+                const signed char *r0 = bottom_blob.channel(q);
 
-                signed char* outptr0 = top_blob.channel(q * 8);
-                signed char* outptr1 = top_blob.channel(q * 8 + 1);
-                signed char* outptr2 = top_blob.channel(q * 8 + 2);
-                signed char* outptr3 = top_blob.channel(q * 8 + 3);
-                signed char* outptr4 = top_blob.channel(q * 8 + 4);
-                signed char* outptr5 = top_blob.channel(q * 8 + 5);
-                signed char* outptr6 = top_blob.channel(q * 8 + 6);
-                signed char* outptr7 = top_blob.channel(q * 8 + 7);
+                signed char *outptr0 = top_blob.channel(q * 8);
+                signed char *outptr1 = top_blob.channel(q * 8 + 1);
+                signed char *outptr2 = top_blob.channel(q * 8 + 2);
+                signed char *outptr3 = top_blob.channel(q * 8 + 3);
+                signed char *outptr4 = top_blob.channel(q * 8 + 4);
+                signed char *outptr5 = top_blob.channel(q * 8 + 5);
+                signed char *outptr6 = top_blob.channel(q * 8 + 6);
+                signed char *outptr7 = top_blob.channel(q * 8 + 7);
 
                 int i = 0;
-                for (; i < size; i++)
-                {
+                for (; i < size; i++) {
                     *outptr0++ = r0[0];
                     *outptr1++ = r0[1];
                     *outptr2++ = r0[2];
@@ -1618,4 +1508,4 @@ int Packing_x86::forward_int8(const Mat& bottom_blob, Mat& top_blob, const Optio
     return 0;
 }
 
-} // namespace ncnn
+}  // namespace ncnn

@@ -1,27 +1,33 @@
-// Tencent is pleased to support the open source community by making ncnn available.
+// Tencent is pleased to support the open source community by making ncnn
+// available.
 //
 // Copyright (C) 2022 THL A29 Limited, a Tencent company. All rights reserved.
 //
-// Licensed under the BSD 3-Clause License (the "License"); you may not use this file except
-// in compliance with the License. You may obtain a copy of the License at
+// Licensed under the BSD 3-Clause License (the "License"); you may not use this
+// file except in compliance with the License. You may obtain a copy of the
+// License at
 //
 // https://opensource.org/licenses/BSD-3-Clause
 //
-// Unless required by applicable law or agreed to in writing, software distributed
-// under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
-// CONDITIONS OF ANY KIND, either express or implied. See the License for the
-// specific language governing permissions and limitations under the License.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+// WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+// License for the specific language governing permissions and limitations under
+// the License.
 
-#if NCNN_RUNTIME_CPU && NCNN_ARM84BF16 && __aarch64__ && !__ARM_FEATURE_BF16_VECTOR_ARITHMETIC
-void cast_fp32_to_bf16_neon_bf16(const Mat& bottom_blob, Mat& top_blob, const Option& opt);
-void cast_bf16_to_fp32_neon_bf16(const Mat& bottom_blob, Mat& top_blob, const Option& opt);
+#if NCNN_RUNTIME_CPU && NCNN_ARM84BF16 && __aarch64__ && \
+    !__ARM_FEATURE_BF16_VECTOR_ARITHMETIC
+void cast_fp32_to_bf16_neon_bf16(const Mat &bottom_blob, Mat &top_blob,
+                                 const Option &opt);
+void cast_bf16_to_fp32_neon_bf16(const Mat &bottom_blob, Mat &top_blob,
+                                 const Option &opt);
 #endif
 
-static void cast_fp32_to_bf16_neon(const Mat& bottom_blob, Mat& top_blob, const Option& opt)
-{
-#if NCNN_RUNTIME_CPU && NCNN_ARM84BF16 && __aarch64__ && !__ARM_FEATURE_BF16_VECTOR_ARITHMETIC
-    if (ncnn::cpu_support_arm_bf16())
-    {
+static void cast_fp32_to_bf16_neon(const Mat &bottom_blob, Mat &top_blob,
+                                   const Option &opt) {
+#if NCNN_RUNTIME_CPU && NCNN_ARM84BF16 && __aarch64__ && \
+    !__ARM_FEATURE_BF16_VECTOR_ARITHMETIC
+    if (ncnn::cpu_support_arm_bf16()) {
         cast_fp32_to_bf16_neon_bf16(bottom_blob, top_blob, opt);
         return;
     }
@@ -36,19 +42,17 @@ static void cast_fp32_to_bf16_neon(const Mat& bottom_blob, Mat& top_blob, const 
     const int size = w * h * d * elempack;
 
     #pragma omp parallel for num_threads(opt.num_threads)
-    for (int q = 0; q < channels; q++)
-    {
-        const float* ptr = bottom_blob.channel(q);
+    for (int q = 0; q < channels; q++) {
+        const float *ptr = bottom_blob.channel(q);
 #if __ARM_FEATURE_BF16_VECTOR_ARITHMETIC
-        __bf16* outptr = top_blob.channel(q);
+        __bf16 *outptr = top_blob.channel(q);
 #else
-        unsigned short* outptr = top_blob.channel(q);
+        unsigned short *outptr = top_blob.channel(q);
 #endif
 
         int i = 0;
 #if __ARM_NEON
-        for (; i + 15 < size; i += 16)
-        {
+        for (; i + 15 < size; i += 16) {
 #if __aarch64__
 #if __ARM_FEATURE_BF16_VECTOR_ARITHMETIC
             asm volatile(
@@ -59,12 +63,11 @@ static void cast_fp32_to_bf16_neon(const Mat& bottom_blob, Mat& top_blob, const 
                 "bfcvtn v1.4h, v2.4s            \n"
                 "bfcvtn2 v1.8h, v3.4s           \n"
                 "st1    {v0.8h, v1.8h}, [%1], #32 \n"
-                : "=r"(ptr),   // %0
-                "=r"(outptr) // %1
-                : "0"(ptr),
-                "1"(outptr)
+                : "=r"(ptr),    // %0
+                "=r"(outptr)  // %1
+                : "0"(ptr), "1"(outptr)
                 : "memory", "v0", "v1");
-#else  // __ARM_FEATURE_BF16_VECTOR_ARITHMETIC
+#else   // __ARM_FEATURE_BF16_VECTOR_ARITHMETIC
             asm volatile(
                 "prfm   pldl1keep, [%0, #512]   \n"
                 "ld1    {v0.4s, v1.4s, v2.4s, v3.4s}, [%0], #64 \n"
@@ -73,13 +76,12 @@ static void cast_fp32_to_bf16_neon(const Mat& bottom_blob, Mat& top_blob, const 
                 "shrn   v2.4h, v2.4s, #16       \n"
                 "shrn   v3.4h, v3.4s, #16       \n"
                 "st1    {v0.4h, v1.4h, v2.4h, v3.4h}, [%1], #32 \n"
-                : "=r"(ptr),   // %0
-                "=r"(outptr) // %1
-                : "0"(ptr),
-                "1"(outptr)
+                : "=r"(ptr),    // %0
+                "=r"(outptr)  // %1
+                : "0"(ptr), "1"(outptr)
                 : "memory", "v0", "v1", "v2", "v3");
-#endif // __ARM_FEATURE_BF16_VECTOR_ARITHMETIC
-#else  // __aarch64__
+#endif  // __ARM_FEATURE_BF16_VECTOR_ARITHMETIC
+#else   // __aarch64__
             asm volatile(
                 "pld        [%0, #512]      \n"
                 "vldm       %0!, {d0-d7}    \n"
@@ -88,15 +90,13 @@ static void cast_fp32_to_bf16_neon(const Mat& bottom_blob, Mat& top_blob, const 
                 "vshrn.u32  d2, q2, #16     \n"
                 "vshrn.u32  d3, q3, #16     \n"
                 "vst1.u16   {d0-d3}, [%1 :128]! \n"
-                : "=r"(ptr),   // %0
-                "=r"(outptr) // %1
-                : "0"(ptr),
-                "1"(outptr)
+                : "=r"(ptr),    // %0
+                "=r"(outptr)  // %1
+                : "0"(ptr), "1"(outptr)
                 : "memory", "q0", "q1", "q2", "q3");
-#endif // __aarch64__
+#endif  // __aarch64__
         }
-        for (; i + 7 < size; i += 8)
-        {
+        for (; i + 7 < size; i += 8) {
             float32x4_t _p0_fp32 = vld1q_f32(ptr);
             float32x4_t _p1_fp32 = vld1q_f32(ptr + 4);
 #if __ARM_FEATURE_BF16_VECTOR_ARITHMETIC
@@ -113,8 +113,7 @@ static void cast_fp32_to_bf16_neon(const Mat& bottom_blob, Mat& top_blob, const 
             ptr += 8;
             outptr += 8;
         }
-        for (; i + 3 < size; i += 4)
-        {
+        for (; i + 3 < size; i += 4) {
             float32x4_t _p_fp32 = vld1q_f32(ptr);
 #if __ARM_FEATURE_BF16_VECTOR_ARITHMETIC
             bfloat16x4_t _p_bf16 = vcvt_bf16_f32(_p_fp32);
@@ -127,17 +126,15 @@ static void cast_fp32_to_bf16_neon(const Mat& bottom_blob, Mat& top_blob, const 
             outptr += 4;
         }
 #endif
-        for (; i < size; i++)
-        {
+        for (; i < size; i++) {
 #if __ARM_FEATURE_BF16_VECTOR_ARITHMETIC
             asm volatile(
                 "ldr    s0, [%0], #4    \n"
                 "bfcvt  h0, s0          \n"
                 "str    h0, [%1], #2    \n"
-                : "=r"(ptr),   // %0
-                "=r"(outptr) // %1
-                : "0"(ptr),
-                "1"(outptr)
+                : "=r"(ptr),    // %0
+                "=r"(outptr)  // %1
+                : "0"(ptr), "1"(outptr)
                 : "memory", "s0");
             // because intrinsic cause ndk clang crash
             // *outptr++ = vcvth_bf16_f32(*ptr++);
@@ -148,11 +145,10 @@ static void cast_fp32_to_bf16_neon(const Mat& bottom_blob, Mat& top_blob, const 
     }
 }
 
-static void cast_bf16_to_fp32_neon(const Mat& bottom_blob, Mat& top_blob, const Option& opt)
-{
+static void cast_bf16_to_fp32_neon(const Mat &bottom_blob, Mat &top_blob,
+                                   const Option &opt) {
 #if NCNN_ARM84BF16 && __aarch64__ && !__ARM_FEATURE_BF16_VECTOR_ARITHMETIC
-    if (ncnn::cpu_support_arm_bf16())
-    {
+    if (ncnn::cpu_support_arm_bf16()) {
         cast_bf16_to_fp32_neon_bf16(bottom_blob, top_blob, opt);
         return;
     }
@@ -167,19 +163,17 @@ static void cast_bf16_to_fp32_neon(const Mat& bottom_blob, Mat& top_blob, const 
     const int size = w * h * d * elempack;
 
     #pragma omp parallel for num_threads(opt.num_threads)
-    for (int q = 0; q < channels; q++)
-    {
+    for (int q = 0; q < channels; q++) {
 #if __ARM_FEATURE_BF16_VECTOR_ARITHMETIC
-        const __bf16* ptr = bottom_blob.channel(q);
+        const __bf16 *ptr = bottom_blob.channel(q);
 #else
-        const unsigned short* ptr = bottom_blob.channel(q);
+        const unsigned short *ptr = bottom_blob.channel(q);
 #endif
-        float* outptr = top_blob.channel(q);
+        float *outptr = top_blob.channel(q);
 
         int i = 0;
 #if __ARM_NEON
-        for (; i + 15 < size; i += 16)
-        {
+        for (; i + 15 < size; i += 16) {
 #if __aarch64__
             asm volatile(
                 "prfm   pldl1keep, [%0, #256]   \n"
@@ -189,12 +183,11 @@ static void cast_bf16_to_fp32_neon(const Mat& bottom_blob, Mat& top_blob, const 
                 "shll   v2.4s, v2.4h, #16       \n"
                 "shll   v3.4s, v3.4h, #16       \n"
                 "st1    {v0.4s, v1.4s, v2.4s, v3.4s}, [%1], #64 \n"
-                : "=r"(ptr),   // %0
-                "=r"(outptr) // %1
-                : "0"(ptr),
-                "1"(outptr)
+                : "=r"(ptr),    // %0
+                "=r"(outptr)  // %1
+                : "0"(ptr), "1"(outptr)
                 : "memory", "v0", "v1", "v2", "v3");
-#else  // __aarch64__
+#else   // __aarch64__
             asm volatile(
                 "pld        [%0, #256]      \n"
                 "vld1.u16   {d4-d7}, [%0 :128]! \n"
@@ -203,15 +196,13 @@ static void cast_bf16_to_fp32_neon(const Mat& bottom_blob, Mat& top_blob, const 
                 "vshll.u16  q2, d6, #16     \n"
                 "vshll.u16  q3, d7, #16     \n"
                 "vstm       %1!, {d0-d7}    \n"
-                : "=r"(ptr),   // %0
-                "=r"(outptr) // %1
-                : "0"(ptr),
-                "1"(outptr)
+                : "=r"(ptr),    // %0
+                "=r"(outptr)  // %1
+                : "0"(ptr), "1"(outptr)
                 : "memory", "q0", "q1", "q2", "q3");
-#endif // __aarch64__
+#endif  // __aarch64__
         }
-        for (; i + 7 < size; i += 8)
-        {
+        for (; i + 7 < size; i += 8) {
 #if __ARM_FEATURE_BF16_VECTOR_ARITHMETIC
             bfloat16x8_t _p_bf16 = vld1q_bf16(ptr);
             float32x4_t _p0_fp32 = vcvt_f32_bf16(vget_low_bf16(_p_bf16));
@@ -226,8 +217,7 @@ static void cast_bf16_to_fp32_neon(const Mat& bottom_blob, Mat& top_blob, const 
             ptr += 8;
             outptr += 8;
         }
-        for (; i + 3 < size; i += 4)
-        {
+        for (; i + 3 < size; i += 4) {
 #if __ARM_FEATURE_BF16_VECTOR_ARITHMETIC
             bfloat16x4_t _p_bf16 = vld1_bf16(ptr);
             float32x4_t _p_fp32 = vcvt_f32_bf16(_p_bf16);
@@ -240,8 +230,7 @@ static void cast_bf16_to_fp32_neon(const Mat& bottom_blob, Mat& top_blob, const 
             outptr += 4;
         }
 #endif
-        for (; i < size; i++)
-        {
+        for (; i < size; i++) {
 #if __ARM_FEATURE_BF16_VECTOR_ARITHMETIC
             *outptr++ = vcvtah_f32_bf16(*ptr++);
 #else

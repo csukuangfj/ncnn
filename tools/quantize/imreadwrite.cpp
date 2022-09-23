@@ -1,16 +1,19 @@
-// Tencent is pleased to support the open source community by making ncnn available.
+// Tencent is pleased to support the open source community by making ncnn
+// available.
 //
 // Copyright (C) 2021 THL A29 Limited, a Tencent company. All rights reserved.
 //
-// Licensed under the BSD 3-Clause License (the "License"); you may not use this file except
-// in compliance with the License. You may obtain a copy of the License at
+// Licensed under the BSD 3-Clause License (the "License"); you may not use this
+// file except in compliance with the License. You may obtain a copy of the
+// License at
 //
 // https://opensource.org/licenses/BSD-3-Clause
 //
-// Unless required by applicable law or agreed to in writing, software distributed
-// under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
-// CONDITIONS OF ANY KIND, either express or implied. See the License for the
-// specific language governing permissions and limitations under the License.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+// WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+// License for the specific language governing permissions and limitations under
+// the License.
 
 #include "imreadwrite.h"
 
@@ -29,23 +32,15 @@
 
 namespace cv {
 
-Mat imread(const std::string& path, int flags)
-{
+Mat imread(const std::string &path, int flags) {
     int desired_channels = 0;
-    if (flags == IMREAD_UNCHANGED)
-    {
+    if (flags == IMREAD_UNCHANGED) {
         desired_channels = 0;
-    }
-    else if (flags == IMREAD_GRAYSCALE)
-    {
+    } else if (flags == IMREAD_GRAYSCALE) {
         desired_channels = 1;
-    }
-    else if (flags == IMREAD_COLOR)
-    {
+    } else if (flags == IMREAD_COLOR) {
         desired_channels = 3;
-    }
-    else
-    {
+    } else {
         // unknown flags
         return Mat();
     }
@@ -53,40 +48,34 @@ Mat imread(const std::string& path, int flags)
     int w;
     int h;
     int c;
-    unsigned char* pixeldata = stbi_load(path.c_str(), &w, &h, &c, desired_channels);
-    if (!pixeldata)
-    {
+    unsigned char *pixeldata =
+        stbi_load(path.c_str(), &w, &h, &c, desired_channels);
+    if (!pixeldata) {
         // load failed
         return Mat();
     }
 
-    if (desired_channels)
-    {
+    if (desired_channels) {
         c = desired_channels;
     }
 
     // copy pixeldata to Mat
     Mat img;
-    if (c == 1)
-    {
+    if (c == 1) {
         img.create(h, w, CV_8UC1);
-    }
-    else if (c == 3)
-    {
+    } else if (c == 3) {
         img.create(h, w, CV_8UC3);
-    }
-    else if (c == 4)
-    {
+    } else if (c == 4) {
         img.create(h, w, CV_8UC4);
-    }
-    else
-    {
+    } else {
         // unexpected channels
         stbi_image_free(pixeldata);
         return Mat();
     }
 
-    memcpy(img.data, pixeldata, static_cast<size_t>(w) * static_cast<size_t>(h) * static_cast<size_t>(c));
+    memcpy(
+        img.data, pixeldata,
+        static_cast<size_t>(w) * static_cast<size_t>(h) * static_cast<size_t>(c));
 
     stbi_image_free(pixeldata);
 
@@ -111,20 +100,16 @@ Mat imread(const std::string& path, int flags)
     //     }
 
     // rgb to bgr
-    if (c == 3)
-    {
-        uchar* p = img.data;
-        for (int i = 0; i < w * h; i++)
-        {
+    if (c == 3) {
+        uchar *p = img.data;
+        for (int i = 0; i < w * h; i++) {
             std::swap(p[0], p[2]);
             p += 3;
         }
     }
-    if (c == 4)
-    {
-        uchar* p = img.data;
-        for (int i = 0; i < w * h; i++)
-        {
+    if (c == 4) {
+        uchar *p = img.data;
+        for (int i = 0; i < w * h; i++) {
             std::swap(p[0], p[2]);
             p += 4;
         }
@@ -133,11 +118,10 @@ Mat imread(const std::string& path, int flags)
     return img;
 }
 
-bool imwrite(const std::string& path, const Mat& m, const std::vector<int>& params)
-{
-    const char* _ext = strrchr(path.c_str(), '.');
-    if (!_ext)
-    {
+bool imwrite(const std::string &path, const Mat &m,
+             const std::vector<int> &params) {
+    const char *_ext = strrchr(path.c_str(), '.');
+    if (!_ext) {
         // missing extension
         return false;
     }
@@ -147,61 +131,44 @@ bool imwrite(const std::string& path, const Mat& m, const std::vector<int>& para
 
     // bgr to rgb
     int c = 0;
-    if (img.type() == CV_8UC1)
-    {
+    if (img.type() == CV_8UC1) {
         c = 1;
-    }
-    else if (img.type() == CV_8UC3)
-    {
+    } else if (img.type() == CV_8UC3) {
         c = 3;
-        uchar* p = img.data;
-        for (int i = 0; i < img.cols * img.rows; i++)
-        {
+        uchar *p = img.data;
+        for (int i = 0; i < img.cols * img.rows; i++) {
             std::swap(p[0], p[2]);
             p += 3;
         }
-    }
-    else if (img.type() == CV_8UC4)
-    {
+    } else if (img.type() == CV_8UC4) {
         c = 4;
-        uchar* p = img.data;
-        for (int i = 0; i < img.cols * img.rows; i++)
-        {
+        uchar *p = img.data;
+        for (int i = 0; i < img.cols * img.rows; i++) {
             std::swap(p[0], p[2]);
             p += 4;
         }
-    }
-    else
-    {
+    } else {
         // unexpected image channels
         return false;
     }
 
     bool success = false;
 
-    if (ext == ".jpg" || ext == ".jpeg" || ext == ".JPG" || ext == ".JPEG")
-    {
+    if (ext == ".jpg" || ext == ".jpeg" || ext == ".JPG" || ext == ".JPEG") {
         int quality = 95;
-        for (size_t i = 0; i < params.size(); i += 2)
-        {
-            if (params[i] == IMWRITE_JPEG_QUALITY)
-            {
+        for (size_t i = 0; i < params.size(); i += 2) {
+            if (params[i] == IMWRITE_JPEG_QUALITY) {
                 quality = params[i + 1];
                 break;
             }
         }
-        success = stbi_write_jpg(path.c_str(), img.cols, img.rows, c, img.data, quality);
-    }
-    else if (ext == ".png" || ext == ".PNG")
-    {
+        success =
+            stbi_write_jpg(path.c_str(), img.cols, img.rows, c, img.data, quality);
+    } else if (ext == ".png" || ext == ".PNG") {
         success = stbi_write_png(path.c_str(), img.cols, img.rows, c, img.data, 0);
-    }
-    else if (ext == ".bmp" || ext == ".BMP")
-    {
+    } else if (ext == ".bmp" || ext == ".BMP") {
         success = stbi_write_bmp(path.c_str(), img.cols, img.rows, c, img.data);
-    }
-    else
-    {
+    } else {
         // unknown extension type
         return false;
     }
@@ -209,4 +176,4 @@ bool imwrite(const std::string& path, const Mat& m, const std::vector<int>& para
     return success;
 }
 
-} // namespace cv
+}  // namespace cv

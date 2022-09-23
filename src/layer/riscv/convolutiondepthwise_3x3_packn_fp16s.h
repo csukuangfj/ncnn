@@ -1,19 +1,23 @@
-// Tencent is pleased to support the open source community by making ncnn available.
+// Tencent is pleased to support the open source community by making ncnn
+// available.
 //
 // Copyright (C) 2021 THL A29 Limited, a Tencent company. All rights reserved.
 //
-// Licensed under the BSD 3-Clause License (the "License"); you may not use this file except
-// in compliance with the License. You may obtain a copy of the License at
+// Licensed under the BSD 3-Clause License (the "License"); you may not use this
+// file except in compliance with the License. You may obtain a copy of the
+// License at
 //
 // https://opensource.org/licenses/BSD-3-Clause
 //
-// Unless required by applicable law or agreed to in writing, software distributed
-// under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
-// CONDITIONS OF ANY KIND, either express or implied. See the License for the
-// specific language governing permissions and limitations under the License.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+// WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+// License for the specific language governing permissions and limitations under
+// the License.
 
-static void convdw3x3s1_packn_fp16sa_rvv(const Mat& bottom_blob, Mat& top_blob, const Mat& kernel, const Mat& _bias, const Option& opt)
-{
+static void convdw3x3s1_packn_fp16sa_rvv(const Mat &bottom_blob, Mat &top_blob,
+        const Mat &kernel, const Mat &_bias,
+        const Option &opt) {
     const int packn = csrr_vlenb() / 2;
     const word_type vl = vsetvl_e16m1(packn);
 
@@ -24,26 +28,26 @@ static void convdw3x3s1_packn_fp16sa_rvv(const Mat& bottom_blob, Mat& top_blob, 
 
     const int group = bottom_blob.c;
 
-    const __fp16* bias = _bias;
+    const __fp16 *bias = _bias;
 
     #pragma omp parallel for num_threads(opt.num_threads)
-    for (int g = 0; g < group; g++)
-    {
+    for (int g = 0; g < group; g++) {
         Mat out = top_blob.channel(g);
 
-        vfloat16m1_t _bias0 = bias ? vle16_v_f16m1(bias + g * packn, vl) : vfmv_v_f_f16m1((__fp16)0.f, vl);
+        vfloat16m1_t _bias0 = bias ? vle16_v_f16m1(bias + g * packn, vl)
+                              : vfmv_v_f_f16m1((__fp16)0.f, vl);
 
-        const __fp16* k0 = kernel.row<const __fp16>(g);
+        const __fp16 *k0 = kernel.row<const __fp16>(g);
 
-        __fp16* outptr0 = out.row<__fp16>(0);
-        __fp16* outptr1 = out.row<__fp16>(1);
+        __fp16 *outptr0 = out.row<__fp16>(0);
+        __fp16 *outptr1 = out.row<__fp16>(1);
 
         const Mat img0 = bottom_blob.channel(g);
 
-        const __fp16* r0 = img0.row<const __fp16>(0);
-        const __fp16* r1 = img0.row<const __fp16>(1);
-        const __fp16* r2 = img0.row<const __fp16>(2);
-        const __fp16* r3 = img0.row<const __fp16>(3);
+        const __fp16 *r0 = img0.row<const __fp16>(0);
+        const __fp16 *r1 = img0.row<const __fp16>(1);
+        const __fp16 *r2 = img0.row<const __fp16>(2);
+        const __fp16 *r3 = img0.row<const __fp16>(3);
 
         vfloat16m1_t _k00 = vle16_v_f16m1(k0, vl);
         vfloat16m1_t _k01 = vle16_v_f16m1(k0 + packn, vl);
@@ -56,11 +60,9 @@ static void convdw3x3s1_packn_fp16sa_rvv(const Mat& bottom_blob, Mat& top_blob, 
         vfloat16m1_t _k22 = vle16_v_f16m1(k0 + packn * 8, vl);
 
         int i = 0;
-        for (; i + 1 < outh; i += 2)
-        {
+        for (; i + 1 < outh; i += 2) {
             int j = 0;
-            for (; j + 1 < outw; j += 2)
-            {
+            for (; j + 1 < outw; j += 2) {
                 vfloat16m1_t _sum00 = _bias0;
                 vfloat16m1_t _sum01 = _bias0;
                 vfloat16m1_t _sum10 = _bias0;
@@ -139,8 +141,7 @@ static void convdw3x3s1_packn_fp16sa_rvv(const Mat& bottom_blob, Mat& top_blob, 
                 r2 += packn * 2;
                 r3 += packn * 2;
             }
-            for (; j < outw; j++)
-            {
+            for (; j < outw; j++) {
                 vfloat16m1_t _sum0 = _bias0;
                 vfloat16m1_t _sum1 = _bias0;
 
@@ -202,11 +203,9 @@ static void convdw3x3s1_packn_fp16sa_rvv(const Mat& bottom_blob, Mat& top_blob, 
             outptr0 += outw * packn;
             outptr1 += outw * packn;
         }
-        for (; i < outh; i++)
-        {
+        for (; i < outh; i++) {
             int j = 0;
-            for (; j + 1 < outw; j += 2)
-            {
+            for (; j + 1 < outw; j += 2) {
                 vfloat16m1_t _sum00 = _bias0;
                 vfloat16m1_t _sum01 = _bias0;
 
@@ -255,8 +254,7 @@ static void convdw3x3s1_packn_fp16sa_rvv(const Mat& bottom_blob, Mat& top_blob, 
                 r1 += packn * 2;
                 r2 += packn * 2;
             }
-            for (; j < outw; j++)
-            {
+            for (; j < outw; j++) {
                 vfloat16m1_t _sum0 = _bias0;
 
                 vfloat16m1_t _r00 = vle16_v_f16m1(r0, vl);
@@ -299,8 +297,9 @@ static void convdw3x3s1_packn_fp16sa_rvv(const Mat& bottom_blob, Mat& top_blob, 
     }
 }
 
-static void convdw3x3s2_packn_fp16sa_rvv(const Mat& bottom_blob, Mat& top_blob, const Mat& kernel, const Mat& _bias, const Option& opt)
-{
+static void convdw3x3s2_packn_fp16sa_rvv(const Mat &bottom_blob, Mat &top_blob,
+        const Mat &kernel, const Mat &_bias,
+        const Option &opt) {
     const int packn = csrr_vlenb() / 2;
     const word_type vl = vsetvl_e16m1(packn);
 
@@ -313,24 +312,24 @@ static void convdw3x3s2_packn_fp16sa_rvv(const Mat& bottom_blob, Mat& top_blob, 
 
     const int tailstep = (w - 2 * outw + w) * packn;
 
-    const __fp16* bias = _bias;
+    const __fp16 *bias = _bias;
 
     #pragma omp parallel for num_threads(opt.num_threads)
-    for (int g = 0; g < group; g++)
-    {
+    for (int g = 0; g < group; g++) {
         Mat out = top_blob.channel(g);
 
-        vfloat16m1_t _bias0 = bias ? vle16_v_f16m1(bias + g * packn, vl) : vfmv_v_f_f16m1((__fp16)0.f, vl);
+        vfloat16m1_t _bias0 = bias ? vle16_v_f16m1(bias + g * packn, vl)
+                              : vfmv_v_f_f16m1((__fp16)0.f, vl);
 
-        const __fp16* k0 = kernel.row<const __fp16>(g);
+        const __fp16 *k0 = kernel.row<const __fp16>(g);
 
-        __fp16* outptr0 = out;
+        __fp16 *outptr0 = out;
 
         const Mat img0 = bottom_blob.channel(g);
 
-        const __fp16* r0 = img0.row<const __fp16>(0);
-        const __fp16* r1 = img0.row<const __fp16>(1);
-        const __fp16* r2 = img0.row<const __fp16>(2);
+        const __fp16 *r0 = img0.row<const __fp16>(0);
+        const __fp16 *r1 = img0.row<const __fp16>(1);
+        const __fp16 *r2 = img0.row<const __fp16>(2);
 
         vfloat16m1_t _k00 = vle16_v_f16m1(k0, vl);
         vfloat16m1_t _k01 = vle16_v_f16m1(k0 + packn, vl);
@@ -343,11 +342,9 @@ static void convdw3x3s2_packn_fp16sa_rvv(const Mat& bottom_blob, Mat& top_blob, 
         vfloat16m1_t _k22 = vle16_v_f16m1(k0 + packn * 8, vl);
 
         int i = 0;
-        for (; i < outh; i++)
-        {
+        for (; i < outh; i++) {
             int j = 0;
-            for (; j + 1 < outw; j += 2)
-            {
+            for (; j + 1 < outw; j += 2) {
                 vfloat16m1_t _sum00 = _bias0;
                 vfloat16m1_t _sum01 = _bias0;
 
@@ -399,8 +396,7 @@ static void convdw3x3s2_packn_fp16sa_rvv(const Mat& bottom_blob, Mat& top_blob, 
                 r1 += packn * 4;
                 r2 += packn * 4;
             }
-            for (; j < outw; j++)
-            {
+            for (; j < outw; j++) {
                 vfloat16m1_t _sum0 = _bias0;
 
                 vfloat16m1_t _r00 = vle16_v_f16m1(r0, vl);

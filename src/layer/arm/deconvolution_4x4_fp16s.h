@@ -1,19 +1,23 @@
-// Tencent is pleased to support the open source community by making ncnn available.
+// Tencent is pleased to support the open source community by making ncnn
+// available.
 //
 // Copyright (C) 2020 THL A29 Limited, a Tencent company. All rights reserved.
 //
-// Licensed under the BSD 3-Clause License (the "License"); you may not use this file except
-// in compliance with the License. You may obtain a copy of the License at
+// Licensed under the BSD 3-Clause License (the "License"); you may not use this
+// file except in compliance with the License. You may obtain a copy of the
+// License at
 //
 // https://opensource.org/licenses/BSD-3-Clause
 //
-// Unless required by applicable law or agreed to in writing, software distributed
-// under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
-// CONDITIONS OF ANY KIND, either express or implied. See the License for the
-// specific language governing permissions and limitations under the License.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+// WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+// License for the specific language governing permissions and limitations under
+// the License.
 
-static void deconv4x4s2_fp16sa_neon(const Mat& bottom_blob, Mat& top_blob, const Mat& _kernel, const Mat& _bias, const Option& opt)
-{
+static void deconv4x4s2_fp16sa_neon(const Mat &bottom_blob, Mat &top_blob,
+                                    const Mat &_kernel, const Mat &_bias,
+                                    const Option &opt) {
     int w = bottom_blob.w;
     int h = bottom_blob.h;
     int inch = bottom_blob.c;
@@ -21,48 +25,44 @@ static void deconv4x4s2_fp16sa_neon(const Mat& bottom_blob, Mat& top_blob, const
     int outw = top_blob.w;
     int outch = top_blob.c;
 
-    const __fp16* kernel = _kernel;
-    const __fp16* bias = _bias;
+    const __fp16 *kernel = _kernel;
+    const __fp16 *bias = _bias;
 
     #pragma omp parallel for num_threads(opt.num_threads)
-    for (int p = 0; p < outch; p++)
-    {
+    for (int p = 0; p < outch; p++) {
         Mat out = top_blob.channel(p);
 
         const __fp16 bias0 = bias ? bias[p] : 0.f;
 
         out.fill(bias0);
 
-        for (int q = 0; q < inch; q++)
-        {
-            const __fp16* img0 = bottom_blob.channel(q);
+        for (int q = 0; q < inch; q++) {
+            const __fp16 *img0 = bottom_blob.channel(q);
 
-            const __fp16* kernel0 = kernel + p * inch * 16 + q * 16;
+            const __fp16 *kernel0 = kernel + p * inch * 16 + q * 16;
 
-            const __fp16* r0 = img0;
+            const __fp16 *r0 = img0;
 
-            const __fp16* k0 = kernel0;
-            const __fp16* k1 = kernel0 + 4;
-            const __fp16* k2 = kernel0 + 8;
-            const __fp16* k3 = kernel0 + 12;
+            const __fp16 *k0 = kernel0;
+            const __fp16 *k1 = kernel0 + 4;
+            const __fp16 *k2 = kernel0 + 8;
+            const __fp16 *k3 = kernel0 + 12;
 
             float16x4_t _k0 = vld1_f16(k0);
             float16x4_t _k1 = vld1_f16(k1);
             float16x4_t _k2 = vld1_f16(k2);
             float16x4_t _k3 = vld1_f16(k3);
 
-            for (int i = 0; i < h; i++)
-            {
-                __fp16* outptr = out.row<__fp16>(i * 2);
+            for (int i = 0; i < h; i++) {
+                __fp16 *outptr = out.row<__fp16>(i * 2);
 
-                __fp16* outptr0 = outptr;
-                __fp16* outptr1 = outptr0 + outw;
-                __fp16* outptr2 = outptr1 + outw;
-                __fp16* outptr3 = outptr2 + outw;
+                __fp16 *outptr0 = outptr;
+                __fp16 *outptr1 = outptr0 + outw;
+                __fp16 *outptr2 = outptr1 + outw;
+                __fp16 *outptr3 = outptr2 + outw;
 
                 int j = 0;
-                for (; j + 3 < w; j += 4)
-                {
+                for (; j + 3 < w; j += 4) {
                     float16x4_t _v = vld1_f16(r0);
 
                     // row 0
@@ -123,8 +123,7 @@ static void deconv4x4s2_fp16sa_neon(const Mat& bottom_blob, Mat& top_blob, const
                     outptr2 += 8;
                     outptr3 += 8;
                 }
-                for (; j < w; j++)
-                {
+                for (; j < w; j++) {
                     __fp16 val = r0[0];
 
                     outptr0[0] += val * k0[0];

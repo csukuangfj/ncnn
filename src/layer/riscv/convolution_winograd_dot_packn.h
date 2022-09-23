@@ -1,23 +1,29 @@
-// Tencent is pleased to support the open source community by making ncnn available.
+// Tencent is pleased to support the open source community by making ncnn
+// available.
 //
 // Copyright (C) 2022 THL A29 Limited, a Tencent company. All rights reserved.
 //
-// Licensed under the BSD 3-Clause License (the "License"); you may not use this file except
-// in compliance with the License. You may obtain a copy of the License at
+// Licensed under the BSD 3-Clause License (the "License"); you may not use this
+// file except in compliance with the License. You may obtain a copy of the
+// License at
 //
 // https://opensource.org/licenses/BSD-3-Clause
 //
-// Unless required by applicable law or agreed to in writing, software distributed
-// under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
-// CONDITIONS OF ANY KIND, either express or implied. See the License for the
-// specific language governing permissions and limitations under the License.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+// WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+// License for the specific language governing permissions and limitations under
+// the License.
 
-static void convolution_winograd_dot_packn_rvv(Mat& bottom_blob_tm, int outch, const Mat& kernel_tm, Mat& top_blob_tm, const Option& opt)
-{
+static void convolution_winograd_dot_packn_rvv(Mat &bottom_blob_tm, int outch,
+        const Mat &kernel_tm,
+        Mat &top_blob_tm,
+        const Option &opt) {
     const int packn = csrr_vlenb() / 4;
     const word_type vl = vsetvl_e32m1(packn);
 
-    // Mat bottom_blob_tm(tiles, 16/36/64, inch, 4u * packn, packn, opt.workspace_allocator);
+    // Mat bottom_blob_tm(tiles, 16/36/64, inch, 4u * packn, packn,
+    // opt.workspace_allocator);
 
     const int tiles = bottom_blob_tm.w;
     const int batch = bottom_blob_tm.h;
@@ -26,34 +32,35 @@ static void convolution_winograd_dot_packn_rvv(Mat& bottom_blob_tm, int outch, c
     // permute
     Mat bottom_blob_tm2;
     if (tiles >= 8)
-        bottom_blob_tm2.create(8 * inch, tiles / 8 + (tiles % 8) / 4 + (tiles % 4) / 2 + tiles % 2, batch, 4u * packn, packn, opt.workspace_allocator);
+        bottom_blob_tm2.create(
+            8 * inch, tiles / 8 + (tiles % 8) / 4 + (tiles % 4) / 2 + tiles % 2,
+            batch, 4u * packn, packn, opt.workspace_allocator);
     else if (tiles >= 4)
-        bottom_blob_tm2.create(4 * inch, tiles / 4 + (tiles % 4) / 2 + tiles % 2, batch, 4u * packn, packn, opt.workspace_allocator);
+        bottom_blob_tm2.create(4 * inch, tiles / 4 + (tiles % 4) / 2 + tiles % 2,
+                               batch, 4u * packn, packn, opt.workspace_allocator);
     else if (tiles >= 2)
-        bottom_blob_tm2.create(2 * inch, tiles / 2 + tiles % 2, batch, 4u * packn, packn, opt.workspace_allocator);
-    else // if (tiles >= 1)
-        bottom_blob_tm2.create(1 * inch, tiles, batch, 4u * packn, packn, opt.workspace_allocator);
+        bottom_blob_tm2.create(2 * inch, tiles / 2 + tiles % 2, batch, 4u * packn,
+                               packn, opt.workspace_allocator);
+    else  // if (tiles >= 1)
+        bottom_blob_tm2.create(1 * inch, tiles, batch, 4u * packn, packn,
+                               opt.workspace_allocator);
 
     #pragma omp parallel for num_threads(opt.num_threads)
-    for (int r = 0; r < batch; r++)
-    {
+    for (int r = 0; r < batch; r++) {
         Mat tm2 = bottom_blob_tm2.channel(r);
 
         // tile
         int i = 0;
-        for (; i + 7 < tiles; i += 8)
-        {
-            float* tmpptr = tm2.row<float>(i / 8);
+        for (; i + 7 < tiles; i += 8) {
+            float *tmpptr = tm2.row<float>(i / 8);
 
-            const float* r0 = bottom_blob_tm;
+            const float *r0 = bottom_blob_tm;
 
             r0 += (r * tiles + i) * packn;
 
-            for (int q = 0; q < inch; q++)
-            {
+            for (int q = 0; q < inch; q++) {
 #if C906
-                for (int l = 0; l < packn; l++)
-                {
+                for (int l = 0; l < packn; l++) {
                     tmpptr[0] = r0[l];
                     tmpptr[1] = r0[l + packn];
                     tmpptr[2] = r0[l + packn * 2];
@@ -75,26 +82,26 @@ static void convolution_winograd_dot_packn_rvv(Mat& bottom_blob_tm, int outch, c
                 vfloat32m1_t _val5 = vle32_v_f32m1(r0 + packn * 5, vl);
                 vfloat32m1_t _val6 = vle32_v_f32m1(r0 + packn * 6, vl);
                 vfloat32m1_t _val7 = vle32_v_f32m1(r0 + packn * 7, vl);
-                vsseg8e32_v_f32m1x8(tmpptr, vcreate_f32m1x8(_val0, _val1, _val2, _val3, _val4, _val5, _val6, _val7), vl);
+                vsseg8e32_v_f32m1x8(tmpptr,
+                                    vcreate_f32m1x8(_val0, _val1, _val2, _val3, _val4,
+                                                    _val5, _val6, _val7),
+                                    vl);
 
                 r0 += bottom_blob_tm.cstep * packn;
                 tmpptr += packn * 8;
 #endif
             }
         }
-        for (; i + 3 < tiles; i += 4)
-        {
-            float* tmpptr = tm2.row<float>(i / 8 + (i % 8) / 4);
+        for (; i + 3 < tiles; i += 4) {
+            float *tmpptr = tm2.row<float>(i / 8 + (i % 8) / 4);
 
-            const float* r0 = bottom_blob_tm;
+            const float *r0 = bottom_blob_tm;
 
             r0 += (r * tiles + i) * packn;
 
-            for (int q = 0; q < inch; q++)
-            {
+            for (int q = 0; q < inch; q++) {
 #if C906
-                for (int l = 0; l < packn; l++)
-                {
+                for (int l = 0; l < packn; l++) {
                     tmpptr[0] = r0[l];
                     tmpptr[1] = r0[l + packn];
                     tmpptr[2] = r0[l + packn * 2];
@@ -108,26 +115,24 @@ static void convolution_winograd_dot_packn_rvv(Mat& bottom_blob_tm, int outch, c
                 vfloat32m1_t _val1 = vle32_v_f32m1(r0 + packn, vl);
                 vfloat32m1_t _val2 = vle32_v_f32m1(r0 + packn * 2, vl);
                 vfloat32m1_t _val3 = vle32_v_f32m1(r0 + packn * 3, vl);
-                vsseg4e32_v_f32m1x4(tmpptr, vcreate_f32m1x4(_val0, _val1, _val2, _val3), vl);
+                vsseg4e32_v_f32m1x4(tmpptr, vcreate_f32m1x4(_val0, _val1, _val2, _val3),
+                                    vl);
 
                 r0 += bottom_blob_tm.cstep * packn;
                 tmpptr += packn * 4;
 #endif
             }
         }
-        for (; i + 1 < tiles; i += 2)
-        {
-            float* tmpptr = tm2.row<float>(i / 8 + (i % 8) / 4 + (i % 4) / 2);
+        for (; i + 1 < tiles; i += 2) {
+            float *tmpptr = tm2.row<float>(i / 8 + (i % 8) / 4 + (i % 4) / 2);
 
-            const float* r0 = bottom_blob_tm;
+            const float *r0 = bottom_blob_tm;
 
             r0 += (r * tiles + i) * packn;
 
-            for (int q = 0; q < inch; q++)
-            {
+            for (int q = 0; q < inch; q++) {
 #if C906
-                for (int l = 0; l < packn; l++)
-                {
+                for (int l = 0; l < packn; l++) {
                     tmpptr[0] = r0[l];
                     tmpptr[1] = r0[l + packn];
                     tmpptr += 2;
@@ -144,16 +149,14 @@ static void convolution_winograd_dot_packn_rvv(Mat& bottom_blob_tm, int outch, c
 #endif
             }
         }
-        for (; i < tiles; i++)
-        {
-            float* tmpptr = tm2.row<float>(i / 8 + (i % 8) / 4 + (i % 4) / 2 + i % 2);
+        for (; i < tiles; i++) {
+            float *tmpptr = tm2.row<float>(i / 8 + (i % 8) / 4 + (i % 4) / 2 + i % 2);
 
-            const float* r0 = bottom_blob_tm;
+            const float *r0 = bottom_blob_tm;
 
             r0 += (r * tiles + i) * packn;
 
-            for (int q = 0; q < inch; q++)
-            {
+            for (int q = 0; q < inch; q++) {
                 vfloat32m1_t _val = vle32_v_f32m1(r0, vl);
                 vse32_v_f32m1(tmpptr, _val, vl);
 
@@ -166,26 +169,24 @@ static void convolution_winograd_dot_packn_rvv(Mat& bottom_blob_tm, int outch, c
     bottom_blob_tm = Mat();
     // permute end
 
-    top_blob_tm.create(tiles, batch, outch, 4u * packn, packn, opt.workspace_allocator);
+    top_blob_tm.create(tiles, batch, outch, 4u * packn, packn,
+                       opt.workspace_allocator);
 
     #pragma omp parallel for num_threads(opt.num_threads)
-    for (int p = 0; p < outch; p++)
-    {
-        float* output0_tm = top_blob_tm.channel(p);
+    for (int p = 0; p < outch; p++) {
+        float *output0_tm = top_blob_tm.channel(p);
 
         const Mat kernel0_tm = kernel_tm.channel(p);
 
-        for (int r = 0; r < batch; r++)
-        {
+        for (int r = 0; r < batch; r++) {
             const Mat bb2 = bottom_blob_tm2.channel(r);
 
             int i = 0;
-            for (; i + 7 < tiles; i += 8)
-            {
-                const float* r0 = bb2.row<const float>(i / 8);
-                const float* k0 = kernel0_tm.row<const float>(r);
+            for (; i + 7 < tiles; i += 8) {
+                const float *r0 = bb2.row<const float>(i / 8);
+                const float *k0 = kernel0_tm.row<const float>(r);
 
-                int nn = inch * packn; // inch always > 0
+                int nn = inch * packn;  // inch always > 0
 
                 vfloat32m1_t _sum0 = vfmv_v_f_f32m1(0.f, vl);
                 vfloat32m1_t _sum1 = vfmv_v_f_f32m1(0.f, vl);
@@ -196,8 +197,7 @@ static void convolution_winograd_dot_packn_rvv(Mat& bottom_blob_tm, int outch, c
                 vfloat32m1_t _sum6 = vfmv_v_f_f32m1(0.f, vl);
                 vfloat32m1_t _sum7 = vfmv_v_f_f32m1(0.f, vl);
 
-                for (int j = 0; j < nn; j++)
-                {
+                for (int j = 0; j < nn; j++) {
                     float val0 = *r0++;
                     float val1 = *r0++;
                     float val2 = *r0++;
@@ -230,20 +230,18 @@ static void convolution_winograd_dot_packn_rvv(Mat& bottom_blob_tm, int outch, c
 
                 output0_tm += packn * 8;
             }
-            for (; i + 3 < tiles; i += 4)
-            {
-                const float* r0 = bb2.row<const float>(i / 8 + (i % 8) / 4);
-                const float* k0 = kernel0_tm.row<const float>(r);
+            for (; i + 3 < tiles; i += 4) {
+                const float *r0 = bb2.row<const float>(i / 8 + (i % 8) / 4);
+                const float *k0 = kernel0_tm.row<const float>(r);
 
-                int nn = inch * packn; // inch always > 0
+                int nn = inch * packn;  // inch always > 0
 
                 vfloat32m1_t _sum0 = vfmv_v_f_f32m1(0.f, vl);
                 vfloat32m1_t _sum1 = vfmv_v_f_f32m1(0.f, vl);
                 vfloat32m1_t _sum2 = vfmv_v_f_f32m1(0.f, vl);
                 vfloat32m1_t _sum3 = vfmv_v_f_f32m1(0.f, vl);
 
-                for (int j = 0; j < nn; j++)
-                {
+                for (int j = 0; j < nn; j++) {
                     float val0 = *r0++;
                     float val1 = *r0++;
                     float val2 = *r0++;
@@ -264,18 +262,17 @@ static void convolution_winograd_dot_packn_rvv(Mat& bottom_blob_tm, int outch, c
 
                 output0_tm += packn * 4;
             }
-            for (; i + 1 < tiles; i += 2)
-            {
-                const float* r0 = bb2.row<const float>(i / 8 + (i % 8) / 4 + (i % 4) / 2);
-                const float* k0 = kernel0_tm.row<const float>(r);
+            for (; i + 1 < tiles; i += 2) {
+                const float *r0 =
+                    bb2.row<const float>(i / 8 + (i % 8) / 4 + (i % 4) / 2);
+                const float *k0 = kernel0_tm.row<const float>(r);
 
-                int nn = inch * packn; // inch always > 0
+                int nn = inch * packn;  // inch always > 0
 
                 vfloat32m1_t _sum0 = vfmv_v_f_f32m1(0.f, vl);
                 vfloat32m1_t _sum1 = vfmv_v_f_f32m1(0.f, vl);
 
-                for (int j = 0; j < nn; j++)
-                {
+                for (int j = 0; j < nn; j++) {
                     float val0 = *r0++;
                     float val1 = *r0++;
                     vfloat32m1_t _w0 = vle32_v_f32m1(k0, vl);
@@ -290,17 +287,16 @@ static void convolution_winograd_dot_packn_rvv(Mat& bottom_blob_tm, int outch, c
 
                 output0_tm += packn * 2;
             }
-            for (; i < tiles; i++)
-            {
-                const float* r0 = bb2.row<const float>(i / 8 + (i % 8) / 4 + (i % 4) / 2 + i % 2);
-                const float* k0 = kernel0_tm.row<const float>(r);
+            for (; i < tiles; i++) {
+                const float *r0 =
+                    bb2.row<const float>(i / 8 + (i % 8) / 4 + (i % 4) / 2 + i % 2);
+                const float *k0 = kernel0_tm.row<const float>(r);
 
-                int nn = inch * packn; // inch always > 0
+                int nn = inch * packn;  // inch always > 0
 
                 vfloat32m1_t _sum = vfmv_v_f_f32m1(0.f, vl);
 
-                for (int j = 0; j < nn; j++)
-                {
+                for (int j = 0; j < nn; j++) {
                     float val = *r0++;
                     vfloat32m1_t _w0 = vle32_v_f32m1(k0, vl);
                     _sum = vfmacc_vf_f32m1(_sum, val, _w0, vl);

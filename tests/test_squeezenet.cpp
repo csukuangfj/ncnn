@@ -1,29 +1,31 @@
-// Tencent is pleased to support the open source community by making ncnn available.
+// Tencent is pleased to support the open source community by making ncnn
+// available.
 //
 // Copyright (C) 2020 THL A29 Limited, a Tencent company. All rights reserved.
 //
-// Licensed under the BSD 3-Clause License (the "License"); you may not use this file except
-// in compliance with the License. You may obtain a copy of the License at
+// Licensed under the BSD 3-Clause License (the "License"); you may not use this
+// file except in compliance with the License. You may obtain a copy of the
+// License at
 //
 // https://opensource.org/licenses/BSD-3-Clause
 //
-// Unless required by applicable law or agreed to in writing, software distributed
-// under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
-// CONDITIONS OF ANY KIND, either express or implied. See the License for the
-// specific language governing permissions and limitations under the License.
-
-#include "platform.h"
-#include "net.h"
-#include "testutil.h"
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+// WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+// License for the specific language governing permissions and limitations under
+// the License.
 
 #include <stdio.h>
+
+#include "net.h"
+#include "platform.h"
+#include "testutil.h"
 
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
 #endif
 
-static ncnn::Mat generate_ncnn_logo(int pixel_type_to, int w, int h)
-{
+static ncnn::Mat generate_ncnn_logo(int pixel_type_to, int w, int h) {
     // clang-format off
     // *INDENT-OFF*
     static const unsigned char ncnn_logo_data[16][16] =
@@ -48,8 +50,11 @@ static ncnn::Mat generate_ncnn_logo(int pixel_type_to, int w, int h)
     // *INDENT-ON*
     // clang-format on
 
-    const unsigned char* p_ncnn_logo_data = (const unsigned char*)ncnn_logo_data;
-    ncnn::Mat logo = ncnn::Mat::from_pixels(p_ncnn_logo_data, ncnn::Mat::PIXEL_GRAY | (pixel_type_to << ncnn::Mat::PIXEL_CONVERT_SHIFT), 16, 16);
+    const unsigned char *p_ncnn_logo_data = (const unsigned char *)ncnn_logo_data;
+    ncnn::Mat logo = ncnn::Mat::from_pixels(
+                         p_ncnn_logo_data,
+                         ncnn::Mat::PIXEL_GRAY | (pixel_type_to << ncnn::Mat::PIXEL_CONVERT_SHIFT),
+                         16, 16);
 
     ncnn::Mat m;
     ncnn::Option opt;
@@ -58,44 +63,42 @@ static ncnn::Mat generate_ncnn_logo(int pixel_type_to, int w, int h)
     return m;
 }
 
-struct compare_score_index
-{
-    inline bool operator()(const std::pair<float, int>& a, const std::pair<float, int>& b)
-    {
+struct compare_score_index {
+    inline bool operator()(const std::pair<float, int> &a,
+                           const std::pair<float, int> &b) {
         return a.first > b.first;
     }
 };
 
-static int check_top2(const std::vector<float>& cls_scores, float epsilon = 0.001)
-{
+static int check_top2(const std::vector<float> &cls_scores,
+                      float epsilon = 0.001) {
     // partial sort topk with index
     int size = cls_scores.size();
-    std::vector<std::pair<float, int> > vec;
+    std::vector<std::pair<float, int>> vec;
     vec.resize(size);
-    for (int i = 0; i < size; i++)
-    {
+    for (int i = 0; i < size; i++) {
         vec[i] = std::make_pair(cls_scores[i], i);
     }
 
-    std::partial_sort(vec.begin(), vec.begin() + 2, vec.end(), compare_score_index());
+    std::partial_sort(vec.begin(), vec.begin() + 2, vec.end(),
+                      compare_score_index());
 
     int expect_indexes[2] = {532, 920};
     float expect_scores[2] = {0.189459f, 0.082801f};
 
-    for (int i = 0; i < 2; i++)
-    {
+    for (int i = 0; i < 2; i++) {
         int index = vec[i].second;
         float score = vec[i].first;
 
-        if (index != expect_indexes[i])
-        {
-            fprintf(stderr, "top %d index not match  expect %d but got %d\n", i, expect_indexes[i], index);
+        if (index != expect_indexes[i]) {
+            fprintf(stderr, "top %d index not match  expect %d but got %d\n", i,
+                    expect_indexes[i], index);
             return -1;
         }
 
-        if (!NearlyEqual(score, expect_scores[i], epsilon))
-        {
-            fprintf(stderr, "top %d score not match  expect %f but got %f\n", i, expect_scores[i], score);
+        if (!NearlyEqual(score, expect_scores[i], epsilon)) {
+            fprintf(stderr, "top %d score not match  expect %f but got %f\n", i,
+                    expect_scores[i], score);
             return -1;
         }
     }
@@ -103,21 +106,18 @@ static int check_top2(const std::vector<float>& cls_scores, float epsilon = 0.00
     return 0;
 }
 
-static void fread_or_error(void* buffer, size_t size, size_t count, FILE* fp, const char* s)
-{
-    if (count != fread(buffer, size, count, fp))
-    {
+static void fread_or_error(void *buffer, size_t size, size_t count, FILE *fp,
+                           const char *s) {
+    if (count != fread(buffer, size, count, fp)) {
         fprintf(stderr, "Couldn't read from file: %s\n", s);
         fclose(fp);
         exit(EXIT_FAILURE);
     }
 }
 
-static std::string read_file_string(const char* filepath)
-{
-    FILE* fp = fopen(filepath, "rb");
-    if (!fp)
-    {
+static std::string read_file_string(const char *filepath) {
+    FILE *fp = fopen(filepath, "rb");
+    if (!fp) {
         fprintf(stderr, "fopen %s failed\n", filepath);
         return std::string();
     }
@@ -127,9 +127,9 @@ static std::string read_file_string(const char* filepath)
     rewind(fp);
 
     std::string s;
-    s.resize(len + 1); // +1 for '\0'
+    s.resize(len + 1);  // +1 for '\0'
 
-    fread_or_error((char*)s.c_str(), 1, len, fp, filepath);
+    fread_or_error((char *)s.c_str(), 1, len, fp, filepath);
     fclose(fp);
 
     s[len] = '\0';
@@ -137,11 +137,9 @@ static std::string read_file_string(const char* filepath)
     return s;
 }
 
-static ncnn::Mat read_file_content(const char* filepath)
-{
-    FILE* fp = fopen(filepath, "rb");
-    if (!fp)
-    {
+static ncnn::Mat read_file_content(const char *filepath) {
+    FILE *fp = fopen(filepath, "rb");
+    if (!fp) {
         fprintf(stderr, "fopen %s failed\n", filepath);
         return ncnn::Mat();
     }
@@ -158,8 +156,8 @@ static ncnn::Mat read_file_content(const char* filepath)
     return m;
 }
 
-static int test_squeezenet(const ncnn::Option& opt, int load_model_type, float epsilon = 0.001)
-{
+static int test_squeezenet(const ncnn::Option &opt, int load_model_type,
+                           float epsilon = 0.001) {
     ncnn::Net squeezenet;
 
     squeezenet.opt = opt;
@@ -173,33 +171,29 @@ static int test_squeezenet(const ncnn::Option& opt, int load_model_type, float e
     std::string param_str;
     ncnn::Mat param_data;
     ncnn::Mat model_data;
-    if (load_model_type == 0)
-    {
+    if (load_model_type == 0) {
         // load from plain model file
         squeezenet.load_param(MODEL_DIR "/squeezenet_v1.1.param");
         squeezenet.load_model(MODEL_DIR "/squeezenet_v1.1.bin");
     }
-    if (load_model_type == 1)
-    {
+    if (load_model_type == 1) {
         // load from plain model memory
         param_str = read_file_string(MODEL_DIR "/squeezenet_v1.1.param");
         model_data = read_file_content(MODEL_DIR "/squeezenet_v1.1.bin");
-        squeezenet.load_param_mem((const char*)param_str.c_str());
-        squeezenet.load_model((const unsigned char*)model_data);
+        squeezenet.load_param_mem((const char *)param_str.c_str());
+        squeezenet.load_model((const unsigned char *)model_data);
     }
-    if (load_model_type == 2)
-    {
+    if (load_model_type == 2) {
         // load from binary model file
         squeezenet.load_param_bin(MODEL_DIR "/squeezenet_v1.1.param.bin");
         squeezenet.load_model(MODEL_DIR "/squeezenet_v1.1.bin");
     }
-    if (load_model_type == 3)
-    {
+    if (load_model_type == 3) {
         // load from binary model memory
         param_data = read_file_content(MODEL_DIR "/squeezenet_v1.1.param.bin");
         model_data = read_file_content(MODEL_DIR "/squeezenet_v1.1.bin");
-        squeezenet.load_param((const unsigned char*)param_data);
-        squeezenet.load_model((const unsigned char*)model_data);
+        squeezenet.load_param((const unsigned char *)param_data);
+        squeezenet.load_model((const unsigned char *)model_data);
     }
 
     ncnn::Mat in = generate_ncnn_logo(ncnn::Mat::PIXEL_BGR, 227, 227);
@@ -210,36 +204,31 @@ static int test_squeezenet(const ncnn::Option& opt, int load_model_type, float e
     ncnn::Extractor ex = squeezenet.create_extractor();
 
     ncnn::Mat out;
-    if (load_model_type == 0 || load_model_type == 1)
-    {
+    if (load_model_type == 0 || load_model_type == 1) {
         ex.input("data", in);
         ex.extract("prob", out);
     }
-    if (load_model_type == 2 || load_model_type == 3)
-    {
+    if (load_model_type == 2 || load_model_type == 3) {
         ex.input(0, in);
         ex.extract(82, out);
     }
 
     std::vector<float> cls_scores;
     cls_scores.resize(out.w);
-    for (int j = 0; j < out.w; j++)
-    {
+    for (int j = 0; j < out.w; j++) {
         cls_scores[j] = out[j];
     }
 
     return check_top2(cls_scores, epsilon);
 }
 
-int main()
-{
+int main() {
     SRAND(7767517);
 
 #ifdef __EMSCRIPTEN__
-    EM_ASM(
-        FS.mkdir('/working');
-        FS.mount(NODEFS, {root: '../../examples'}, '/working'););
-#endif // __EMSCRIPTEN__
+    EM_ASM(FS.mkdir('/working');
+           FS.mount(NODEFS, {root : '../../examples'}, '/working'););
+#endif  // __EMSCRIPTEN__
 
     ncnn::UnlockedPoolAllocator g_blob_pool_allocator;
     ncnn::PoolAllocator g_workspace_pool_allocator;
@@ -273,7 +262,7 @@ int main()
     opts[3].use_packing_layout = true;
     opts[3].use_fp16_packed = true;
     opts[3].use_fp16_storage = true;
-    opts[3].use_fp16_arithmetic = false; // FIXME enable me
+    opts[3].use_fp16_arithmetic = false;  // FIXME enable me
     opts[3].use_bf16_storage = false;
     opts[3].use_shader_pack8 = true;
     opts[3].use_image_storage = true;
@@ -282,22 +271,17 @@ int main()
 
     int load_model_types[4] = {0, 1, 2, 3};
 
-    for (int i = 0; i < 4; i++)
-    {
+    for (int i = 0; i < 4; i++) {
         opts[i].num_threads = 1;
     }
 
-    for (int i = 0; i < 4; i++)
-    {
-        const ncnn::Option& opt = opts[i];
+    for (int i = 0; i < 4; i++) {
+        const ncnn::Option &opt = opts[i];
 
         float epsilon;
-        if (opt.use_bf16_storage || opt.use_fp16_packed || opt.use_fp16_storage)
-        {
+        if (opt.use_bf16_storage || opt.use_fp16_packed || opt.use_fp16_storage) {
             epsilon = 0.1;
-        }
-        else
-        {
+        } else {
             epsilon = 0.01;
         }
 
@@ -306,9 +290,14 @@ int main()
         ncnn::Option opt_cpu = opt;
         opt_cpu.use_vulkan_compute = false;
         ret = test_squeezenet(opt_cpu, load_model_types[i], epsilon);
-        if (ret != 0)
-        {
-            fprintf(stderr, "test_squeezenet cpu failed use_packing_layout=%d use_fp16_packed=%d use_fp16_storage=%d use_shader_pack8=%d use_bf16_storage=%d use_image_storage=%d\n", opt.use_packing_layout, opt.use_fp16_packed, opt.use_fp16_storage, opt.use_shader_pack8, opt.use_bf16_storage, opt.use_image_storage);
+        if (ret != 0) {
+            fprintf(stderr,
+                    "test_squeezenet cpu failed use_packing_layout=%d "
+                    "use_fp16_packed=%d use_fp16_storage=%d use_shader_pack8=%d "
+                    "use_bf16_storage=%d use_image_storage=%d\n",
+                    opt.use_packing_layout, opt.use_fp16_packed, opt.use_fp16_storage,
+                    opt.use_shader_pack8, opt.use_bf16_storage,
+                    opt.use_image_storage);
             return ret;
         }
 
@@ -316,12 +305,17 @@ int main()
         ncnn::Option opt_gpu = opt;
         opt_gpu.use_vulkan_compute = true;
         ret = test_squeezenet(opt_gpu, load_model_types[i], epsilon);
-        if (ret != 0)
-        {
-            fprintf(stderr, "test_squeezenet gpu failed use_packing_layout=%d use_fp16_packed=%d use_fp16_storage=%d use_shader_pack8=%d use_bf16_storage=%d use_image_storage=%d\n", opt.use_packing_layout, opt.use_fp16_packed, opt.use_fp16_storage, opt.use_shader_pack8, opt.use_bf16_storage, opt.use_image_storage);
+        if (ret != 0) {
+            fprintf(stderr,
+                    "test_squeezenet gpu failed use_packing_layout=%d "
+                    "use_fp16_packed=%d use_fp16_storage=%d use_shader_pack8=%d "
+                    "use_bf16_storage=%d use_image_storage=%d\n",
+                    opt.use_packing_layout, opt.use_fp16_packed, opt.use_fp16_storage,
+                    opt.use_shader_pack8, opt.use_bf16_storage,
+                    opt.use_image_storage);
             return ret;
         }
-#endif // NCNN_VULKAN
+#endif  // NCNN_VULKAN
     }
 
     return 0;

@@ -1,16 +1,19 @@
-// Tencent is pleased to support the open source community by making ncnn available.
+// Tencent is pleased to support the open source community by making ncnn
+// available.
 //
 // Copyright (C) 2017 THL A29 Limited, a Tencent company. All rights reserved.
 //
-// Licensed under the BSD 3-Clause License (the "License"); you may not use this file except
-// in compliance with the License. You may obtain a copy of the License at
+// Licensed under the BSD 3-Clause License (the "License"); you may not use this
+// file except in compliance with the License. You may obtain a copy of the
+// License at
 //
 // https://opensource.org/licenses/BSD-3-Clause
 //
-// Unless required by applicable law or agreed to in writing, software distributed
-// under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
-// CONDITIONS OF ANY KIND, either express or implied. See the License for the
-// specific language governing permissions and limitations under the License.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+// WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+// License for the specific language governing permissions and limitations under
+// the License.
 
 #ifndef NCNN_CPU_H
 #define NCNN_CPU_H
@@ -18,15 +21,14 @@
 #include <stddef.h>
 
 #if defined __ANDROID__ || defined __linux__
-#include <sched.h> // cpu_set_t
+#include <sched.h>  // cpu_set_t
 #endif
 
 #include "platform.h"
 
 namespace ncnn {
 
-class NCNN_EXPORT CpuSet
-{
+class NCNN_EXPORT CpuSet {
 public:
     CpuSet();
     void enable(int cpu);
@@ -122,10 +124,10 @@ NCNN_EXPORT int get_cpu_powersave();
 NCNN_EXPORT int set_cpu_powersave(int powersave);
 
 // convenient wrapper
-NCNN_EXPORT const CpuSet& get_cpu_thread_affinity_mask(int powersave);
+NCNN_EXPORT const CpuSet &get_cpu_thread_affinity_mask(int powersave);
 
 // set explicit thread affinity
-NCNN_EXPORT int set_cpu_thread_affinity(const CpuSet& thread_affinity_mask);
+NCNN_EXPORT int set_cpu_thread_affinity(const CpuSet &thread_affinity_mask);
 
 // misc function wrapper for openmp routines
 NCNN_EXPORT int get_omp_num_threads();
@@ -148,6 +150,6 @@ NCNN_EXPORT void set_kmp_blocktime(int time_ms);
 NCNN_EXPORT int get_flush_denormals();
 NCNN_EXPORT int set_flush_denormals(int flush_denormals);
 
-} // namespace ncnn
+}  // namespace ncnn
 
-#endif // NCNN_CPU_H
+#endif  // NCNN_CPU_H

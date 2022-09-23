@@ -1,19 +1,25 @@
-// Tencent is pleased to support the open source community by making ncnn available.
+// Tencent is pleased to support the open source community by making ncnn
+// available.
 //
 // Copyright (C) 2022 THL A29 Limited, a Tencent company. All rights reserved.
 //
-// Licensed under the BSD 3-Clause License (the "License"); you may not use this file except
-// in compliance with the License. You may obtain a copy of the License at
+// Licensed under the BSD 3-Clause License (the "License"); you may not use this
+// file except in compliance with the License. You may obtain a copy of the
+// License at
 //
 // https://opensource.org/licenses/BSD-3-Clause
 //
-// Unless required by applicable law or agreed to in writing, software distributed
-// under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
-// CONDITIONS OF ANY KIND, either express or implied. See the License for the
-// specific language governing permissions and limitations under the License.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+// WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+// License for the specific language governing permissions and limitations under
+// the License.
 
-static void convolution_winograd_dot_pack8to4_int8_msa(Mat& bottom_blob_tm, int outch, const Mat& kernel_tm, Mat& top_blob_tm, const Option& opt)
-{
+static void convolution_winograd_dot_pack8to4_int8_msa(Mat &bottom_blob_tm,
+        int outch,
+        const Mat &kernel_tm,
+        Mat &top_blob_tm,
+        const Option &opt) {
     // Mat bottom_blob_tm(tiles, 16/36/64, inch, 16u, 8, opt.workspace_allocator);
 
     const int tiles = bottom_blob_tm.w;
@@ -23,27 +29,26 @@ static void convolution_winograd_dot_pack8to4_int8_msa(Mat& bottom_blob_tm, int 
     // permute
     Mat bottom_blob_tm2;
     if (tiles >= 2)
-        bottom_blob_tm2.create(2 * inch, tiles / 2 + tiles % 2, batch, 16u, 8, opt.workspace_allocator);
-    else // if (tiles >= 1)
-        bottom_blob_tm2.create(1 * inch, tiles, batch, 16u, 8, opt.workspace_allocator);
+        bottom_blob_tm2.create(2 * inch, tiles / 2 + tiles % 2, batch, 16u, 8,
+                               opt.workspace_allocator);
+    else  // if (tiles >= 1)
+        bottom_blob_tm2.create(1 * inch, tiles, batch, 16u, 8,
+                               opt.workspace_allocator);
 
     #pragma omp parallel for num_threads(opt.num_threads)
-    for (int r = 0; r < batch; r++)
-    {
+    for (int r = 0; r < batch; r++) {
         Mat tm2 = bottom_blob_tm2.channel(r);
 
         // tile
         int i = 0;
-        for (; i + 1 < tiles; i += 2)
-        {
-            short* tmpptr = tm2.row<short>(i / 2);
+        for (; i + 1 < tiles; i += 2) {
+            short *tmpptr = tm2.row<short>(i / 2);
 
-            const short* r0 = bottom_blob_tm;
+            const short *r0 = bottom_blob_tm;
 
             r0 += (r * tiles + i) * 8;
 
-            for (int q = 0; q < inch; q++)
-            {
+            for (int q = 0; q < inch; q++) {
                 v8i16 _r0 = __msa_ld_h(r0, 0);
                 v8i16 _r1 = __msa_ld_h(r0 + 8, 0);
                 __msa_st_h(_r0, tmpptr, 0);
@@ -52,16 +57,14 @@ static void convolution_winograd_dot_pack8to4_int8_msa(Mat& bottom_blob_tm, int 
                 tmpptr += 16;
             }
         }
-        for (; i < tiles; i++)
-        {
-            short* tmpptr = tm2.row<short>(i / 2 + i % 2);
+        for (; i < tiles; i++) {
+            short *tmpptr = tm2.row<short>(i / 2 + i % 2);
 
-            const short* r0 = bottom_blob_tm;
+            const short *r0 = bottom_blob_tm;
 
             r0 += (r * tiles + i) * 8;
 
-            for (int q = 0; q < inch; q++)
-            {
+            for (int q = 0; q < inch; q++) {
                 v8i16 _r0 = __msa_ld_h(r0, 0);
                 __msa_st_h(_r0, tmpptr, 0);
                 r0 += bottom_blob_tm.cstep * 8;
@@ -76,31 +79,27 @@ static void convolution_winograd_dot_pack8to4_int8_msa(Mat& bottom_blob_tm, int 
     top_blob_tm.create(tiles, batch, outch, 16u, 4, opt.workspace_allocator);
 
     #pragma omp parallel for num_threads(opt.num_threads)
-    for (int p = 0; p < outch; p++)
-    {
-        int* output0_tm = top_blob_tm.channel(p);
+    for (int p = 0; p < outch; p++) {
+        int *output0_tm = top_blob_tm.channel(p);
 
         const Mat kernel0_tm = kernel_tm.channel(p);
 
-        for (int r = 0; r < batch; r++)
-        {
+        for (int r = 0; r < batch; r++) {
             const Mat bb2 = bottom_blob_tm2.channel(r);
 
             int i = 0;
-            for (; i + 1 < tiles; i += 2)
-            {
-                const short* r0 = bb2.row<const short>(i / 2);
-                const short* k0 = kernel0_tm.row<const short>(r);
+            for (; i + 1 < tiles; i += 2) {
+                const short *r0 = bb2.row<const short>(i / 2);
+                const short *k0 = kernel0_tm.row<const short>(r);
 
-                int nn = inch; // inch always > 0
+                int nn = inch;  // inch always > 0
 
                 v4i32 _sum0 = __msa_fill_w(0);
                 v4i32 _sum1 = __msa_fill_w(0);
                 v4i32 _sum2 = __msa_fill_w(0);
                 v4i32 _sum3 = __msa_fill_w(0);
 
-                for (int j = 0; j < nn; j++)
-                {
+                for (int j = 0; j < nn; j++) {
                     __builtin_prefetch(r0 + 64);
                     __builtin_prefetch(k0 + 128);
                     v8i16 _w0 = __msa_ld_h(k0, 0);
@@ -168,18 +167,16 @@ static void convolution_winograd_dot_pack8to4_int8_msa(Mat& bottom_blob_tm, int 
 
                 output0_tm += 8;
             }
-            for (; i < tiles; i++)
-            {
-                const short* r0 = bb2.row<const short>(i / 2 + i % 2);
-                const short* k0 = kernel0_tm.row<const short>(r);
+            for (; i < tiles; i++) {
+                const short *r0 = bb2.row<const short>(i / 2 + i % 2);
+                const short *k0 = kernel0_tm.row<const short>(r);
 
-                int nn = inch; // inch always > 0
+                int nn = inch;  // inch always > 0
 
                 v4i32 _sum0 = __msa_fill_w(0);
                 v4i32 _sum1 = __msa_fill_w(0);
 
-                for (int j = 0; j < nn; j++)
-                {
+                for (int j = 0; j < nn; j++) {
                     __builtin_prefetch(r0 + 32);
                     __builtin_prefetch(k0 + 128);
                     v8i16 _w0 = __msa_ld_h(k0, 0);

@@ -1,41 +1,43 @@
-// Tencent is pleased to support the open source community by making ncnn available.
+// Tencent is pleased to support the open source community by making ncnn
+// available.
 //
 // Copyright (C) 2019 THL A29 Limited, a Tencent company. All rights reserved.
 //
-// Licensed under the BSD 3-Clause License (the "License"); you may not use this file except
-// in compliance with the License. You may obtain a copy of the License at
+// Licensed under the BSD 3-Clause License (the "License"); you may not use this
+// file except in compliance with the License. You may obtain a copy of the
+// License at
 //
 // https://opensource.org/licenses/BSD-3-Clause
 //
-// Unless required by applicable law or agreed to in writing, software distributed
-// under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
-// CONDITIONS OF ANY KIND, either express or implied. See the License for the
-// specific language governing permissions and limitations under the License.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+// WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+// License for the specific language governing permissions and limitations under
+// the License.
 
-static void conv3x3s1_pack8to1_avx(const Mat& bottom_blob, Mat& top_blob, const Mat& kernel, const Mat& _bias, const Option& opt)
-{
+static void conv3x3s1_pack8to1_avx(const Mat &bottom_blob, Mat &top_blob,
+                                   const Mat &kernel, const Mat &_bias,
+                                   const Option &opt) {
     int inch = bottom_blob.c;
     int outw = top_blob.w;
     int outh = top_blob.h;
     int outch = top_blob.c;
 
-    const float* bias = _bias;
+    const float *bias = _bias;
 
     int remain_outch_start = 0;
 
     #pragma omp parallel for num_threads(opt.num_threads)
-    for (int p = remain_outch_start; p < outch; p++)
-    {
+    for (int p = remain_outch_start; p < outch; p++) {
         Mat out0 = top_blob.channel(p);
 
         const float bias0 = bias ? bias[p] : 0.f;
         out0.fill(bias0);
 
-        const float* k0 = kernel.channel(p);
+        const float *k0 = kernel.channel(p);
 
-        for (int q = 0; q < inch; q++)
-        {
-            float* outptr0 = out0.row(0);
+        for (int q = 0; q < inch; q++) {
+            float *outptr0 = out0.row(0);
 
             const Mat img0 = bottom_blob.channel(q);
 
@@ -51,14 +53,12 @@ static void conv3x3s1_pack8to1_avx(const Mat& bottom_blob, Mat& top_blob, const 
 
             int i = 0;
 
-            for (; i < outh; i++)
-            {
-                const float* r0 = img0.row(i);
-                const float* r1 = img0.row(i + 1);
-                const float* r2 = img0.row(i + 2);
+            for (; i < outh; i++) {
+                const float *r0 = img0.row(i);
+                const float *r1 = img0.row(i + 1);
+                const float *r2 = img0.row(i + 2);
                 int j = 0;
-                for (; j < outw; j++)
-                {
+                for (; j < outw; j++) {
                     __m256 _r00 = _mm256_loadu_ps(r0);
                     __m256 _r01 = _mm256_loadu_ps(r0 + 8);
                     __m256 _r02 = _mm256_loadu_ps(r0 + 16);
@@ -84,7 +84,7 @@ static void conv3x3s1_pack8to1_avx(const Mat& bottom_blob, Mat& top_blob, const 
                     _sum2 = _mm256_comp_fmadd_ps(_k22, _r22, _sum2);
                     __m128 _sum = HorizontalSums(_sum0, _sum1, _sum2);
 
-                    *outptr0 += _mm_reduce_add_ps(_sum); // dot
+                    *outptr0 += _mm_reduce_add_ps(_sum);  // dot
                     outptr0++;
                     r0 += 8;
                     r1 += 8;
@@ -97,14 +97,14 @@ static void conv3x3s1_pack8to1_avx(const Mat& bottom_blob, Mat& top_blob, const 
     }
 }
 
-static void conv3x3s1_winograd63_transform_kernel_pack8to1_avx(const Mat& kernel, Mat& kernel_tm_pack8, int inch, int outch, const Option& opt)
-{
+static void conv3x3s1_winograd63_transform_kernel_pack8to1_avx(
+    const Mat &kernel, Mat &kernel_tm_pack8, int inch, int outch,
+    const Option &opt) {
     // winograd63 transform kernel
     Mat kernel_tm;
     kernel_tm.create(8 * 8, inch, outch);
 
-    const float ktm[8][3] = {
-        {1.0f, 0.0f, 0.0f},
+    const float ktm[8][3] = {{1.0f, 0.0f, 0.0f},
         {-2.0f / 9, -2.0f / 9, -2.0f / 9},
         {-2.0f / 9, 2.0f / 9, -2.0f / 9},
         {1.0f / 90, 1.0f / 45, 2.0f / 45},
@@ -115,35 +115,31 @@ static void conv3x3s1_winograd63_transform_kernel_pack8to1_avx(const Mat& kernel
     };
 
     #pragma omp parallel for num_threads(opt.num_threads)
-    for (int p = 0; p < outch; p++)
-    {
-        for (int q = 0; q < inch; q++)
-        {
-            const float* kernel0 = (const float*)kernel + p * inch * 9 + q * 9;
-            float* kernel_tm0 = kernel_tm.channel(p).row(q);
+    for (int p = 0; p < outch; p++) {
+        for (int q = 0; q < inch; q++) {
+            const float *kernel0 = (const float *)kernel + p * inch * 9 + q * 9;
+            float *kernel_tm0 = kernel_tm.channel(p).row(q);
 
             // transform kernel, transposed
-            const float* k0 = kernel0;
-            const float* k1 = kernel0 + 3;
-            const float* k2 = kernel0 + 6;
+            const float *k0 = kernel0;
+            const float *k1 = kernel0 + 3;
+            const float *k2 = kernel0 + 6;
 
             // h
             float tmp[8][3];
-            for (int i = 0; i < 8; i++)
-            {
+            for (int i = 0; i < 8; i++) {
                 tmp[i][0] = k0[0] * ktm[i][0] + k0[1] * ktm[i][1] + k0[2] * ktm[i][2];
                 tmp[i][1] = k1[0] * ktm[i][0] + k1[1] * ktm[i][1] + k1[2] * ktm[i][2];
                 tmp[i][2] = k2[0] * ktm[i][0] + k2[1] * ktm[i][1] + k2[2] * ktm[i][2];
             }
 
             // v
-            for (int j = 0; j < 8; j++)
-            {
-                float* tmpp = &tmp[j][0];
+            for (int j = 0; j < 8; j++) {
+                float *tmpp = &tmp[j][0];
 
-                for (int i = 0; i < 8; i++)
-                {
-                    kernel_tm0[j * 8 + i] = tmpp[0] * ktm[i][0] + tmpp[1] * ktm[i][1] + tmpp[2] * ktm[i][2];
+                for (int i = 0; i < 8; i++) {
+                    kernel_tm0[j * 8 + i] =
+                        tmpp[0] * ktm[i][0] + tmpp[1] * ktm[i][1] + tmpp[2] * ktm[i][2];
                 }
             }
         }
@@ -152,24 +148,20 @@ static void conv3x3s1_winograd63_transform_kernel_pack8to1_avx(const Mat& kernel
     // interleave
     // src = 64-inch-outch
     // dst = 8a-inch/8a-64-outch;
-    kernel_tm_pack8.create(8 * inch / 8, 64, outch / 8 + outch % 8, (size_t)4u * 8, 8);
+    kernel_tm_pack8.create(8 * inch / 8, 64, outch / 8 + outch % 8,
+                           (size_t)4u * 8, 8);
 
     int p = 0;
-    for (; p + 7 < outch; p += 8)
-    {
+    for (; p + 7 < outch; p += 8) {
         Mat g0 = kernel_tm_pack8.channel(p / 8);
 
-        for (int k = 0; k < 64; k++)
-        {
-            float* g00 = g0.row(k);
+        for (int k = 0; k < 64; k++) {
+            float *g00 = g0.row(k);
 
-            for (int q = 0; q + 7 < inch; q += 8)
-            {
-                for (int i = 0; i < 8; i++)
-                {
-                    for (int j = 0; j < 8; j++)
-                    {
-                        const float* k00 = kernel_tm.channel(p + j).row(q + i);
+            for (int q = 0; q + 7 < inch; q += 8) {
+                for (int i = 0; i < 8; i++) {
+                    for (int j = 0; j < 8; j++) {
+                        const float *k00 = kernel_tm.channel(p + j).row(q + i);
 
                         g00[0] = k00[k];
 
@@ -179,21 +171,17 @@ static void conv3x3s1_winograd63_transform_kernel_pack8to1_avx(const Mat& kernel
             }
         }
     }
-    for (; p < outch; p++)
-    {
+    for (; p < outch; p++) {
         const Mat k0 = kernel_tm.channel(p);
 
         Mat g0 = kernel_tm_pack8.channel(p / 8 + p % 8);
 
-        for (int k = 0; k < 64; k++)
-        {
-            float* g00 = g0.row(k);
+        for (int k = 0; k < 64; k++) {
+            float *g00 = g0.row(k);
 
-            for (int q = 0; q + 7 < inch; q += 8)
-            {
-                for (int i = 0; i < 8; i++)
-                {
-                    const float* k00 = k0.row(q + i);
+            for (int q = 0; q + 7 < inch; q += 8) {
+                for (int i = 0; i < 8; i++) {
+                    const float *k00 = k0.row(q + i);
 
                     g00[0] = k00[k];
 
@@ -204,8 +192,11 @@ static void conv3x3s1_winograd63_transform_kernel_pack8to1_avx(const Mat& kernel
     }
 }
 
-static void conv3x3s1_winograd63_pack8to1_avx(const Mat& bottom_blob, Mat& top_blob, const Mat& kernel_tm, const Mat& bias, const Option& opt)
-{
+static void conv3x3s1_winograd63_pack8to1_avx(const Mat &bottom_blob,
+        Mat &top_blob,
+        const Mat &kernel_tm,
+        const Mat &bias,
+        const Option &opt) {
     int w = bottom_blob.w;
     int h = bottom_blob.h;
     int inch = bottom_blob.c;
@@ -224,7 +215,8 @@ static void conv3x3s1_winograd63_pack8to1_avx(const Mat& bottom_blob, Mat& top_b
 
     w = outw + 2;
     h = outh + 2;
-    copy_make_border(bottom_blob, bottom_blob_bordered, 0, h - bottom_blob.h, 0, w - bottom_blob.w, BORDER_CONSTANT, 0.f, opt);
+    copy_make_border(bottom_blob, bottom_blob_bordered, 0, h - bottom_blob.h, 0,
+                     w - bottom_blob.w, BORDER_CONSTANT, 0.f, opt);
 
     // BEGIN transform input
     Mat bottom_blob_tm;
@@ -233,8 +225,10 @@ static void conv3x3s1_winograd63_pack8to1_avx(const Mat& bottom_blob, Mat& top_b
         int h_tiles = outh / 6;
         const int tiles = w_tiles * h_tiles;
 
-        bottom_blob_tm.create(tiles, 64, inch, elemsize, elempack, opt.workspace_allocator);
-        conv3x3s1_winograd63_transform_input_pack8_avx(bottom_blob_bordered, bottom_blob_tm, opt);
+        bottom_blob_tm.create(tiles, 64, inch, elemsize, elempack,
+                              opt.workspace_allocator);
+        conv3x3s1_winograd63_transform_input_pack8_avx(bottom_blob_bordered,
+                bottom_blob_tm, opt);
     }
     bottom_blob_bordered = Mat();
     // END transform input
@@ -248,30 +242,30 @@ static void conv3x3s1_winograd63_pack8to1_avx(const Mat& bottom_blob, Mat& top_b
         const int tiles = h_tm / 8 * w_tm / 8;
 
         // permute
-        //         bottom_blob_tm.create(tiles, 64, inch, elemsize, elempack, opt.workspace_allocator);
+        //         bottom_blob_tm.create(tiles, 64, inch, elemsize, elempack,
+        //         opt.workspace_allocator);
         Mat bottom_blob_tm2;
         if (tiles >= 8)
-            bottom_blob_tm2.create(8 * inch, tiles / 8 + tiles % 8, 64, elemsize, elempack, opt.workspace_allocator);
-        else // if (tiles >= 1)
-            bottom_blob_tm2.create(1 * inch, tiles, 64, elemsize, elempack, opt.workspace_allocator);
+            bottom_blob_tm2.create(8 * inch, tiles / 8 + tiles % 8, 64, elemsize,
+                                   elempack, opt.workspace_allocator);
+        else  // if (tiles >= 1)
+            bottom_blob_tm2.create(1 * inch, tiles, 64, elemsize, elempack,
+                                   opt.workspace_allocator);
 
         #pragma omp parallel for num_threads(opt.num_threads)
-        for (int r = 0; r < 64; r++)
-        {
+        for (int r = 0; r < 64; r++) {
             Mat tm2 = bottom_blob_tm2.channel(r);
 
             // tile
             int i = 0;
-            for (; i + 7 < tiles; i += 8)
-            {
-                float* tmpptr = tm2.row(i / 8);
+            for (; i + 7 < tiles; i += 8) {
+                float *tmpptr = tm2.row(i / 8);
 
-                const float* r0 = bottom_blob_tm;
+                const float *r0 = bottom_blob_tm;
 
                 r0 += (r * tiles + i) * 8;
 
-                for (int q = 0; q < inch; q++)
-                {
+                for (int q = 0; q < inch; q++) {
                     // transpose 8x8
                     __m256 _r0 = _mm256_load_ps(r0);
                     __m256 _r1 = _mm256_load_ps(r0 + 8);
@@ -290,14 +284,22 @@ static void conv3x3s1_winograd63_pack8to1_avx(const Mat& bottom_blob, Mat& top_b
                     __m256 _tmp5 = _mm256_unpackhi_ps(_r4, _r5);
                     __m256 _tmp6 = _mm256_unpacklo_ps(_r6, _r7);
                     __m256 _tmp7 = _mm256_unpackhi_ps(_r6, _r7);
-                    __m256 _tmp8 = _mm256_shuffle_ps(_tmp0, _tmp2, _MM_SHUFFLE(1, 0, 1, 0));
-                    __m256 _tmp9 = _mm256_shuffle_ps(_tmp0, _tmp2, _MM_SHUFFLE(3, 2, 3, 2));
-                    __m256 _tmpa = _mm256_shuffle_ps(_tmp1, _tmp3, _MM_SHUFFLE(1, 0, 1, 0));
-                    __m256 _tmpb = _mm256_shuffle_ps(_tmp1, _tmp3, _MM_SHUFFLE(3, 2, 3, 2));
-                    __m256 _tmpc = _mm256_shuffle_ps(_tmp4, _tmp6, _MM_SHUFFLE(1, 0, 1, 0));
-                    __m256 _tmpd = _mm256_shuffle_ps(_tmp4, _tmp6, _MM_SHUFFLE(3, 2, 3, 2));
-                    __m256 _tmpe = _mm256_shuffle_ps(_tmp5, _tmp7, _MM_SHUFFLE(1, 0, 1, 0));
-                    __m256 _tmpf = _mm256_shuffle_ps(_tmp5, _tmp7, _MM_SHUFFLE(3, 2, 3, 2));
+                    __m256 _tmp8 =
+                        _mm256_shuffle_ps(_tmp0, _tmp2, _MM_SHUFFLE(1, 0, 1, 0));
+                    __m256 _tmp9 =
+                        _mm256_shuffle_ps(_tmp0, _tmp2, _MM_SHUFFLE(3, 2, 3, 2));
+                    __m256 _tmpa =
+                        _mm256_shuffle_ps(_tmp1, _tmp3, _MM_SHUFFLE(1, 0, 1, 0));
+                    __m256 _tmpb =
+                        _mm256_shuffle_ps(_tmp1, _tmp3, _MM_SHUFFLE(3, 2, 3, 2));
+                    __m256 _tmpc =
+                        _mm256_shuffle_ps(_tmp4, _tmp6, _MM_SHUFFLE(1, 0, 1, 0));
+                    __m256 _tmpd =
+                        _mm256_shuffle_ps(_tmp4, _tmp6, _MM_SHUFFLE(3, 2, 3, 2));
+                    __m256 _tmpe =
+                        _mm256_shuffle_ps(_tmp5, _tmp7, _MM_SHUFFLE(1, 0, 1, 0));
+                    __m256 _tmpf =
+                        _mm256_shuffle_ps(_tmp5, _tmp7, _MM_SHUFFLE(3, 2, 3, 2));
                     _r0 = _mm256_permute2f128_ps(_tmp8, _tmpc, _MM_SHUFFLE(0, 2, 0, 0));
                     _r1 = _mm256_permute2f128_ps(_tmp9, _tmpd, _MM_SHUFFLE(0, 2, 0, 0));
                     _r2 = _mm256_permute2f128_ps(_tmpa, _tmpe, _MM_SHUFFLE(0, 2, 0, 0));
@@ -320,16 +322,14 @@ static void conv3x3s1_winograd63_pack8to1_avx(const Mat& bottom_blob, Mat& top_b
                     r0 += bottom_blob_tm.cstep * 8;
                 }
             }
-            for (; i < tiles; i++)
-            {
-                float* tmpptr = tm2.row(i / 8 + i % 8);
+            for (; i < tiles; i++) {
+                float *tmpptr = tm2.row(i / 8 + i % 8);
 
-                const float* r0 = bottom_blob_tm;
+                const float *r0 = bottom_blob_tm;
 
                 r0 += (r * tiles + i) * 8;
 
-                for (int q = 0; q < inch; q++)
-                {
+                for (int q = 0; q < inch; q++) {
                     __m256 _val = _mm256_load_ps(r0);
                     _mm256_store_ps(tmpptr, _val);
 
@@ -347,33 +347,30 @@ static void conv3x3s1_winograd63_pack8to1_avx(const Mat& bottom_blob, Mat& top_b
         int nn_outch = outch >> 3;
 
         #pragma omp parallel for num_threads(opt.num_threads)
-        for (int pp = 0; pp < nn_outch; pp++)
-        {
+        for (int pp = 0; pp < nn_outch; pp++) {
             int p = pp * 8;
 
-            float* outptr0_tm = top_blob_tm.channel(p);
-            float* outptr1_tm = top_blob_tm.channel(p + 1);
-            float* outptr2_tm = top_blob_tm.channel(p + 2);
-            float* outptr3_tm = top_blob_tm.channel(p + 3);
-            float* outptr4_tm = top_blob_tm.channel(p + 4);
-            float* outptr5_tm = top_blob_tm.channel(p + 5);
-            float* outptr6_tm = top_blob_tm.channel(p + 6);
-            float* outptr7_tm = top_blob_tm.channel(p + 7);
+            float *outptr0_tm = top_blob_tm.channel(p);
+            float *outptr1_tm = top_blob_tm.channel(p + 1);
+            float *outptr2_tm = top_blob_tm.channel(p + 2);
+            float *outptr3_tm = top_blob_tm.channel(p + 3);
+            float *outptr4_tm = top_blob_tm.channel(p + 4);
+            float *outptr5_tm = top_blob_tm.channel(p + 5);
+            float *outptr6_tm = top_blob_tm.channel(p + 6);
+            float *outptr7_tm = top_blob_tm.channel(p + 7);
 
             const Mat kernel01_tm = kernel_tm.channel(p / 8);
 
-            for (int r = 0; r < 64; r++)
-            {
+            for (int r = 0; r < 64; r++) {
                 const Mat bb2 = bottom_blob_tm2.channel(r);
 
                 int i = 0;
-                for (; i + 7 < tiles; i += 8)
-                {
-                    const float* r0 = bb2.row(i / 8);
+                for (; i + 7 < tiles; i += 8) {
+                    const float *r0 = bb2.row(i / 8);
 
-                    const float* kptr = kernel01_tm.row(r);
+                    const float *kptr = kernel01_tm.row(r);
 
-                    int nn = inch * 8; // inch always > 0
+                    int nn = inch * 8;  // inch always > 0
 
                     __m256 _sum0 = _mm256_setzero_ps();
                     __m256 _sum1 = _mm256_setzero_ps();
@@ -384,8 +381,7 @@ static void conv3x3s1_winograd63_pack8to1_avx(const Mat& bottom_blob, Mat& top_b
                     __m256 _sum6 = _mm256_setzero_ps();
                     __m256 _sum7 = _mm256_setzero_ps();
 
-                    for (int j = 0; j < nn; j++)
-                    {
+                    for (int j = 0; j < nn; j++) {
                         __m256 _val0 = _mm256_load_ps(r0);
 
                         __m256 _w0 = _mm256_broadcast_ss(kptr);
@@ -427,18 +423,16 @@ static void conv3x3s1_winograd63_pack8to1_avx(const Mat& bottom_blob, Mat& top_b
                     outptr6_tm += 8;
                     outptr7_tm += 8;
                 }
-                for (; i < tiles; i++)
-                {
-                    const float* r0 = bb2.row(i / 8 + i % 8);
+                for (; i < tiles; i++) {
+                    const float *r0 = bb2.row(i / 8 + i % 8);
 
-                    const float* kptr = kernel01_tm.row(r);
+                    const float *kptr = kernel01_tm.row(r);
 
-                    int nn = inch * 8; // inch always > 0
+                    int nn = inch * 8;  // inch always > 0
 
                     __m256 _sum = _mm256_setzero_ps();
 
-                    for (int j = 0; j < nn; j++)
-                    {
+                    for (int j = 0; j < nn; j++) {
                         __m256 _val0 = _mm256_broadcast_ss(r0);
                         __m256 _w0 = _mm256_load_ps(kptr);
                         _sum = _mm256_comp_fmadd_ps(_val0, _w0, _sum);
@@ -474,29 +468,25 @@ static void conv3x3s1_winograd63_pack8to1_avx(const Mat& bottom_blob, Mat& top_b
         int remain_outch_start = nn_outch << 3;
 
         #pragma omp parallel for num_threads(opt.num_threads)
-        for (int p = remain_outch_start; p < outch; p++)
-        {
-            float* outptr0_tm = top_blob_tm.channel(p);
+        for (int p = remain_outch_start; p < outch; p++) {
+            float *outptr0_tm = top_blob_tm.channel(p);
 
             const Mat kernel0_tm = kernel_tm.channel(p / 8 + p % 8);
 
-            for (int r = 0; r < 64; r++)
-            {
+            for (int r = 0; r < 64; r++) {
                 const Mat bb2 = bottom_blob_tm2.channel(r);
 
                 int i = 0;
-                for (; i + 7 < tiles; i += 8)
-                {
-                    const float* r0 = bb2.row(i / 8);
+                for (; i + 7 < tiles; i += 8) {
+                    const float *r0 = bb2.row(i / 8);
 
-                    const float* kptr = kernel0_tm.row(r);
+                    const float *kptr = kernel0_tm.row(r);
 
-                    int nn = inch * 8; // inch always > 0
+                    int nn = inch * 8;  // inch always > 0
 
                     __m256 _sum0 = _mm256_setzero_ps();
 
-                    for (int j = 0; j < nn; j++)
-                    {
+                    for (int j = 0; j < nn; j++) {
                         __m256 _val0 = _mm256_load_ps(r0);
                         __m256 _w0 = _mm256_broadcast_ss(kptr);
                         _sum0 = _mm256_comp_fmadd_ps(_w0, _val0, _sum0);
@@ -508,16 +498,14 @@ static void conv3x3s1_winograd63_pack8to1_avx(const Mat& bottom_blob, Mat& top_b
                     _mm256_storeu_ps(outptr0_tm, _sum0);
                     outptr0_tm += 8;
                 }
-                for (; i < tiles; i++)
-                {
-                    const float* r0 = bb2.row(i / 8 + i % 8);
+                for (; i < tiles; i++) {
+                    const float *r0 = bb2.row(i / 8 + i % 8);
 
-                    const float* kptr = kernel0_tm.row(r);
+                    const float *kptr = kernel0_tm.row(r);
 
                     __m256 _sum0 = _mm256_setzero_ps();
 
-                    for (int q = 0; q < inch; q++)
-                    {
+                    for (int q = 0; q < inch; q++) {
                         __m256 _val0 = _mm256_load_ps(r0);
                         __m256 _w0 = _mm256_load_ps(kptr);
                         _sum0 = _mm256_comp_fmadd_ps(_val0, _w0, _sum0);
@@ -539,19 +527,19 @@ static void conv3x3s1_winograd63_pack8to1_avx(const Mat& bottom_blob, Mat& top_b
 
     // BEGIN transform output
     Mat top_blob_bordered;
-    if (outw == top_blob.w && outh == top_blob.h)
-    {
+    if (outw == top_blob.w && outh == top_blob.h) {
         top_blob_bordered = top_blob;
-    }
-    else
-    {
+    } else {
         top_blob_bordered.create(outw, outh, outch, 4u, 1, opt.workspace_allocator);
     }
     {
-        conv3x3s1_winograd63_transform_output_sse(top_blob_tm, top_blob_bordered, bias, opt);
+        conv3x3s1_winograd63_transform_output_sse(top_blob_tm, top_blob_bordered,
+                bias, opt);
     }
     // END transform output
 
     // cut result pad
-    copy_cut_border(top_blob_bordered, top_blob, 0, top_blob_bordered.h - top_blob.h, 0, top_blob_bordered.w - top_blob.w, opt);
+    copy_cut_border(top_blob_bordered, top_blob, 0,
+                    top_blob_bordered.h - top_blob.h, 0,
+                    top_blob_bordered.w - top_blob.w, opt);
 }

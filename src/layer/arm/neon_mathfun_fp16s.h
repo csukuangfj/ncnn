@@ -1,16 +1,19 @@
-// Tencent is pleased to support the open source community by making ncnn available.
+// Tencent is pleased to support the open source community by making ncnn
+// available.
 //
 // Copyright (C) 2020 THL A29 Limited, a Tencent company. All rights reserved.
 //
-// Licensed under the BSD 3-Clause License (the "License"); you may not use this file except
-// in compliance with the License. You may obtain a copy of the License at
+// Licensed under the BSD 3-Clause License (the "License"); you may not use this
+// file except in compliance with the License. You may obtain a copy of the
+// License at
 //
 // https://opensource.org/licenses/BSD-3-Clause
 //
-// Unless required by applicable law or agreed to in writing, software distributed
-// under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
-// CONDITIONS OF ANY KIND, either express or implied. See the License for the
-// specific language governing permissions and limitations under the License.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+// WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+// License for the specific language governing permissions and limitations under
+// the License.
 
 /* NEON implementation of sin, cos, exp and log
  *
@@ -44,25 +47,24 @@
 
 #include <arm_neon.h>
 
-#define c_inv_mant_mask_f16 -31745 // ~0x7c00u
-#define c_cephes_SQRTHF     0.707106781186547524
-#define c_cephes_log_p0     7.0376836292E-2
-#define c_cephes_log_p1     -1.1514610310E-1
-#define c_cephes_log_p2     1.1676998740E-1
-#define c_cephes_log_p3     -1.2420140846E-1
-#define c_cephes_log_p4     +1.4249322787E-1
-#define c_cephes_log_p5     -1.6668057665E-1
-#define c_cephes_log_p6     +2.0000714765E-1
-#define c_cephes_log_p7     -2.4999993993E-1
-#define c_cephes_log_p8     +3.3333331174E-1
-#define c_cephes_log_q1     -2.12194440e-4
-#define c_cephes_log_q2     0.693359375
+#define c_inv_mant_mask_f16 -31745  // ~0x7c00u
+#define c_cephes_SQRTHF 0.707106781186547524
+#define c_cephes_log_p0 7.0376836292E-2
+#define c_cephes_log_p1 -1.1514610310E-1
+#define c_cephes_log_p2 1.1676998740E-1
+#define c_cephes_log_p3 -1.2420140846E-1
+#define c_cephes_log_p4 +1.4249322787E-1
+#define c_cephes_log_p5 -1.6668057665E-1
+#define c_cephes_log_p6 +2.0000714765E-1
+#define c_cephes_log_p7 -2.4999993993E-1
+#define c_cephes_log_p8 +3.3333331174E-1
+#define c_cephes_log_q1 -2.12194440e-4
+#define c_cephes_log_q2 0.693359375
 
 /* natural logarithm computed for 4 simultaneous float
  *   return NaN for x <= 0
  */
-static inline float16x4_t log_ps(float16x4_t x)
-{
+static inline float16x4_t log_ps(float16x4_t x) {
     float16x4_t one = vdup_n_f16(1);
 
     x = vmax_f16(x, vdup_n_f16(0)); /* force flush to zero on denormal values */
@@ -89,9 +91,11 @@ static inline float16x4_t log_ps(float16x4_t x)
      *     } else { x = x - 1.0; }
      */
     uint16x4_t mask = vclt_f16(x, vdup_n_f16(c_cephes_SQRTHF));
-    float16x4_t tmp = vreinterpret_f16_u16(vand_u16(vreinterpret_u16_f16(x), mask));
+    float16x4_t tmp =
+        vreinterpret_f16_u16(vand_u16(vreinterpret_u16_f16(x), mask));
     x = vsub_f16(x, one);
-    e = vsub_f16(e, vreinterpret_f16_u16(vand_u16(vreinterpret_u16_f16(one), mask)));
+    e = vsub_f16(e,
+                 vreinterpret_f16_u16(vand_u16(vreinterpret_u16_f16(one), mask)));
     x = vadd_f16(x, tmp);
 
     float16x4_t z = vmul_f16(x, x);
@@ -115,12 +119,12 @@ static inline float16x4_t log_ps(float16x4_t x)
 
     x = vadd_f16(x, y);
     x = vfma_f16(x, e, vdup_n_f16(c_cephes_log_q2));
-    x = vreinterpret_f16_u16(vorr_u16(vreinterpret_u16_f16(x), invalid_mask)); // negative arg will be NAN
+    x = vreinterpret_f16_u16(vorr_u16(vreinterpret_u16_f16(x),
+                                      invalid_mask));  // negative arg will be NAN
     return x;
 }
 
-static inline float16x8_t log_ps(float16x8_t x)
-{
+static inline float16x8_t log_ps(float16x8_t x) {
     float16x8_t one = vdupq_n_f16(1);
 
     x = vmaxq_f16(x, vdupq_n_f16(0)); /* force flush to zero on denormal values */
@@ -147,9 +151,11 @@ static inline float16x8_t log_ps(float16x8_t x)
      *     } else { x = x - 1.0; }
      */
     uint16x8_t mask = vcltq_f16(x, vdupq_n_f16(c_cephes_SQRTHF));
-    float16x8_t tmp = vreinterpretq_f16_u16(vandq_u16(vreinterpretq_u16_f16(x), mask));
+    float16x8_t tmp =
+        vreinterpretq_f16_u16(vandq_u16(vreinterpretq_u16_f16(x), mask));
     x = vsubq_f16(x, one);
-    e = vsubq_f16(e, vreinterpretq_f16_u16(vandq_u16(vreinterpretq_u16_f16(one), mask)));
+    e = vsubq_f16(
+            e, vreinterpretq_f16_u16(vandq_u16(vreinterpretq_u16_f16(one), mask)));
     x = vaddq_f16(x, tmp);
 
     float16x8_t z = vmulq_f16(x, x);
@@ -173,7 +179,8 @@ static inline float16x8_t log_ps(float16x8_t x)
 
     x = vaddq_f16(x, y);
     x = vfmaq_f16(x, e, vdupq_n_f16(c_cephes_log_q2));
-    x = vreinterpretq_f16_u16(vorrq_u16(vreinterpretq_u16_f16(x), invalid_mask)); // negative arg will be NAN
+    x = vreinterpretq_f16_u16(vorrq_u16(
+                                  vreinterpretq_u16_f16(x), invalid_mask));  // negative arg will be NAN
     return x;
 }
 
@@ -192,8 +199,7 @@ static inline float16x8_t log_ps(float16x8_t x)
 #define c_cephes_exp_p5 5.0000001201E-1
 
 /* exp() computed for 4 float at once */
-static inline float16x4_t exp_ps(float16x4_t x)
-{
+static inline float16x4_t exp_ps(float16x4_t x) {
     float16x4_t tmp, fx;
 
     float16x4_t one = vdup_n_f16(1);
@@ -240,8 +246,7 @@ static inline float16x4_t exp_ps(float16x4_t x)
     return y;
 }
 
-static inline float16x8_t exp_ps(float16x8_t x)
-{
+static inline float16x8_t exp_ps(float16x8_t x) {
     float16x8_t tmp, fx;
 
     float16x8_t one = vdupq_n_f16(1);
@@ -291,13 +296,13 @@ static inline float16x8_t exp_ps(float16x8_t x)
 #define c_minus_cephes_DP1 -0.78515625
 #define c_minus_cephes_DP2 -2.4187564849853515625e-4
 #define c_minus_cephes_DP3 -3.77489497744594108e-8
-#define c_sincof_p0        -1.9515295891E-4
-#define c_sincof_p1        8.3321608736E-3
-#define c_sincof_p2        -1.6666654611E-1
-#define c_coscof_p0        2.443315711809948E-005
-#define c_coscof_p1        -1.388731625493765E-003
-#define c_coscof_p2        4.166664568298827E-002
-#define c_cephes_FOPI      1.27323954473516 // 4 / M_PI
+#define c_sincof_p0 -1.9515295891E-4
+#define c_sincof_p1 8.3321608736E-3
+#define c_sincof_p2 -1.6666654611E-1
+#define c_coscof_p0 2.443315711809948E-005
+#define c_coscof_p1 -1.388731625493765E-003
+#define c_coscof_p2 4.166664568298827E-002
+#define c_cephes_FOPI 1.27323954473516  // 4 / M_PI
 
 /* evaluation of 4 sines & cosines at once.
  *
@@ -314,8 +319,8 @@ static inline float16x8_t exp_ps(float16x8_t x)
  *   almost no extra price so both sin_ps and cos_ps make use of
  *   sincos_ps..
  */
-static inline void sincos_ps(float16x4_t x, float16x4_t* ysin, float16x4_t* ycos)
-{
+static inline void sincos_ps(float16x4_t x, float16x4_t *ysin,
+                             float16x4_t *ycos) {
     // any x
     float16x4_t y;
 
@@ -375,8 +380,8 @@ static inline void sincos_ps(float16x4_t x, float16x4_t* ysin, float16x4_t* ycos
     *ycos = vbsl_f16(sign_mask_cos, yc, vneg_f16(yc));
 }
 
-static inline void sincos_ps(float16x8_t x, float16x8_t* ysin, float16x8_t* ycos)
-{
+static inline void sincos_ps(float16x8_t x, float16x8_t *ysin,
+                             float16x8_t *ycos) {
     // any x
     float16x8_t y;
 
@@ -436,42 +441,38 @@ static inline void sincos_ps(float16x8_t x, float16x8_t* ysin, float16x8_t* ycos
     *ycos = vbslq_f16(sign_mask_cos, yc, vnegq_f16(yc));
 }
 
-static inline float16x4_t sin_ps(float16x4_t x)
-{
+static inline float16x4_t sin_ps(float16x4_t x) {
     float16x4_t ysin, ycos;
     sincos_ps(x, &ysin, &ycos);
     return ysin;
 }
 
-static inline float16x8_t sin_ps(float16x8_t x)
-{
+static inline float16x8_t sin_ps(float16x8_t x) {
     float16x8_t ysin, ycos;
     sincos_ps(x, &ysin, &ycos);
     return ysin;
 }
 
-static inline float16x4_t cos_ps(float16x4_t x)
-{
+static inline float16x4_t cos_ps(float16x4_t x) {
     float16x4_t ysin, ycos;
     sincos_ps(x, &ysin, &ycos);
     return ycos;
 }
 
-static inline float16x8_t cos_ps(float16x8_t x)
-{
+static inline float16x8_t cos_ps(float16x8_t x) {
     float16x8_t ysin, ycos;
     sincos_ps(x, &ysin, &ycos);
     return ycos;
 }
 
 #define c_tanh_tiny 1e-4f
-#define c_tanh_hi   9.0f
+#define c_tanh_hi 9.0f
 // The monomial coefficients of the numerator polynomial (odd).
-#define c_tanh_alpha_1  4.89352455891786e-3f
-#define c_tanh_alpha_3  6.37261928875436e-4f
-#define c_tanh_alpha_5  1.48572235717979e-5f
-#define c_tanh_alpha_7  5.12229709037114e-8f
-#define c_tanh_alpha_9  -8.60467152213735e-11f
+#define c_tanh_alpha_1 4.89352455891786e-3f
+#define c_tanh_alpha_3 6.37261928875436e-4f
+#define c_tanh_alpha_5 1.48572235717979e-5f
+#define c_tanh_alpha_7 5.12229709037114e-8f
+#define c_tanh_alpha_9 -8.60467152213735e-11f
 #define c_tanh_alpha_11 2.00018790482477e-13f
 #define c_tanh_alpha_13 -2.76076847742355e-16f
 // The monomial coefficients of the denominator polynomial (even).
@@ -481,15 +482,16 @@ static inline float16x8_t cos_ps(float16x8_t x)
 #define c_tanh_beta_6 1.19825839466702e-6f
 
 /* Single precision hyperbolic tangent computed for 4 simultaneous float */
-static inline float16x4_t tanh_ps(float16x4_t x)
-{
+static inline float16x4_t tanh_ps(float16x4_t x) {
     float16x4_t x2 = vabs_f16(x);
 
     uint16x4_t tiny_mask = vcge_f16(x2, vdup_n_f16(c_tanh_tiny));
 
     // clamp the inputs to the range [-9, 9] since anything outside
     // this range is -/+1.0f in single-precision.
-    x2 = vreinterpret_f16_u16(vbsl_u16(vcge_f16(vdup_n_f16(c_tanh_hi), x2), vreinterpret_u16_f16(x2), vreinterpret_u16_f16(vdup_n_f16(c_tanh_hi))));
+    x2 = vreinterpret_f16_u16(
+             vbsl_u16(vcge_f16(vdup_n_f16(c_tanh_hi), x2), vreinterpret_u16_f16(x2),
+                      vreinterpret_u16_f16(vdup_n_f16(c_tanh_hi))));
 
     // since the polynomials are odd/even, we need x**2.
     float16x4_t z = vmul_f16(x2, x2);
@@ -514,23 +516,27 @@ static inline float16x4_t tanh_ps(float16x4_t x)
     y = vdiv_f16(y, w);
 
     // reinstate the sign.
-    y = vreinterpret_f16_u16(vbsl_u16(vdup_n_u16(1u << 15), vreinterpret_u16_f16(x), vreinterpret_u16_f16(y)));
+    y = vreinterpret_f16_u16(vbsl_u16(
+                                 vdup_n_u16(1u << 15), vreinterpret_u16_f16(x), vreinterpret_u16_f16(y)));
 
-    // when the argument is very small in magnitude it's more accurate to just return it.
-    y = vreinterpret_f16_u16(vbsl_u16(tiny_mask, vreinterpret_u16_f16(y), vreinterpret_u16_f16(x)));
+    // when the argument is very small in magnitude it's more accurate to just
+    // return it.
+    y = vreinterpret_f16_u16(
+            vbsl_u16(tiny_mask, vreinterpret_u16_f16(y), vreinterpret_u16_f16(x)));
 
     return y;
 }
 
-static inline float16x8_t tanh_ps(float16x8_t x)
-{
+static inline float16x8_t tanh_ps(float16x8_t x) {
     float16x8_t x2 = vabsq_f16(x);
 
     uint16x8_t tiny_mask = vcgeq_f16(x2, vdupq_n_f16(c_tanh_tiny));
 
     // clamp the inputs to the range [-9, 9] since anything outside
     // this range is -/+1.0f in single-precision.
-    x2 = vreinterpretq_f16_u16(vbslq_u16(vcgeq_f16(vdupq_n_f16(c_tanh_hi), x2), vreinterpretq_u16_f16(x2), vreinterpretq_u16_f16(vdupq_n_f16(c_tanh_hi))));
+    x2 = vreinterpretq_f16_u16(vbslq_u16(
+                                   vcgeq_f16(vdupq_n_f16(c_tanh_hi), x2), vreinterpretq_u16_f16(x2),
+                                   vreinterpretq_u16_f16(vdupq_n_f16(c_tanh_hi))));
 
     // since the polynomials are odd/even, we need x**2.
     float16x8_t z = vmulq_f16(x2, x2);
@@ -555,16 +561,19 @@ static inline float16x8_t tanh_ps(float16x8_t x)
     y = vdivq_f16(y, w);
 
     // reinstate the sign.
-    y = vreinterpretq_f16_u16(vbslq_u16(vdupq_n_u16(1u << 15), vreinterpretq_u16_f16(x), vreinterpretq_u16_f16(y)));
+    y = vreinterpretq_f16_u16(vbslq_u16(vdupq_n_u16(1u << 15),
+                                        vreinterpretq_u16_f16(x),
+                                        vreinterpretq_u16_f16(y)));
 
-    // when the argument is very small in magnitude it's more accurate to just return it.
-    y = vreinterpretq_f16_u16(vbslq_u16(tiny_mask, vreinterpretq_u16_f16(y), vreinterpretq_u16_f16(x)));
+    // when the argument is very small in magnitude it's more accurate to just
+    // return it.
+    y = vreinterpretq_f16_u16(
+            vbslq_u16(tiny_mask, vreinterpretq_u16_f16(y), vreinterpretq_u16_f16(x)));
 
     return y;
 }
 
-static inline float16x4_t sigmoid_ps(float16x4_t _v)
-{
+static inline float16x4_t sigmoid_ps(float16x4_t _v) {
     float16x4_t _one = vdup_n_f16(1.f);
     _v = vneg_f16(_v);
     _v = exp_ps(_v);
@@ -572,8 +581,7 @@ static inline float16x4_t sigmoid_ps(float16x4_t _v)
     return vdiv_f16(_one, _v);
 }
 
-static inline float16x8_t sigmoid_ps(float16x8_t _v)
-{
+static inline float16x8_t sigmoid_ps(float16x8_t _v) {
     float16x8_t _one = vdupq_n_f16(1.f);
     _v = vnegq_f16(_v);
     _v = exp_ps(_v);
@@ -581,4 +589,4 @@ static inline float16x8_t sigmoid_ps(float16x8_t _v)
     return vdivq_f16(_one, _v);
 }
 
-#endif // NEON_MATHFUN_FP16S_H
+#endif  // NEON_MATHFUN_FP16S_H

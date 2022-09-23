@@ -1,19 +1,22 @@
-// Tencent is pleased to support the open source community by making ncnn available.
+// Tencent is pleased to support the open source community by making ncnn
+// available.
 //
 // Copyright (C) 2022 THL A29 Limited, a Tencent company. All rights reserved.
 //
-// Licensed under the BSD 3-Clause License (the "License"); you may not use this file except
-// in compliance with the License. You may obtain a copy of the License at
+// Licensed under the BSD 3-Clause License (the "License"); you may not use this
+// file except in compliance with the License. You may obtain a copy of the
+// License at
 //
 // https://opensource.org/licenses/BSD-3-Clause
 //
-// Unless required by applicable law or agreed to in writing, software distributed
-// under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
-// CONDITIONS OF ANY KIND, either express or implied. See the License for the
-// specific language governing permissions and limitations under the License.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+// WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+// License for the specific language governing permissions and limitations under
+// the License.
 
-static void conv3x3s1_winograd43_transform_output_pack4_int8_neon(const Mat& top_blob_tm, Mat& top_blob, const Option& opt)
-{
+static void conv3x3s1_winograd43_transform_output_pack4_int8_neon(
+    const Mat &top_blob_tm, Mat &top_blob, const Option &opt) {
     const int outw = top_blob.w;
     const int outh = top_blob.h;
     const int outch = top_blob.c;
@@ -35,29 +38,25 @@ static void conv3x3s1_winograd43_transform_output_pack4_int8_neon(const Mat& top
     // 3 = r05 + (r01 - r02) + (r03 - r04) * 8
 
     #pragma omp parallel for num_threads(opt.num_threads)
-    for (int p = 0; p < outch; p++)
-    {
+    for (int p = 0; p < outch; p++) {
         const Mat out0_tm = top_blob_tm.channel(p);
         Mat out0 = top_blob.channel(p);
 
         int tmp[4][6][4];
 
         // tile
-        for (int i = 0; i < h_tiles; i++)
-        {
-            for (int j = 0; j < w_tiles; j++)
-            {
-                const int* output0_tm_0 = (const int*)out0_tm + (i * w_tiles + j) * 4;
-                const int* output0_tm_1 = output0_tm_0 + tiles * 4;
-                const int* output0_tm_2 = output0_tm_0 + tiles * 8;
-                const int* output0_tm_3 = output0_tm_0 + tiles * 12;
-                const int* output0_tm_4 = output0_tm_0 + tiles * 16;
-                const int* output0_tm_5 = output0_tm_0 + tiles * 20;
+        for (int i = 0; i < h_tiles; i++) {
+            for (int j = 0; j < w_tiles; j++) {
+                const int *output0_tm_0 = (const int *)out0_tm + (i * w_tiles + j) * 4;
+                const int *output0_tm_1 = output0_tm_0 + tiles * 4;
+                const int *output0_tm_2 = output0_tm_0 + tiles * 8;
+                const int *output0_tm_3 = output0_tm_0 + tiles * 12;
+                const int *output0_tm_4 = output0_tm_0 + tiles * 16;
+                const int *output0_tm_5 = output0_tm_0 + tiles * 20;
 
-                int* output0 = out0.row<int>(i * 4) + (j * 4) * 4;
+                int *output0 = out0.row<int>(i * 4) + (j * 4) * 4;
 
-                for (int m = 0; m < 5; m++)
-                {
+                for (int m = 0; m < 5; m++) {
                     int32x4_t _out0tm0 = vld1q_s32(output0_tm_0);
                     int32x4_t _out0tm1 = vld1q_s32(output0_tm_1);
                     int32x4_t _out0tm2 = vld1q_s32(output0_tm_2);
@@ -78,7 +77,8 @@ static void conv3x3s1_winograd43_transform_output_pack4_int8_neon(const Mat& top
                     int32x4_t _tmp0m = vaddq_s32(vaddq_s32(_out0tm0, _tmp02a), _tmp02b);
                     int32x4_t _tmp1m = vmlaq_s32(_tmp13a, _tmp13b, _v2);
                     int32x4_t _tmp2m = vmlaq_s32(_tmp02a, _tmp02b, _v4);
-                    int32x4_t _tmp3m = vmlaq_s32(vmlaq_s32(_tmp13a, _out0tm5, _v4), _tmp13b, _v8);
+                    int32x4_t _tmp3m =
+                        vmlaq_s32(vmlaq_s32(_tmp13a, _out0tm5, _v4), _tmp13b, _v8);
 
                     vst1q_s32(tmp[0][m], _tmp0m);
                     vst1q_s32(tmp[1][m], _tmp1m);
@@ -92,8 +92,7 @@ static void conv3x3s1_winograd43_transform_output_pack4_int8_neon(const Mat& top
                     output0_tm_4 += tiles * 24;
                     output0_tm_5 += tiles * 24;
                 }
-                for (int m = 5; m < 6; m++)
-                {
+                for (int m = 5; m < 6; m++) {
                     int32x4_t _out0tm0 = vld1q_s32(output0_tm_0);
                     int32x4_t _out0tm1 = vld1q_s32(output0_tm_1);
                     int32x4_t _out0tm2 = vld1q_s32(output0_tm_2);
@@ -114,7 +113,8 @@ static void conv3x3s1_winograd43_transform_output_pack4_int8_neon(const Mat& top
                     int32x4_t _tmp0m = vaddq_s32(vaddq_s32(_out0tm0, _tmp02a), _tmp02b);
                     int32x4_t _tmp1m = vmlaq_s32(_tmp13a, _tmp13b, _v2);
                     int32x4_t _tmp2m = vmlaq_s32(_tmp02a, _tmp02b, _v4);
-                    int32x4_t _tmp3m = vmlaq_s32(vmlaq_s32(_tmp13a, _out0tm5, _v4), _tmp13b, _v8);
+                    int32x4_t _tmp3m =
+                        vmlaq_s32(vmlaq_s32(_tmp13a, _out0tm5, _v4), _tmp13b, _v8);
 
                     _tmp0m = vmulq_s32(_tmp0m, _v4);
                     _tmp1m = vmulq_s32(_tmp1m, _v4);
@@ -134,8 +134,7 @@ static void conv3x3s1_winograd43_transform_output_pack4_int8_neon(const Mat& top
                     output0_tm_5 += tiles * 24;
                 }
 
-                for (int m = 0; m < 4; m++)
-                {
+                for (int m = 0; m < 4; m++) {
                     int32x4_t _tmp00 = vld1q_s32(tmp[m][0]);
                     int32x4_t _tmp01 = vld1q_s32(tmp[m][1]);
                     int32x4_t _tmp02 = vld1q_s32(tmp[m][2]);
@@ -156,7 +155,8 @@ static void conv3x3s1_winograd43_transform_output_pack4_int8_neon(const Mat& top
                     int32x4_t _out00 = vaddq_s32(vaddq_s32(_tmp00, _tmp02a), _tmp02b);
                     int32x4_t _out01 = vmlaq_s32(_tmp13a, _tmp13b, _v2);
                     int32x4_t _out02 = vmlaq_s32(_tmp02a, _tmp02b, _v4);
-                    int32x4_t _out03 = vmlaq_s32(vaddq_s32(_tmp05, _tmp13a), _tmp13b, _v8);
+                    int32x4_t _out03 =
+                        vmlaq_s32(vaddq_s32(_tmp05, _tmp13a), _tmp13b, _v8);
 
                     // TODO use integer trick for division by 576
                     float32x4_t _v576 = vdupq_n_f32(1.0 / 576);

@@ -1,19 +1,24 @@
-// Tencent is pleased to support the open source community by making ncnn available.
+// Tencent is pleased to support the open source community by making ncnn
+// available.
 //
 // Copyright (C) 2022 THL A29 Limited, a Tencent company. All rights reserved.
 //
-// Licensed under the BSD 3-Clause License (the "License"); you may not use this file except
-// in compliance with the License. You may obtain a copy of the License at
+// Licensed under the BSD 3-Clause License (the "License"); you may not use this
+// file except in compliance with the License. You may obtain a copy of the
+// License at
 //
 // https://opensource.org/licenses/BSD-3-Clause
 //
-// Unless required by applicable law or agreed to in writing, software distributed
-// under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
-// CONDITIONS OF ANY KIND, either express or implied. See the License for the
-// specific language governing permissions and limitations under the License.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+// WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+// License for the specific language governing permissions and limitations under
+// the License.
 
-static void conv3x3s1_winograd63_transform_output_neon(const Mat& top_blob_tm, Mat& top_blob, const Mat& bias, const Option& opt)
-{
+static void conv3x3s1_winograd63_transform_output_neon(const Mat &top_blob_tm,
+        Mat &top_blob,
+        const Mat &bias,
+        const Option &opt) {
     const int outw = top_blob.w;
     const int outh = top_blob.h;
     const int outch = top_blob.c;
@@ -22,7 +27,7 @@ static void conv3x3s1_winograd63_transform_output_neon(const Mat& top_blob_tm, M
     const int h_tiles = outh / 6;
     const int tiles = w_tiles * h_tiles;
 
-    const float* biasptr = bias;
+    const float *biasptr = bias;
 
     // const float otm[6][8] = {
     //     {1.0f,  1.0f,   1.0f,   1.0f,   1.0f,  32.0f, 32.0f, 0.0f},
@@ -41,8 +46,7 @@ static void conv3x3s1_winograd63_transform_output_neon(const Mat& top_blob_tm, M
     // 5 = r7 + (r1 - r2) + (r3 - r4) * 32+ (r5 - r6)
 
     #pragma omp parallel for num_threads(opt.num_threads)
-    for (int p = 0; p < outch; p++)
-    {
+    for (int p = 0; p < outch; p++) {
         const Mat out0_tm = top_blob_tm.channel(p);
         Mat out0 = top_blob.channel(p);
 
@@ -51,22 +55,19 @@ static void conv3x3s1_winograd63_transform_output_neon(const Mat& top_blob_tm, M
         float tmp[6][8];
 
         // tile
-        for (int i = 0; i < h_tiles; i++)
-        {
-            for (int j = 0; j < w_tiles; j++)
-            {
-                const float* output0_tm_0 = (const float*)out0_tm + (i * w_tiles + j);
-                const float* output0_tm_1 = output0_tm_0 + tiles * 1;
-                const float* output0_tm_2 = output0_tm_0 + tiles * 2;
-                const float* output0_tm_3 = output0_tm_0 + tiles * 3;
-                const float* output0_tm_4 = output0_tm_0 + tiles * 4;
-                const float* output0_tm_5 = output0_tm_0 + tiles * 5;
-                const float* output0_tm_6 = output0_tm_0 + tiles * 6;
-                const float* output0_tm_7 = output0_tm_0 + tiles * 7;
+        for (int i = 0; i < h_tiles; i++) {
+            for (int j = 0; j < w_tiles; j++) {
+                const float *output0_tm_0 = (const float *)out0_tm + (i * w_tiles + j);
+                const float *output0_tm_1 = output0_tm_0 + tiles * 1;
+                const float *output0_tm_2 = output0_tm_0 + tiles * 2;
+                const float *output0_tm_3 = output0_tm_0 + tiles * 3;
+                const float *output0_tm_4 = output0_tm_0 + tiles * 4;
+                const float *output0_tm_5 = output0_tm_0 + tiles * 5;
+                const float *output0_tm_6 = output0_tm_0 + tiles * 6;
+                const float *output0_tm_7 = output0_tm_0 + tiles * 7;
 
                 // TODO neon optimize
-                for (int m = 0; m < 8; m++)
-                {
+                for (int m = 0; m < 8; m++) {
                     float tmp024a = output0_tm_1[0] + output0_tm_2[0];
                     float tmp135a = output0_tm_1[0] - output0_tm_2[0];
 
@@ -94,11 +95,10 @@ static void conv3x3s1_winograd63_transform_output_neon(const Mat& top_blob_tm, M
                     output0_tm_7 += tiles * 8;
                 }
 
-                float* output0 = out0.row(i * 6) + j * 6;
+                float *output0 = out0.row(i * 6) + j * 6;
 
-                for (int m = 0; m < 6; m++)
-                {
-                    const float* tmp0 = tmp[m];
+                for (int m = 0; m < 6; m++) {
+                    const float *tmp0 = tmp[m];
 
                     float tmp024a = tmp0[1] + tmp0[2];
                     float tmp135a = tmp0[1] - tmp0[2];
