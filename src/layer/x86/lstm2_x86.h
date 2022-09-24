@@ -12,21 +12,19 @@
 // CONDITIONS OF ANY KIND, either express or implied. See the License for the
 // specific language governing permissions and limitations under the License.
 
-#ifndef LAYER_LSTM_X86_H
-#define LAYER_LSTM_X86_H
+#ifndef LAYER_LSTM2_X86_H
+#define LAYER_LSTM2_X86_H
 
-#include "lstm.h"
+#include "lstm2.h"
 
 namespace ncnn {
 
-class LSTM_x86 : virtual public LSTM
+class LSTM2_x86 : virtual public LSTM2
 {
 public:
-    LSTM_x86();
+    LSTM2_x86();
 
     virtual int create_pipeline(const Option& opt);
-
-    virtual int forward(const Mat& bottom_blob, Mat& top_blob, const Option& opt) const;
 
     virtual int forward(const std::vector<Mat>& bottom_blobs, std::vector<Mat>& top_blobs, const Option& opt) const;
 
@@ -35,4 +33,4 @@ public:
 
 } // namespace ncnn
 
-#endif // LAYER_LSTM_X86_H
+#endif // LAYER_LSTM2_X86_H
