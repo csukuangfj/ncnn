@@ -399,19 +399,135 @@ static int lstm(const Mat& bottom_blob, Mat& top_blob, const Mat& weight_xc, con
         // TODO(fangjun): Use avx
         float* output_data = top_blob.row(ti);
         hidden_ptr = hidden_state;  // proj_size
-        tmp_output_data = tmp_top;  // hidden_size
+
+        int nn_proj_size = proj_size >> 3;
+        int remain_proj_size = proj_size & 7;
         #pragma omp parallel for num_threads(opt.num_threads)
-        for (int q = 0; q < proj_size; q++)
-        {
-          const float* hr = weight_hr.row(q);
-          float s = 0;
-          for (int i = 0; i < hidden_size; i++)
-          {
-            s += tmp_output_data[i] * hr[i];
-          }
-          output_data[q] = s;
-          hidden_ptr[q] = s;
+        for(int i = 0; i < nn_proj_size; i++) {
+            tmp_output_data = tmp_top;  // hidden_size
+
+            __m256 _sum_0 = _mm256_setzero_ps();
+            __m256 _sum_1 = _mm256_setzero_ps();
+            __m256 _sum_2 = _mm256_setzero_ps();
+            __m256 _sum_3 = _mm256_setzero_ps();
+            __m256 _sum_4 = _mm256_setzero_ps();
+            __m256 _sum_5 = _mm256_setzero_ps();
+            __m256 _sum_6 = _mm256_setzero_ps();
+            __m256 _sum_7 = _mm256_setzero_ps();
+
+            const float* hr0 = weight_hr.row(i*8 + 0);
+            const float* hr1 = weight_hr.row(i*8 + 1);
+            const float* hr2 = weight_hr.row(i*8 + 2);
+            const float* hr3 = weight_hr.row(i*8 + 3);
+            const float* hr4 = weight_hr.row(i*8 + 4);
+            const float* hr5 = weight_hr.row(i*8 + 5);
+            const float* hr6 = weight_hr.row(i*8 + 6);
+            const float* hr7 = weight_hr.row(i*8 + 7);
+
+            int nn_hidden_size = hidden_size >> 3;
+            int remain_size = hidden_size & 7;
+            for (; nn_hidden_size > 0; nn_hidden_size--) {
+                __m256 xi = _mm256_loadu_ps(tmp_output_data);
+                _sum_0 = _mm256_comp_fmadd_ps(_mm256_loadu_ps(hr0), xi, _sum_0);
+                _sum_1 = _mm256_comp_fmadd_ps(_mm256_loadu_ps(hr1), xi, _sum_1);
+                _sum_2 = _mm256_comp_fmadd_ps(_mm256_loadu_ps(hr2), xi, _sum_2);
+                _sum_3 = _mm256_comp_fmadd_ps(_mm256_loadu_ps(hr3), xi, _sum_3);
+                _sum_4 = _mm256_comp_fmadd_ps(_mm256_loadu_ps(hr4), xi, _sum_4);
+                _sum_5 = _mm256_comp_fmadd_ps(_mm256_loadu_ps(hr5), xi, _sum_5);
+                _sum_6 = _mm256_comp_fmadd_ps(_mm256_loadu_ps(hr6), xi, _sum_6);
+                _sum_7 = _mm256_comp_fmadd_ps(_mm256_loadu_ps(hr7), xi, _sum_7);
+
+                tmp_output_data += 8;
+                hr0 += 8;
+                hr1 += 8;
+                hr2 += 8;
+                hr3 += 8;
+                hr4 += 8;
+                hr5 += 8;
+                hr6 += 8;
+                hr7 += 8;
+            }
+
+            float sums[8];
+            _mm256_storeu_ps(sums, HorizontalSums(_sum_0, _sum_1, _sum_2, _sum_3, _sum_4, _sum_5, _sum_6, _sum_7));
+
+            for (; remain_size > 0; remain_size--) {
+                float xi = *tmp_output_data;
+                sums[0] += *hr0 * xi;
+                sums[1] += *hr1 * xi;
+                sums[2] += *hr2 * xi;
+                sums[3] += *hr3 * xi;
+                sums[4] += *hr4 * xi;
+                sums[5] += *hr5 * xi;
+                sums[6] += *hr6 * xi;
+                sums[7] += *hr7 * xi;
+                tmp_output_data++;
+                hr0++;
+                hr1++;
+                hr2++;
+                hr3++;
+                hr4++;
+                hr5++;
+                hr6++;
+                hr7++;
+            }
+
+          output_data[i*8+0] = sums[0];
+          output_data[i*8+1] = sums[1];
+          output_data[i*8+2] = sums[2];
+          output_data[i*8+3] = sums[3];
+          output_data[i*8+4] = sums[4];
+          output_data[i*8+5] = sums[5];
+          output_data[i*8+6] = sums[6];
+          output_data[i*8+7] = sums[7];
+
+          hidden_ptr[i*8+0] = sums[0];
+          hidden_ptr[i*8+1] = sums[1];
+          hidden_ptr[i*8+2] = sums[2];
+          hidden_ptr[i*8+3] = sums[3];
+          hidden_ptr[i*8+4] = sums[4];
+          hidden_ptr[i*8+5] = sums[5];
+          hidden_ptr[i*8+6] = sums[6];
+          hidden_ptr[i*8+7] = sums[7];
         }
+
+        #pragma omp parallel for num_threads(opt.num_threads)
+        for(int i = 0; i < remain_proj_size; ++i) {
+            tmp_output_data = tmp_top;  // hidden_size
+            const float* hr = weight_hr.row(nn_proj_size*8 + i);
+            __m256 _sum = _mm256_setzero_ps();
+            int nn_num_size = input_size >> 3;
+            int remain_size = input_size & 7;
+            for (; nn_num_size > 0; nn_num_size--) {
+                __m256 xi = _mm256_loadu_ps(tmp_output_data);
+                _sum = _mm256_comp_fmadd_ps(_mm256_loadu_ps(hr), xi, _sum);
+                tmp_output_data += 8;
+                hr += 8;
+            }
+            float s = _mm256_reduce_add_ps(_sum);
+            for(; remain_size > 0; remain_size--) {
+              float xi = *tmp_output_data;
+              s += *hr * xi;
+              tmp_output_data++;
+              hr++;
+            }
+
+            output_data[nn_proj_size*8 + i] = s;
+            hidden_ptr[nn_proj_size*8 + i] = s;
+        }
+
+
+        // for (int q = 0; q < proj_size; q++)
+        // {
+        //   const float* hr = weight_hr.row(q);
+        //   float s = 0;
+        //   for (int i = 0; i < hidden_size; i++)
+        //   {
+        //     s += tmp_output_data[i] * hr[i];
+        //   }
+        //   output_data[q] = s;
+        //   hidden_ptr[q] = s;
+        // }
     }
 
     return 0;
@@ -421,7 +537,6 @@ static int lstm(const Mat& bottom_blob, Mat& top_blob, const Mat& weight_xc, con
 int LSTM2_x86::forward(const std::vector<Mat>& bottom_blobs, std::vector<Mat>& top_blobs, const Option& opt) const
 {
 #if __AVX__
-  fprintf(stderr, "here\n");
     // return LSTM2::forward(bottom_blobs, top_blobs, opt);
 
     const Mat& bottom_blob = bottom_blobs[0];
