@@ -64,9 +64,6 @@ static int lstm(const Mat& bottom_blob, Mat& top_blob, const Mat& weight_xc, con
 
         int ti = t;
 
-        // int nn_num_output = num_output >> 1;
-        // int remain_num_output_start = nn_num_output << 1;
-
         int nn_hidden_size = hidden_size >> 1;
         int remain_hidden_size_start = nn_hidden_size << 1;
         #pragma omp parallel for num_threads(opt.num_threads)
@@ -341,7 +338,6 @@ static int lstm(const Mat& bottom_blob, Mat& top_blob, const Mat& weight_xc, con
         // float* output_data = top_blob.row(ti);
         float* tmp_output_data = tmp_top;  // hidden_size
         float* cell_ptr = cell_state;  // hidden_size
-        float* hidden_ptr = hidden_state;  // proj_size
         const float* gates_data_I = gates.row(0);  // hidden_size
         const float* gates_data_F = gates.row(1);  // hidden_size
         const float* gates_data_O = gates.row(2);  // hidden_size
@@ -358,11 +354,7 @@ static int lstm(const Mat& bottom_blob, Mat& top_blob, const Mat& weight_xc, con
             __m256 H = _mm256_mul_ps(O, tanh_avx(cell2));
             _mm256_storeu_ps(cell_ptr, cell2);
             _mm256_storeu_ps(tmp_output_data, H);
-            // _mm256_storeu_ps(hidden_ptr, H);
-            // _mm256_storeu_ps(output_data, H);
             cell_ptr += 8;
-            // output_data += 8;
-            // hidden_ptr += 8;
             tmp_output_data += 8;
             gates_data_I += 8;
             gates_data_F += 8;
@@ -383,12 +375,8 @@ static int lstm(const Mat& bottom_blob, Mat& top_blob, const Mat& weight_xc, con
             float cell2 = F * *cell_ptr + I * G;
             float H = O * tanh(cell2);
             *cell_ptr = cell2;
-            // *hidden_ptr = H;
-            // *output_data = H;
             *tmp_output_data = H;
             cell_ptr++;
-            // output_data++;
-            // hidden_ptr++;
             tmp_output_data++;
             gates_data_I++;
             gates_data_F++;
@@ -396,12 +384,12 @@ static int lstm(const Mat& bottom_blob, Mat& top_blob, const Mat& weight_xc, con
             gates_data_G++;
         }
 
-        // TODO(fangjun): Use avx
-        float* output_data = top_blob.row(ti);
-        hidden_ptr = hidden_state;  // proj_size
+        float* output_data = top_blob.row(ti);  // proj_size
+        float* hidden_ptr = hidden_state;  // proj_size
 
         int nn_proj_size = proj_size >> 3;
         int remain_proj_size = proj_size & 7;
+
         #pragma omp parallel for num_threads(opt.num_threads)
         for(int i = 0; i < nn_proj_size; i++) {
             tmp_output_data = tmp_top;  // hidden_size
@@ -515,19 +503,6 @@ static int lstm(const Mat& bottom_blob, Mat& top_blob, const Mat& weight_xc, con
             output_data[nn_proj_size*8 + i] = s;
             hidden_ptr[nn_proj_size*8 + i] = s;
         }
-
-
-        // for (int q = 0; q < proj_size; q++)
-        // {
-        //   const float* hr = weight_hr.row(q);
-        //   float s = 0;
-        //   for (int i = 0; i < hidden_size; i++)
-        //   {
-        //     s += tmp_output_data[i] * hr[i];
-        //   }
-        //   output_data[q] = s;
-        //   hidden_ptr[q] = s;
-        // }
     }
 
     return 0;
