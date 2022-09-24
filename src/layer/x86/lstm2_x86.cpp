@@ -386,7 +386,20 @@ static int lstm(const Mat& bottom_blob, Mat& top_blob, const Mat& weight_xc, con
 
         float* output_data = top_blob.row(ti);  // proj_size
         float* hidden_ptr = hidden_state;  // proj_size
-
+        tmp_output_data = tmp_top;  // hidden_size
+#if 1
+        for (int q = 0; q < proj_size; q++)
+        {
+          const float* hr = weight_hr.row(q);
+          float s = 0;
+          for (int i = 0; i < hidden_size; i++)
+          {
+            s += tmp_output_data[i] * hr[i];
+          }
+          output_data[q] = s;
+          hidden_ptr[q] = s;
+        }
+#else
         int nn_proj_size = proj_size >> 3;
         int remain_proj_size = proj_size & 7;
 
@@ -503,6 +516,7 @@ static int lstm(const Mat& bottom_blob, Mat& top_blob, const Mat& weight_xc, con
             output_data[nn_proj_size*8 + i] = s;
             hidden_ptr[nn_proj_size*8 + i] = s;
         }
+#endif
     }
 
     return 0;
