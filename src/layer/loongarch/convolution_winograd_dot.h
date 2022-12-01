@@ -1,19 +1,23 @@
-// yala is pleased to support the open source community by making ncnn available.
+// yala is pleased to support the open source community by making ncnn
+// available.
 //
 //
-// Copyright (C) 2022 yala <zhaojunchao@loongson.cn>;<junchao82@qq.com>. All rights reserved.
-// Licensed under the BSD 3-Clause License (the "License"); you may not use this file except
-// in compliance with the License. You may obtain a copy of the License at
+// Copyright (C) 2022 yala <zhaojunchao@loongson.cn>;<junchao82@qq.com>. All
+// rights reserved. Licensed under the BSD 3-Clause License (the "License"); you
+// may not use this file except in compliance with the License. You may obtain a
+// copy of the License at
 //
 // https://opensource.org/licenses/BSD-3-Clause
 //
-// Unless required by applicable law or agreed to in writing, software distributed
-// under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
-// CONDITIONS OF ANY KIND, either express or implied. See the License for the
-// specific language governing permissions and limitations under the License.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+// WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+// License for the specific language governing permissions and limitations under
+// the License.
 
-static void convolution_winograd_dot_lsx(Mat& bottom_blob_tm, int outch, const Mat& kernel_tm, Mat& top_blob_tm, const Option& opt)
-{
+static void convolution_winograd_dot_lsx(Mat &bottom_blob_tm, int outch,
+        const Mat &kernel_tm, Mat &top_blob_tm,
+        const Option &opt) {
     // Mat bottom_blob_tm(tiles, 16/36/64, inch, 4u, opt.workspace_allocator);
 
     const int tiles = bottom_blob_tm.w;
@@ -23,27 +27,25 @@ static void convolution_winograd_dot_lsx(Mat& bottom_blob_tm, int outch, const M
     // permute
     Mat bottom_blob_tm2;
     if (tiles >= 4)
-        bottom_blob_tm2.create(4 * inch, tiles / 4 + tiles % 4, batch, 4u, opt.workspace_allocator);
+        bottom_blob_tm2.create(4 * inch, tiles / 4 + tiles % 4, batch, 4u,
+                               opt.workspace_allocator);
     else
         bottom_blob_tm2.create(1 * inch, tiles, batch, 4u, opt.workspace_allocator);
 
     #pragma omp parallel for num_threads(opt.num_threads)
-    for (int r = 0; r < batch; r++)
-    {
+    for (int r = 0; r < batch; r++) {
         Mat tm2 = bottom_blob_tm2.channel(r);
 
         // tile
         int i = 0;
-        for (; i + 3 < tiles; i += 4)
-        {
-            float* tmpptr = tm2.row(i / 4);
+        for (; i + 3 < tiles; i += 4) {
+            float *tmpptr = tm2.row(i / 4);
 
-            const float* r0 = bottom_blob_tm;
+            const float *r0 = bottom_blob_tm;
 
             r0 += (r * tiles + i);
 
-            for (int q = 0; q < inch; q++)
-            {
+            for (int q = 0; q < inch; q++) {
 #if __loongarch_sx
                 __lsx_vst(__lsx_vld(r0, 0), tmpptr, 0);
 #else
@@ -57,16 +59,14 @@ static void convolution_winograd_dot_lsx(Mat& bottom_blob_tm, int outch, const M
                 tmpptr += 4;
             }
         }
-        for (; i < tiles; i++)
-        {
-            float* tmpptr = tm2.row(i / 4 + i % 4);
+        for (; i < tiles; i++) {
+            float *tmpptr = tm2.row(i / 4 + i % 4);
 
-            const float* r0 = bottom_blob_tm;
+            const float *r0 = bottom_blob_tm;
 
             r0 += (r * tiles + i);
 
-            for (int q = 0; q < inch; q++)
-            {
+            for (int q = 0; q < inch; q++) {
                 tmpptr[0] = r0[0];
 
                 r0 += bottom_blob_tm.cstep;
@@ -85,32 +85,29 @@ static void convolution_winograd_dot_lsx(Mat& bottom_blob_tm, int outch, const M
     int remain_outch_start = nn_outch << 3;
 
     #pragma omp parallel for num_threads(opt.num_threads)
-    for (int pp = 0; pp < nn_outch; pp++)
-    {
+    for (int pp = 0; pp < nn_outch; pp++) {
         int p = pp * 8;
 
-        float* output0_tm = top_blob_tm.channel(p);
-        float* output1_tm = top_blob_tm.channel(p + 1);
-        float* output2_tm = top_blob_tm.channel(p + 2);
-        float* output3_tm = top_blob_tm.channel(p + 3);
-        float* output4_tm = top_blob_tm.channel(p + 4);
-        float* output5_tm = top_blob_tm.channel(p + 5);
-        float* output6_tm = top_blob_tm.channel(p + 6);
-        float* output7_tm = top_blob_tm.channel(p + 7);
+        float *output0_tm = top_blob_tm.channel(p);
+        float *output1_tm = top_blob_tm.channel(p + 1);
+        float *output2_tm = top_blob_tm.channel(p + 2);
+        float *output3_tm = top_blob_tm.channel(p + 3);
+        float *output4_tm = top_blob_tm.channel(p + 4);
+        float *output5_tm = top_blob_tm.channel(p + 5);
+        float *output6_tm = top_blob_tm.channel(p + 6);
+        float *output7_tm = top_blob_tm.channel(p + 7);
 
         const Mat kernel0_tm = kernel_tm.channel(p / 8);
 
-        for (int r = 0; r < batch; r++)
-        {
+        for (int r = 0; r < batch; r++) {
             const Mat bb2 = bottom_blob_tm2.channel(r);
 
             int i = 0;
-            for (; i + 3 < tiles; i += 4)
-            {
-                const float* r0 = bb2.row(i / 4);
-                const float* k0 = kernel0_tm.row(r);
+            for (; i + 3 < tiles; i += 4) {
+                const float *r0 = bb2.row(i / 4);
+                const float *k0 = kernel0_tm.row(r);
 
-                int nn = inch; // inch always > 0
+                int nn = inch;  // inch always > 0
 
                 __m128 _sum0 = (__m128)__lsx_vreplgr2vr_w(0);
                 __m128 _sum1 = (__m128)__lsx_vreplgr2vr_w(0);
@@ -122,21 +119,28 @@ static void convolution_winograd_dot_lsx(Mat& bottom_blob_tm, int outch, const M
                 __m128 _sum7 = (__m128)__lsx_vreplgr2vr_w(0);
 
                 int j = 0;
-                for (; j < nn; j++)
-                {
+                for (; j < nn; j++) {
                     __builtin_prefetch(r0 + 16);
                     __builtin_prefetch(k0 + 32);
                     __m128 _val = (__m128)__lsx_vld(r0, 0);
                     __m128i _w0123 = __lsx_vld(k0, 0);
                     __m128i _w4567 = __lsx_vld(k0 + 4, 0);
-                    _sum0 = __lsx_vfmadd_s((__m128)__lsx_vreplvei_w(_w0123, 0), _val, _sum0);
-                    _sum1 = __lsx_vfmadd_s((__m128)__lsx_vreplvei_w(_w0123, 1), _val, _sum1);
-                    _sum2 = __lsx_vfmadd_s((__m128)__lsx_vreplvei_w(_w0123, 2), _val, _sum2);
-                    _sum3 = __lsx_vfmadd_s((__m128)__lsx_vreplvei_w(_w0123, 3), _val, _sum3);
-                    _sum4 = __lsx_vfmadd_s((__m128)__lsx_vreplvei_w(_w4567, 0), _val, _sum4);
-                    _sum5 = __lsx_vfmadd_s((__m128)__lsx_vreplvei_w(_w4567, 1), _val, _sum5);
-                    _sum6 = __lsx_vfmadd_s((__m128)__lsx_vreplvei_w(_w4567, 2), _val, _sum6);
-                    _sum7 = __lsx_vfmadd_s((__m128)__lsx_vreplvei_w(_w4567, 3), _val, _sum7);
+                    _sum0 =
+                        __lsx_vfmadd_s((__m128)__lsx_vreplvei_w(_w0123, 0), _val, _sum0);
+                    _sum1 =
+                        __lsx_vfmadd_s((__m128)__lsx_vreplvei_w(_w0123, 1), _val, _sum1);
+                    _sum2 =
+                        __lsx_vfmadd_s((__m128)__lsx_vreplvei_w(_w0123, 2), _val, _sum2);
+                    _sum3 =
+                        __lsx_vfmadd_s((__m128)__lsx_vreplvei_w(_w0123, 3), _val, _sum3);
+                    _sum4 =
+                        __lsx_vfmadd_s((__m128)__lsx_vreplvei_w(_w4567, 0), _val, _sum4);
+                    _sum5 =
+                        __lsx_vfmadd_s((__m128)__lsx_vreplvei_w(_w4567, 1), _val, _sum5);
+                    _sum6 =
+                        __lsx_vfmadd_s((__m128)__lsx_vreplvei_w(_w4567, 2), _val, _sum6);
+                    _sum7 =
+                        __lsx_vfmadd_s((__m128)__lsx_vreplvei_w(_w4567, 3), _val, _sum7);
 
                     r0 += 4;
                     k0 += 8;
@@ -160,12 +164,11 @@ static void convolution_winograd_dot_lsx(Mat& bottom_blob_tm, int outch, const M
                 output6_tm += 4;
                 output7_tm += 4;
             }
-            for (; i < tiles; i++)
-            {
-                const float* r0 = bb2.row(i / 4 + i % 4);
-                const float* k0 = kernel0_tm.row(r);
+            for (; i < tiles; i++) {
+                const float *r0 = bb2.row(i / 4 + i % 4);
+                const float *k0 = kernel0_tm.row(r);
 
-                int nn = inch; // inch always > 0
+                int nn = inch;  // inch always > 0
 
                 float sum0 = 0.f;
                 float sum1 = 0.f;
@@ -177,8 +180,7 @@ static void convolution_winograd_dot_lsx(Mat& bottom_blob_tm, int outch, const M
                 float sum7 = 0.f;
 
                 int j = 0;
-                for (; j < nn; j++)
-                {
+                for (; j < nn; j++) {
                     sum0 += r0[0] * k0[0];
                     sum1 += r0[0] * k0[1];
                     sum2 += r0[0] * k0[2];
@@ -216,28 +218,25 @@ static void convolution_winograd_dot_lsx(Mat& bottom_blob_tm, int outch, const M
     nn_outch = (outch - remain_outch_start) >> 2;
 
     #pragma omp parallel for num_threads(opt.num_threads)
-    for (int pp = 0; pp < nn_outch; pp++)
-    {
+    for (int pp = 0; pp < nn_outch; pp++) {
         int p = remain_outch_start + pp * 4;
 
-        float* output0_tm = top_blob_tm.channel(p);
-        float* output1_tm = top_blob_tm.channel(p + 1);
-        float* output2_tm = top_blob_tm.channel(p + 2);
-        float* output3_tm = top_blob_tm.channel(p + 3);
+        float *output0_tm = top_blob_tm.channel(p);
+        float *output1_tm = top_blob_tm.channel(p + 1);
+        float *output2_tm = top_blob_tm.channel(p + 2);
+        float *output3_tm = top_blob_tm.channel(p + 3);
 
         const Mat kernel0_tm = kernel_tm.channel(p / 8 + (p % 8) / 4);
 
-        for (int r = 0; r < batch; r++)
-        {
+        for (int r = 0; r < batch; r++) {
             const Mat bb2 = bottom_blob_tm2.channel(r);
 
             int i = 0;
-            for (; i + 3 < tiles; i += 4)
-            {
-                const float* r0 = bb2.row(i / 4);
-                const float* k0 = kernel0_tm.row(r);
+            for (; i + 3 < tiles; i += 4) {
+                const float *r0 = bb2.row(i / 4);
+                const float *k0 = kernel0_tm.row(r);
 
-                int nn = inch; // inch always > 0
+                int nn = inch;  // inch always > 0
 
                 __m128 _sum0 = (__m128)__lsx_vreplgr2vr_w(0);
                 __m128 _sum1 = (__m128)__lsx_vreplgr2vr_w(0);
@@ -245,16 +244,19 @@ static void convolution_winograd_dot_lsx(Mat& bottom_blob_tm, int outch, const M
                 __m128 _sum3 = (__m128)__lsx_vreplgr2vr_w(0);
 
                 int j = 0;
-                for (; j < nn; j++)
-                {
+                for (; j < nn; j++) {
                     __builtin_prefetch(r0 + 16);
                     __builtin_prefetch(k0 + 16);
                     __m128 _val = (__m128)__lsx_vld(r0, 0);
                     __m128i _w0123 = __lsx_vld(k0, 0);
-                    _sum0 = __lsx_vfmadd_s((__m128)__lsx_vreplvei_w(_w0123, 0), _val, _sum0);
-                    _sum1 = __lsx_vfmadd_s((__m128)__lsx_vreplvei_w(_w0123, 1), _val, _sum1);
-                    _sum2 = __lsx_vfmadd_s((__m128)__lsx_vreplvei_w(_w0123, 2), _val, _sum2);
-                    _sum3 = __lsx_vfmadd_s((__m128)__lsx_vreplvei_w(_w0123, 3), _val, _sum3);
+                    _sum0 =
+                        __lsx_vfmadd_s((__m128)__lsx_vreplvei_w(_w0123, 0), _val, _sum0);
+                    _sum1 =
+                        __lsx_vfmadd_s((__m128)__lsx_vreplvei_w(_w0123, 1), _val, _sum1);
+                    _sum2 =
+                        __lsx_vfmadd_s((__m128)__lsx_vreplvei_w(_w0123, 2), _val, _sum2);
+                    _sum3 =
+                        __lsx_vfmadd_s((__m128)__lsx_vreplvei_w(_w0123, 3), _val, _sum3);
 
                     r0 += 4;
                     k0 += 4;
@@ -270,12 +272,11 @@ static void convolution_winograd_dot_lsx(Mat& bottom_blob_tm, int outch, const M
                 output2_tm += 4;
                 output3_tm += 4;
             }
-            for (; i < tiles; i++)
-            {
-                const float* r0 = bb2.row(i / 4 + i % 4);
-                const float* k0 = kernel0_tm.row(r);
+            for (; i < tiles; i++) {
+                const float *r0 = bb2.row(i / 4 + i % 4);
+                const float *k0 = kernel0_tm.row(r);
 
-                int nn = inch; // inch always > 0
+                int nn = inch;  // inch always > 0
 
                 float sum0 = 0.f;
                 float sum1 = 0.f;
@@ -283,8 +284,7 @@ static void convolution_winograd_dot_lsx(Mat& bottom_blob_tm, int outch, const M
                 float sum3 = 0.f;
 
                 int j = 0;
-                for (; j < nn; j++)
-                {
+                for (; j < nn; j++) {
                     sum0 += r0[0] * k0[0];
                     sum1 += r0[0] * k0[1];
                     sum2 += r0[0] * k0[2];
@@ -313,26 +313,23 @@ static void convolution_winograd_dot_lsx(Mat& bottom_blob_tm, int outch, const M
     int remain_outch_start = nn_outch << 1;
 
     #pragma omp parallel for num_threads(opt.num_threads)
-    for (int pp = 0; pp < nn_outch; pp++)
-    {
+    for (int pp = 0; pp < nn_outch; pp++) {
         int p = pp * 2;
 
-        float* output0_tm = top_blob_tm.channel(p);
-        float* output1_tm = top_blob_tm.channel(p + 1);
+        float *output0_tm = top_blob_tm.channel(p);
+        float *output1_tm = top_blob_tm.channel(p + 1);
 
         const Mat kernel0_tm = kernel_tm.channel(p / 2);
 
-        for (int r = 0; r < batch; r++)
-        {
+        for (int r = 0; r < batch; r++) {
             const Mat bb2 = bottom_blob_tm2.channel(r);
 
             int i = 0;
-            for (; i + 3 < tiles; i += 4)
-            {
-                const float* r0 = bb2.row(i / 4);
-                const float* k0 = kernel0_tm.row(r);
+            for (; i + 3 < tiles; i += 4) {
+                const float *r0 = bb2.row(i / 4);
+                const float *k0 = kernel0_tm.row(r);
 
-                int nn = inch; // inch always > 0
+                int nn = inch;  // inch always > 0
 
                 float sum00 = 0.f;
                 float sum01 = 0.f;
@@ -343,8 +340,7 @@ static void convolution_winograd_dot_lsx(Mat& bottom_blob_tm, int outch, const M
                 float sum12 = 0.f;
                 float sum13 = 0.f;
 
-                for (int j = 0; j < nn; j++)
-                {
+                for (int j = 0; j < nn; j++) {
                     __builtin_prefetch(r0 + 16);
                     __builtin_prefetch(k0 + 8);
                     float w0 = k0[0];
@@ -374,18 +370,16 @@ static void convolution_winograd_dot_lsx(Mat& bottom_blob_tm, int outch, const M
                 output0_tm += 4;
                 output1_tm += 4;
             }
-            for (; i < tiles; i++)
-            {
-                const float* r0 = bb2.row(i / 4 + i % 4);
-                const float* k0 = kernel0_tm.row(r);
+            for (; i < tiles; i++) {
+                const float *r0 = bb2.row(i / 4 + i % 4);
+                const float *k0 = kernel0_tm.row(r);
 
-                int nn = inch; // inch always > 0
+                int nn = inch;  // inch always > 0
 
                 float sum00 = 0.f;
                 float sum10 = 0.f;
 
-                for (int j = 0; j < nn; j++)
-                {
+                for (int j = 0; j < nn; j++) {
                     __builtin_prefetch(r0 + 4);
                     __builtin_prefetch(k0 + 8);
                     float val0 = r0[0];
@@ -406,9 +400,8 @@ static void convolution_winograd_dot_lsx(Mat& bottom_blob_tm, int outch, const M
 #endif
 
     #pragma omp parallel for num_threads(opt.num_threads)
-    for (int p = remain_outch_start; p < outch; p++)
-    {
-        float* output0_tm = top_blob_tm.channel(p);
+    for (int p = remain_outch_start; p < outch; p++) {
+        float *output0_tm = top_blob_tm.channel(p);
 
 #if __loongarch_sx
         const Mat kernel0_tm = kernel_tm.channel(p / 8 + (p % 8) / 4 + p % 4);
@@ -416,39 +409,36 @@ static void convolution_winograd_dot_lsx(Mat& bottom_blob_tm, int outch, const M
         const Mat kernel0_tm = kernel_tm.channel(p / 2 + p % 2);
 #endif
 
-        for (int r = 0; r < batch; r++)
-        {
+        for (int r = 0; r < batch; r++) {
             const Mat bb2 = bottom_blob_tm2.channel(r);
 
             int i = 0;
-            for (; i + 3 < tiles; i += 4)
-            {
-                const float* r0 = bb2.row(i / 4);
-                const float* k0 = kernel0_tm.row(r);
+            for (; i + 3 < tiles; i += 4) {
+                const float *r0 = bb2.row(i / 4);
+                const float *k0 = kernel0_tm.row(r);
 
-                int nn = inch; // inch always > 0
+                int nn = inch;  // inch always > 0
 
                 int j = 0;
 #if __loongarch_sx
                 __m128 _sum0 = (__m128)__lsx_vreplgr2vr_w(0);
 
-                for (; j < nn; j++)
-                {
-                    _sum0 = __lsx_vfmadd_s((__m128)__lsx_vld(r0, 0), __lsx_vreplfr2vr_s(k0[0]), _sum0);
+                for (; j < nn; j++) {
+                    _sum0 = __lsx_vfmadd_s((__m128)__lsx_vld(r0, 0),
+                                           __lsx_vreplfr2vr_s(k0[0]), _sum0);
                     r0 += 4;
                     k0++;
                 }
 
                 __lsx_vst(_sum0, output0_tm, 0);
                 output0_tm += 4;
-#else  // __loongarch_sx
+#else   // __loongarch_sx
                 float sum0 = 0.f;
                 float sum1 = 0.f;
                 float sum2 = 0.f;
                 float sum3 = 0.f;
 
-                for (; j < nn; j++)
-                {
+                for (; j < nn; j++) {
                     __builtin_prefetch(r0 + 16);
                     __builtin_prefetch(k0 + 4);
                     float w0 = k0[0];
@@ -466,19 +456,17 @@ static void convolution_winograd_dot_lsx(Mat& bottom_blob_tm, int outch, const M
                 output0_tm[2] = sum2;
                 output0_tm[3] = sum3;
                 output0_tm += 4;
-#endif // __loongarch_sx
+#endif  // __loongarch_sx
             }
-            for (; i < tiles; i++)
-            {
-                const float* r0 = bb2.row(i / 4 + i % 4);
-                const float* k0 = kernel0_tm.row(r);
+            for (; i < tiles; i++) {
+                const float *r0 = bb2.row(i / 4 + i % 4);
+                const float *k0 = kernel0_tm.row(r);
 
-                int nn = inch; // inch always > 0
+                int nn = inch;  // inch always > 0
 
                 float sum = 0.f;
 
-                for (int j = 0; j < nn; j++)
-                {
+                for (int j = 0; j < nn; j++) {
                     float w0 = k0[0];
                     float val0 = r0[0];
                     sum += val0 * w0;

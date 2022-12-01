@@ -18,12 +18,14 @@
 namespace pnnx {
 
 class MakePadMask : public FuseModulePass {
- public:
-  const char *match_type_str() const {
-    return "__torch__.conformer.MakePadMask";
-  }
+public:
+    const char *match_type_str() const {
+        return "__torch__.conformer.MakePadMask";
+    }
 
-  const char *type_str() const { return "icefall.MakePadMask"; }
+    const char *type_str() const {
+        return "icefall.MakePadMask";
+    }
 };
 
 REGISTER_GLOBAL_PNNX_FUSE_MODULE_PASS(MakePadMask)

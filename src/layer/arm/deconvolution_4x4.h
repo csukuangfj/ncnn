@@ -1,19 +1,23 @@
-// Tencent is pleased to support the open source community by making ncnn available.
+// Tencent is pleased to support the open source community by making ncnn
+// available.
 //
 // Copyright (C) 2017 THL A29 Limited, a Tencent company. All rights reserved.
 //
-// Licensed under the BSD 3-Clause License (the "License"); you may not use this file except
-// in compliance with the License. You may obtain a copy of the License at
+// Licensed under the BSD 3-Clause License (the "License"); you may not use this
+// file except in compliance with the License. You may obtain a copy of the
+// License at
 //
 // https://opensource.org/licenses/BSD-3-Clause
 //
-// Unless required by applicable law or agreed to in writing, software distributed
-// under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
-// CONDITIONS OF ANY KIND, either express or implied. See the License for the
-// specific language governing permissions and limitations under the License.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+// WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+// License for the specific language governing permissions and limitations under
+// the License.
 
-static void deconv4x4s1_neon(const Mat& bottom_blob, Mat& top_blob, const Mat& _kernel, const Mat& _bias, const Option& opt)
-{
+static void deconv4x4s1_neon(const Mat &bottom_blob, Mat &top_blob,
+                             const Mat &_kernel, const Mat &_bias,
+                             const Option &opt) {
     int w = bottom_blob.w;
     int h = bottom_blob.h;
     int inch = bottom_blob.c;
@@ -21,52 +25,48 @@ static void deconv4x4s1_neon(const Mat& bottom_blob, Mat& top_blob, const Mat& _
     int outw = top_blob.w;
     int outch = top_blob.c;
 
-    const float* kernel = _kernel;
-    const float* bias = _bias;
+    const float *kernel = _kernel;
+    const float *bias = _bias;
 
     #pragma omp parallel for num_threads(opt.num_threads)
-    for (int p = 0; p < outch; p++)
-    {
+    for (int p = 0; p < outch; p++) {
         Mat out = top_blob.channel(p);
 
         const float bias0 = bias ? bias[p] : 0.f;
 
         out.fill(bias0);
 
-        for (int q = 0; q < inch; q++)
-        {
-            const float* img0 = bottom_blob.channel(q);
+        for (int q = 0; q < inch; q++) {
+            const float *img0 = bottom_blob.channel(q);
 
-            const float* kernel0 = kernel + p * inch * 16 + q * 16;
+            const float *kernel0 = kernel + p * inch * 16 + q * 16;
 
-            const float* r0 = img0;
+            const float *r0 = img0;
 
-            const float* k0 = kernel0;
-            const float* k1 = kernel0 + 4;
-            const float* k2 = kernel0 + 8;
-            const float* k3 = kernel0 + 12;
+            const float *k0 = kernel0;
+            const float *k1 = kernel0 + 4;
+            const float *k2 = kernel0 + 8;
+            const float *k3 = kernel0 + 12;
 
 #if __ARM_NEON
             float32x4_t _k0 = vld1q_f32(k0);
             float32x4_t _k1 = vld1q_f32(k1);
             float32x4_t _k2 = vld1q_f32(k2);
             float32x4_t _k3 = vld1q_f32(k3);
-#endif // __ARM_NEON
+#endif  // __ARM_NEON
 
-            for (int i = 0; i < h; i++)
-            {
-                float* outptr = out.row(i);
+            for (int i = 0; i < h; i++) {
+                float *outptr = out.row(i);
 
-                float* outptr0 = outptr;
-                float* outptr1 = outptr0 + outw;
-                float* outptr2 = outptr1 + outw;
-                float* outptr3 = outptr2 + outw;
+                float *outptr0 = outptr;
+                float *outptr1 = outptr0 + outw;
+                float *outptr2 = outptr1 + outw;
+                float *outptr3 = outptr2 + outw;
 
                 int j = 0;
 
 #if __ARM_NEON
-                for (; j + 3 < w; j += 4)
-                {
+                for (; j + 3 < w; j += 4) {
                     float32x4_t _v = vld1q_f32(r0);
 
                     //
@@ -144,10 +144,9 @@ static void deconv4x4s1_neon(const Mat& bottom_blob, Mat& top_blob, const Mat& _
                     outptr3 += 4;
                 }
 
-#endif // __ARM_NEON
+#endif  // __ARM_NEON
 
-                for (; j < w; j++)
-                {
+                for (; j < w; j++) {
                     float val = r0[0];
 
                     outptr0[0] += val * k0[0];
@@ -181,8 +180,9 @@ static void deconv4x4s1_neon(const Mat& bottom_blob, Mat& top_blob, const Mat& _
     }
 }
 
-static void deconv4x4s2_neon(const Mat& bottom_blob, Mat& top_blob, const Mat& _kernel, const Mat& _bias, const Option& opt)
-{
+static void deconv4x4s2_neon(const Mat &bottom_blob, Mat &top_blob,
+                             const Mat &_kernel, const Mat &_bias,
+                             const Option &opt) {
     int w = bottom_blob.w;
     int h = bottom_blob.h;
     int inch = bottom_blob.c;
@@ -190,51 +190,47 @@ static void deconv4x4s2_neon(const Mat& bottom_blob, Mat& top_blob, const Mat& _
     int outw = top_blob.w;
     int outch = top_blob.c;
 
-    const float* kernel = _kernel;
-    const float* bias = _bias;
+    const float *kernel = _kernel;
+    const float *bias = _bias;
 
     #pragma omp parallel for num_threads(opt.num_threads)
-    for (int p = 0; p < outch; p++)
-    {
+    for (int p = 0; p < outch; p++) {
         Mat out = top_blob.channel(p);
 
         const float bias0 = bias ? bias[p] : 0.f;
 
         out.fill(bias0);
 
-        for (int q = 0; q < inch; q++)
-        {
-            const float* img0 = bottom_blob.channel(q);
+        for (int q = 0; q < inch; q++) {
+            const float *img0 = bottom_blob.channel(q);
 
-            const float* kernel0 = kernel + p * inch * 16 + q * 16;
+            const float *kernel0 = kernel + p * inch * 16 + q * 16;
 
-            const float* r0 = img0;
+            const float *r0 = img0;
 
-            const float* k0 = kernel0;
-            const float* k1 = kernel0 + 4;
-            const float* k2 = kernel0 + 8;
-            const float* k3 = kernel0 + 12;
+            const float *k0 = kernel0;
+            const float *k1 = kernel0 + 4;
+            const float *k2 = kernel0 + 8;
+            const float *k3 = kernel0 + 12;
 
 #if __ARM_NEON
             float32x4_t _k0 = vld1q_f32(k0);
             float32x4_t _k1 = vld1q_f32(k1);
             float32x4_t _k2 = vld1q_f32(k2);
             float32x4_t _k3 = vld1q_f32(k3);
-#endif // __ARM_NEON
+#endif  // __ARM_NEON
 
-            for (int i = 0; i < h; i++)
-            {
-                float* outptr = out.row(i * 2);
+            for (int i = 0; i < h; i++) {
+                float *outptr = out.row(i * 2);
 
-                float* outptr0 = outptr;
-                float* outptr1 = outptr0 + outw;
-                float* outptr2 = outptr1 + outw;
-                float* outptr3 = outptr2 + outw;
+                float *outptr0 = outptr;
+                float *outptr1 = outptr0 + outw;
+                float *outptr2 = outptr1 + outw;
+                float *outptr3 = outptr2 + outw;
 
                 int j = 0;
 #if __ARM_NEON
-                for (; j + 3 < w; j += 4)
-                {
+                for (; j + 3 < w; j += 4) {
                     float32x4_t _v = vld1q_f32(r0);
 
                     // row 0
@@ -247,9 +243,11 @@ static void deconv4x4s2_neon(const Mat& bottom_blob, Mat& top_blob, const Mat& _
 
                     _out0 = vld2q_f32(outptr0 + 2);
                     // 2,4,6,8
-                    _out0.val[0] = vmlaq_lane_f32(_out0.val[0], _v, vget_high_f32(_k0), 0);
+                    _out0.val[0] =
+                        vmlaq_lane_f32(_out0.val[0], _v, vget_high_f32(_k0), 0);
                     // 3,5,7,9
-                    _out0.val[1] = vmlaq_lane_f32(_out0.val[1], _v, vget_high_f32(_k0), 1);
+                    _out0.val[1] =
+                        vmlaq_lane_f32(_out0.val[1], _v, vget_high_f32(_k0), 1);
                     vst2q_f32(outptr0 + 2, _out0);
 
                     // row 1
@@ -262,9 +260,11 @@ static void deconv4x4s2_neon(const Mat& bottom_blob, Mat& top_blob, const Mat& _
 
                     _out1 = vld2q_f32(outptr1 + 2);
                     // 2,4,6,8
-                    _out1.val[0] = vmlaq_lane_f32(_out1.val[0], _v, vget_high_f32(_k1), 0);
+                    _out1.val[0] =
+                        vmlaq_lane_f32(_out1.val[0], _v, vget_high_f32(_k1), 0);
                     // 3,5,7,9
-                    _out1.val[1] = vmlaq_lane_f32(_out1.val[1], _v, vget_high_f32(_k1), 1);
+                    _out1.val[1] =
+                        vmlaq_lane_f32(_out1.val[1], _v, vget_high_f32(_k1), 1);
                     vst2q_f32(outptr1 + 2, _out1);
 
                     // row 2
@@ -274,8 +274,10 @@ static void deconv4x4s2_neon(const Mat& bottom_blob, Mat& top_blob, const Mat& _
                     vst2q_f32(outptr2, _out2);
 
                     _out2 = vld2q_f32(outptr2 + 2);
-                    _out2.val[0] = vmlaq_lane_f32(_out2.val[0], _v, vget_high_f32(_k2), 0);
-                    _out2.val[1] = vmlaq_lane_f32(_out2.val[1], _v, vget_high_f32(_k2), 1);
+                    _out2.val[0] =
+                        vmlaq_lane_f32(_out2.val[0], _v, vget_high_f32(_k2), 0);
+                    _out2.val[1] =
+                        vmlaq_lane_f32(_out2.val[1], _v, vget_high_f32(_k2), 1);
                     vst2q_f32(outptr2 + 2, _out2);
 
                     // row 3
@@ -285,8 +287,10 @@ static void deconv4x4s2_neon(const Mat& bottom_blob, Mat& top_blob, const Mat& _
                     vst2q_f32(outptr3, _out3);
 
                     _out3 = vld2q_f32(outptr3 + 2);
-                    _out3.val[0] = vmlaq_lane_f32(_out3.val[0], _v, vget_high_f32(_k3), 0);
-                    _out3.val[1] = vmlaq_lane_f32(_out3.val[1], _v, vget_high_f32(_k3), 1);
+                    _out3.val[0] =
+                        vmlaq_lane_f32(_out3.val[0], _v, vget_high_f32(_k3), 0);
+                    _out3.val[1] =
+                        vmlaq_lane_f32(_out3.val[1], _v, vget_high_f32(_k3), 1);
                     vst2q_f32(outptr3 + 2, _out3);
 
                     r0 += 4;
@@ -296,10 +300,9 @@ static void deconv4x4s2_neon(const Mat& bottom_blob, Mat& top_blob, const Mat& _
                     outptr3 += 8;
                 }
 
-#endif // __ARM_NEON
+#endif  // __ARM_NEON
 
-                for (; j < w; j++)
-                {
+                for (; j < w; j++) {
                     float val = r0[0];
 
                     outptr0[0] += val * k0[0];

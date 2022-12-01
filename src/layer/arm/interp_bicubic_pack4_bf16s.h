@@ -1,19 +1,23 @@
-// Tencent is pleased to support the open source community by making ncnn available.
+// Tencent is pleased to support the open source community by making ncnn
+// available.
 //
 // Copyright (C) 2020 THL A29 Limited, a Tencent company. All rights reserved.
 //
-// Licensed under the BSD 3-Clause License (the "License"); you may not use this file except
-// in compliance with the License. You may obtain a copy of the License at
+// Licensed under the BSD 3-Clause License (the "License"); you may not use this
+// file except in compliance with the License. You may obtain a copy of the
+// License at
 //
 // https://opensource.org/licenses/BSD-3-Clause
 //
-// Unless required by applicable law or agreed to in writing, software distributed
-// under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
-// CONDITIONS OF ANY KIND, either express or implied. See the License for the
-// specific language governing permissions and limitations under the License.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+// WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+// License for the specific language governing permissions and limitations under
+// the License.
 
-static void resize_bicubic_image_pack4_bf16s(const Mat& src, Mat& dst, float* alpha, int* xofs, float* beta, int* yofs)
-{
+static void resize_bicubic_image_pack4_bf16s(const Mat &src, Mat &dst,
+        float *alpha, int *xofs,
+        float *beta, int *yofs) {
     int w = dst.w;
     int h = dst.h;
 
@@ -22,37 +26,32 @@ static void resize_bicubic_image_pack4_bf16s(const Mat& src, Mat& dst, float* al
     Mat rowsbuf1(w, (size_t)4 * 4u, 4);
     Mat rowsbuf2(w, (size_t)4 * 4u, 4);
     Mat rowsbuf3(w, (size_t)4 * 4u, 4);
-    float* rows0 = rowsbuf0;
-    float* rows1 = rowsbuf1;
-    float* rows2 = rowsbuf2;
-    float* rows3 = rowsbuf3;
+    float *rows0 = rowsbuf0;
+    float *rows1 = rowsbuf1;
+    float *rows2 = rowsbuf2;
+    float *rows3 = rowsbuf3;
 
     int prev_sy1 = -3;
 
-    for (int dy = 0; dy < h; dy++)
-    {
+    for (int dy = 0; dy < h; dy++) {
         int sy = yofs[dy];
 
-        if (sy == prev_sy1)
-        {
+        if (sy == prev_sy1) {
             // reuse all rows
-        }
-        else if (sy == prev_sy1 + 1)
-        {
+        } else if (sy == prev_sy1 + 1) {
             // hresize one row
-            float* rows0_old = rows0;
+            float *rows0_old = rows0;
             rows0 = rows1;
             rows1 = rows2;
             rows2 = rows3;
             rows3 = rows0_old;
-            const unsigned short* S3 = src.row<const unsigned short>(sy + 2);
+            const unsigned short *S3 = src.row<const unsigned short>(sy + 2);
 
-            const float* alphap = alpha;
-            float* rows3p = rows3;
-            for (int dx = 0; dx < w; dx++)
-            {
+            const float *alphap = alpha;
+            float *rows3p = rows3;
+            for (int dx = 0; dx < w; dx++) {
                 int sx = xofs[dx] * 4;
-                const unsigned short* S3p = S3 + sx;
+                const unsigned short *S3p = S3 + sx;
 
                 float32x4_t _a0123 = vld1q_f32(alphap);
 
@@ -68,27 +67,24 @@ static void resize_bicubic_image_pack4_bf16s(const Mat& src, Mat& dst, float* al
 
                 alphap += 4;
             }
-        }
-        else if (sy == prev_sy1 + 2)
-        {
+        } else if (sy == prev_sy1 + 2) {
             // hresize two rows
-            float* rows0_old = rows0;
-            float* rows1_old = rows1;
+            float *rows0_old = rows0;
+            float *rows1_old = rows1;
             rows0 = rows2;
             rows1 = rows3;
             rows2 = rows0_old;
             rows3 = rows1_old;
-            const unsigned short* S2 = src.row<const unsigned short>(sy + 1);
-            const unsigned short* S3 = src.row<const unsigned short>(sy + 2);
+            const unsigned short *S2 = src.row<const unsigned short>(sy + 1);
+            const unsigned short *S3 = src.row<const unsigned short>(sy + 2);
 
-            const float* alphap = alpha;
-            float* rows2p = rows2;
-            float* rows3p = rows3;
-            for (int dx = 0; dx < w; dx++)
-            {
+            const float *alphap = alpha;
+            float *rows2p = rows2;
+            float *rows3p = rows3;
+            for (int dx = 0; dx < w; dx++) {
                 int sx = xofs[dx] * 4;
-                const unsigned short* S2p = S2 + sx;
-                const unsigned short* S3p = S3 + sx;
+                const unsigned short *S2p = S2 + sx;
+                const unsigned short *S3p = S3 + sx;
 
                 float32x4_t _a0123 = vld1q_f32(alphap);
 
@@ -113,31 +109,28 @@ static void resize_bicubic_image_pack4_bf16s(const Mat& src, Mat& dst, float* al
 
                 alphap += 4;
             }
-        }
-        else if (sy == prev_sy1 + 3)
-        {
+        } else if (sy == prev_sy1 + 3) {
             // hresize three rows
-            float* rows0_old = rows0;
-            float* rows1_old = rows1;
-            float* rows2_old = rows2;
+            float *rows0_old = rows0;
+            float *rows1_old = rows1;
+            float *rows2_old = rows2;
             rows0 = rows3;
             rows1 = rows0_old;
             rows2 = rows1_old;
             rows3 = rows2_old;
-            const unsigned short* S1 = src.row<const unsigned short>(sy);
-            const unsigned short* S2 = src.row<const unsigned short>(sy + 1);
-            const unsigned short* S3 = src.row<const unsigned short>(sy + 2);
+            const unsigned short *S1 = src.row<const unsigned short>(sy);
+            const unsigned short *S2 = src.row<const unsigned short>(sy + 1);
+            const unsigned short *S3 = src.row<const unsigned short>(sy + 2);
 
-            const float* alphap = alpha;
-            float* rows1p = rows1;
-            float* rows2p = rows2;
-            float* rows3p = rows3;
-            for (int dx = 0; dx < w; dx++)
-            {
+            const float *alphap = alpha;
+            float *rows1p = rows1;
+            float *rows2p = rows2;
+            float *rows3p = rows3;
+            for (int dx = 0; dx < w; dx++) {
                 int sx = xofs[dx] * 4;
-                const unsigned short* S1p = S1 + sx;
-                const unsigned short* S2p = S2 + sx;
-                const unsigned short* S3p = S3 + sx;
+                const unsigned short *S1p = S1 + sx;
+                const unsigned short *S2p = S2 + sx;
+                const unsigned short *S3p = S3 + sx;
 
                 float32x4_t _a0123 = vld1q_f32(alphap);
 
@@ -171,27 +164,24 @@ static void resize_bicubic_image_pack4_bf16s(const Mat& src, Mat& dst, float* al
 
                 alphap += 4;
             }
-        }
-        else
-        {
+        } else {
             // hresize four rows
-            const unsigned short* S0 = src.row<const unsigned short>(sy - 1);
-            const unsigned short* S1 = src.row<const unsigned short>(sy);
-            const unsigned short* S2 = src.row<const unsigned short>(sy + 1);
-            const unsigned short* S3 = src.row<const unsigned short>(sy + 2);
+            const unsigned short *S0 = src.row<const unsigned short>(sy - 1);
+            const unsigned short *S1 = src.row<const unsigned short>(sy);
+            const unsigned short *S2 = src.row<const unsigned short>(sy + 1);
+            const unsigned short *S3 = src.row<const unsigned short>(sy + 2);
 
-            const float* alphap = alpha;
-            float* rows0p = rows0;
-            float* rows1p = rows1;
-            float* rows2p = rows2;
-            float* rows3p = rows3;
-            for (int dx = 0; dx < w; dx++)
-            {
+            const float *alphap = alpha;
+            float *rows0p = rows0;
+            float *rows1p = rows1;
+            float *rows2p = rows2;
+            float *rows3p = rows3;
+            for (int dx = 0; dx < w; dx++) {
                 int sx = xofs[dx] * 4;
-                const unsigned short* S0p = S0 + sx;
-                const unsigned short* S1p = S1 + sx;
-                const unsigned short* S2p = S2 + sx;
-                const unsigned short* S3p = S3 + sx;
+                const unsigned short *S0p = S0 + sx;
+                const unsigned short *S1p = S1 + sx;
+                const unsigned short *S2p = S2 + sx;
+                const unsigned short *S3p = S3 + sx;
 
                 float32x4_t _a0123 = vld1q_f32(alphap);
 
@@ -242,14 +232,13 @@ static void resize_bicubic_image_pack4_bf16s(const Mat& src, Mat& dst, float* al
         // vresize
         float32x4_t _b0123 = vld1q_f32(beta);
 
-        float* rows0p = rows0;
-        float* rows1p = rows1;
-        float* rows2p = rows2;
-        float* rows3p = rows3;
-        unsigned short* Dp = dst.row<unsigned short>(dy);
+        float *rows0p = rows0;
+        float *rows1p = rows1;
+        float *rows2p = rows2;
+        float *rows3p = rows3;
+        unsigned short *Dp = dst.row<unsigned short>(dy);
 
-        for (int dx = 0; dx < w; dx++)
-        {
+        for (int dx = 0; dx < w; dx++) {
             float32x4_t _rows0 = vld1q_f32(rows0p);
             float32x4_t _rows1 = vld1q_f32(rows1p);
             float32x4_t _rows2 = vld1q_f32(rows2p);

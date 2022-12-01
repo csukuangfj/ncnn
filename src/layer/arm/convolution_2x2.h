@@ -1,19 +1,23 @@
-// Tencent is pleased to support the open source community by making ncnn available.
+// Tencent is pleased to support the open source community by making ncnn
+// available.
 //
 // Copyright (C) 2017 THL A29 Limited, a Tencent company. All rights reserved.
 //
-// Licensed under the BSD 3-Clause License (the "License"); you may not use this file except
-// in compliance with the License. You may obtain a copy of the License at
+// Licensed under the BSD 3-Clause License (the "License"); you may not use this
+// file except in compliance with the License. You may obtain a copy of the
+// License at
 //
 // https://opensource.org/licenses/BSD-3-Clause
 //
-// Unless required by applicable law or agreed to in writing, software distributed
-// under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
-// CONDITIONS OF ANY KIND, either express or implied. See the License for the
-// specific language governing permissions and limitations under the License.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+// WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+// License for the specific language governing permissions and limitations under
+// the License.
 
-static void conv2x2s1_neon(const Mat& bottom_blob, Mat& top_blob, const Mat& _kernel, const Mat& _bias, const Option& opt)
-{
+static void conv2x2s1_neon(const Mat &bottom_blob, Mat &top_blob,
+                           const Mat &_kernel, const Mat &_bias,
+                           const Option &opt) {
     int w = bottom_blob.w;
     int inch = bottom_blob.c;
 
@@ -21,12 +25,11 @@ static void conv2x2s1_neon(const Mat& bottom_blob, Mat& top_blob, const Mat& _ke
     int outh = top_blob.h;
     int outch = top_blob.c;
 
-    const float* kernel = _kernel;
-    const float* bias = _bias;
+    const float *kernel = _kernel;
+    const float *bias = _bias;
 
     #pragma omp parallel for num_threads(opt.num_threads)
-    for (int p = 0; p < outch; p++)
-    {
+    for (int p = 0; p < outch; p++) {
         Mat out = top_blob.channel(p);
 
         const float bias0 = bias ? bias[p] : 0.f;
@@ -35,40 +38,37 @@ static void conv2x2s1_neon(const Mat& bottom_blob, Mat& top_blob, const Mat& _ke
 
         int q = 0;
 
-        for (; q + 1 < inch; q += 2)
-        {
-            float* outptr = out;
+        for (; q + 1 < inch; q += 2) {
+            float *outptr = out;
 
-            const float* img0 = bottom_blob.channel(q);
-            const float* img1 = bottom_blob.channel(q + 1);
+            const float *img0 = bottom_blob.channel(q);
+            const float *img1 = bottom_blob.channel(q + 1);
 
-            const float* kernel0 = kernel + p * inch * 4 + q * 4;
-            const float* kernel1 = kernel0 + 4;
+            const float *kernel0 = kernel + p * inch * 4 + q * 4;
+            const float *kernel1 = kernel0 + 4;
 
-            const float* r00 = img0;
-            const float* r01 = img0 + w;
+            const float *r00 = img0;
+            const float *r01 = img0 + w;
 
-            const float* r10 = img1;
-            const float* r11 = img1 + w;
+            const float *r10 = img1;
+            const float *r11 = img1 + w;
 
 #if __ARM_NEON
             float32x4_t _k0 = vld1q_f32(kernel0);
             float32x4_t _k1 = vld1q_f32(kernel1);
-#endif // __ARM_NEON
+#endif  // __ARM_NEON
 
-            for (int i = 0; i < outh; i++)
-            {
+            for (int i = 0; i < outh; i++) {
 #if __ARM_NEON
                 int nn = outw >> 2;
                 int remain = outw & 3;
 #else
                 int remain = outw;
-#endif // __ARM_NEON
+#endif  // __ARM_NEON
 
 #if __ARM_NEON
 #if __aarch64__
-                if (nn > 0)
-                {
+                if (nn > 0) {
                     asm volatile(
                         "prfm       pldl1keep, [%1, #128]          \n"
                         "ld1        {v0.4s}, [%1], #16             \n"
@@ -128,25 +128,20 @@ static void conv2x2s1_neon(const Mat& bottom_blob, Mat& top_blob, const Mat& _ke
                         "sub        %2, %2, #16                    \n"
                         "sub        %3, %3, #16                    \n"
                         "sub        %4, %4, #16                    \n"
-                        : "=r"(nn),    // %0
-                        "=r"(r00),   // %1
-                        "=r"(r01),   // %2
-                        "=r"(r10),   // %3
-                        "=r"(r11),   // %4
-                        "=r"(outptr) // %5
-                        : "0"(nn),
-                        "1"(r00),
-                        "2"(r01),
-                        "3"(r10),
-                        "4"(r11),
-                        "5"(outptr),
-                        "w"(_k0), // %12
-                        "w"(_k1)  // %13
-                        : "cc", "memory", "v0", "v1", "v2", "v3", "v8", "v9", "v10", "v11", "v12", "v13", "v14", "v15");
+                        : "=r"(nn),     // %0
+                        "=r"(r00),    // %1
+                        "=r"(r01),    // %2
+                        "=r"(r10),    // %3
+                        "=r"(r11),    // %4
+                        "=r"(outptr)  // %5
+                        : "0"(nn), "1"(r00), "2"(r01), "3"(r10), "4"(r11), "5"(outptr),
+                        "w"(_k0),  // %12
+                        "w"(_k1)   // %13
+                        : "cc", "memory", "v0", "v1", "v2", "v3", "v8", "v9", "v10",
+                        "v11", "v12", "v13", "v14", "v15");
                 }
 #else
-                if (nn > 0)
-                {
+                if (nn > 0) {
                     asm volatile(
                         "pld        [%1, #128]          \n"
                         "vld1.f32   {d0-d1}, [%1]!      \n"
@@ -160,7 +155,7 @@ static void conv2x2s1_neon(const Mat& bottom_blob, Mat& top_blob, const Mat& _ke
 
                         "0:                             \n"
                         "pld        [%5, #128]          \n"
-                        "vld1.f32   {d18-d19}, [%5]     \n" // q9 = sum
+                        "vld1.f32   {d18-d19}, [%5]     \n"  // q9 = sum
 
                         "vmul.f32   q8, q0, %e12[0]     \n"
                         "vmla.f32   q9, q2, %f12[0]     \n"
@@ -209,27 +204,22 @@ static void conv2x2s1_neon(const Mat& bottom_blob, Mat& top_blob, const Mat& _ke
                         "sub        %2, #16             \n"
                         "sub        %3, #16             \n"
                         "sub        %4, #16             \n"
-                        : "=r"(nn),    // %0
-                        "=r"(r00),   // %1
-                        "=r"(r01),   // %2
-                        "=r"(r10),   // %3
-                        "=r"(r11),   // %4
-                        "=r"(outptr) // %5
-                        : "0"(nn),
-                        "1"(r00),
-                        "2"(r01),
-                        "3"(r10),
-                        "4"(r11),
-                        "5"(outptr),
-                        "w"(_k0), // %12
-                        "w"(_k1)  // %13
-                        : "cc", "memory", "q0", "q1", "q2", "q3", "q8", "q9", "q10", "q11", "q12", "q13", "q14", "q15");
+                        : "=r"(nn),     // %0
+                        "=r"(r00),    // %1
+                        "=r"(r01),    // %2
+                        "=r"(r10),    // %3
+                        "=r"(r11),    // %4
+                        "=r"(outptr)  // %5
+                        : "0"(nn), "1"(r00), "2"(r01), "3"(r10), "4"(r11), "5"(outptr),
+                        "w"(_k0),  // %12
+                        "w"(_k1)   // %13
+                        : "cc", "memory", "q0", "q1", "q2", "q3", "q8", "q9", "q10",
+                        "q11", "q12", "q13", "q14", "q15");
                 }
-#endif // __aarch64__
-#endif // __ARM_NEON
+#endif  // __aarch64__
+#endif  // __ARM_NEON
 
-                for (; remain > 0; remain--)
-                {
+                for (; remain > 0; remain--) {
 #if __ARM_NEON
                     float32x2_t _r00 = vld1_f32(r00);
                     float32x2_t _r01 = vld1_f32(r01);
@@ -258,7 +248,7 @@ static void conv2x2s1_neon(const Mat& bottom_blob, Mat& top_blob, const Mat& _ke
                     sum += r11[1] * kernel1[3];
 
                     *outptr += sum;
-#endif // __ARM_NEON
+#endif  // __ARM_NEON
 
                     r00 += 1;
                     r01 += 1;
@@ -274,37 +264,34 @@ static void conv2x2s1_neon(const Mat& bottom_blob, Mat& top_blob, const Mat& _ke
             }
         }
 
-        for (; q < inch; q++)
-        {
-            float* outptr = out;
+        for (; q < inch; q++) {
+            float *outptr = out;
 
-            const float* img0 = bottom_blob.channel(q);
+            const float *img0 = bottom_blob.channel(q);
 
-            const float* kernel0 = kernel + p * inch * 4 + q * 4;
+            const float *kernel0 = kernel + p * inch * 4 + q * 4;
 
-            const float* r0 = img0;
-            const float* r1 = img0 + w;
+            const float *r0 = img0;
+            const float *r1 = img0 + w;
 
 #if __ARM_NEON
             float32x4_t _k0 = vdupq_n_f32(kernel0[0]);
             float32x4_t _k1 = vdupq_n_f32(kernel0[1]);
             float32x4_t _k2 = vdupq_n_f32(kernel0[2]);
             float32x4_t _k3 = vdupq_n_f32(kernel0[3]);
-#endif // __ARM_NEON
+#endif  // __ARM_NEON
 
-            for (int i = 0; i < outh; i++)
-            {
+            for (int i = 0; i < outh; i++) {
 #if __ARM_NEON
                 int nn = outw >> 2;
                 int remain = outw & 3;
 #else
                 int remain = outw;
-#endif // __ARM_NEON
+#endif  // __ARM_NEON
 
 #if __ARM_NEON
 #if __aarch64__
-                if (nn > 0)
-                {
+                if (nn > 0) {
                     asm volatile(
                         "prfm       pldl1keep, [%1, #128]          \n"
                         "ld1        {v0.4s}, [%1], #16             \n"
@@ -339,23 +326,20 @@ static void conv2x2s1_neon(const Mat& bottom_blob, Mat& top_blob, const Mat& _ke
                         "bne        0b                             \n"
                         "sub        %1, %1, #16                    \n"
                         "sub        %2, %2, #16                    \n"
-                        : "=r"(nn),    // %0
-                        "=r"(r0),    // %1
-                        "=r"(r1),    // %2
-                        "=r"(outptr) // %3
-                        : "0"(nn),
-                        "1"(r0),
-                        "2"(r1),
-                        "3"(outptr),
-                        "w"(_k0), // %8
-                        "w"(_k1), // %9
-                        "w"(_k2), // %10
-                        "w"(_k3)  // %11
-                        : "cc", "memory", "v0", "v1", "v2", "v3", "v8", "v9", "v10", "v11");
+                        : "=r"(nn),     // %0
+                        "=r"(r0),     // %1
+                        "=r"(r1),     // %2
+                        "=r"(outptr)  // %3
+                        : "0"(nn), "1"(r0), "2"(r1), "3"(outptr),
+                        "w"(_k0),  // %8
+                        "w"(_k1),  // %9
+                        "w"(_k2),  // %10
+                        "w"(_k3)   // %11
+                        : "cc", "memory", "v0", "v1", "v2", "v3", "v8", "v9", "v10",
+                        "v11");
                 }
 #else
-                if (nn > 0)
-                {
+                if (nn > 0) {
                     asm volatile(
                         "pld        [%1, #128]          \n"
                         "vld1.f32   {d0-d1}, [%1]!      \n"
@@ -364,7 +348,7 @@ static void conv2x2s1_neon(const Mat& bottom_blob, Mat& top_blob, const Mat& _ke
 
                         "0:                             \n"
                         "pld        [%3, #128]          \n"
-                        "vld1.f32   {d18-d19}, [%3]     \n" // q9 = sum
+                        "vld1.f32   {d18-d19}, [%3]     \n"  // q9 = sum
 
                         "vmul.f32   q8, q0, %q8         \n"
                         "vmla.f32   q9, q2, %q10        \n"
@@ -390,29 +374,26 @@ static void conv2x2s1_neon(const Mat& bottom_blob, Mat& top_blob, const Mat& _ke
                         "bne        0b                  \n"
                         "sub        %1, #16             \n"
                         "sub        %2, #16             \n"
-                        : "=r"(nn),    // %0
-                        "=r"(r0),    // %1
-                        "=r"(r1),    // %2
-                        "=r"(outptr) // %3
-                        : "0"(nn),
-                        "1"(r0),
-                        "2"(r1),
-                        "3"(outptr),
-                        "w"(_k0), // %8
-                        "w"(_k1), // %9
-                        "w"(_k2), // %10
-                        "w"(_k3)  // %11
-                        : "cc", "memory", "q0", "q1", "q2", "q3", "q8", "q9", "q10", "q11");
+                        : "=r"(nn),     // %0
+                        "=r"(r0),     // %1
+                        "=r"(r1),     // %2
+                        "=r"(outptr)  // %3
+                        : "0"(nn), "1"(r0), "2"(r1), "3"(outptr),
+                        "w"(_k0),  // %8
+                        "w"(_k1),  // %9
+                        "w"(_k2),  // %10
+                        "w"(_k3)   // %11
+                        : "cc", "memory", "q0", "q1", "q2", "q3", "q8", "q9", "q10",
+                        "q11");
                 }
-#endif // __aarch64__
-#endif // __ARM_NEON
+#endif  // __aarch64__
+#endif  // __ARM_NEON
 
 #if __ARM_NEON
                 float32x4_t _k0123 = vld1q_f32(kernel0);
 #endif
 
-                for (; remain > 0; remain--)
-                {
+                for (; remain > 0; remain--) {
 #if __ARM_NEON
                     float32x2_t _r0 = vld1_f32(r0);
                     float32x2_t _r1 = vld1_f32(r1);

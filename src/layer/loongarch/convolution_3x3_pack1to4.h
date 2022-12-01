@@ -1,46 +1,49 @@
-// yala is pleased to support the open source community by making ncnn available.
+// yala is pleased to support the open source community by making ncnn
+// available.
 //
 //
-// Copyright (C) 2022 yala <zhaojunchao@loongson.cn>;<junchao82@qq.com>. All rights reserved.
-// Licensed under the BSD 3-Clause License (the "License"); you may not use this file except
-// in compliance with the License. You may obtain a copy of the License at
+// Copyright (C) 2022 yala <zhaojunchao@loongson.cn>;<junchao82@qq.com>. All
+// rights reserved. Licensed under the BSD 3-Clause License (the "License"); you
+// may not use this file except in compliance with the License. You may obtain a
+// copy of the License at
 //
 // https://opensource.org/licenses/BSD-3-Clause
 //
-// Unless required by applicable law or agreed to in writing, software distributed
-// under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
-// CONDITIONS OF ANY KIND, either express or implied. See the License for the
-// specific language governing permissions and limitations under the License.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+// WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+// License for the specific language governing permissions and limitations under
+// the License.
 
-static void conv3x3s1_pack1to4_lsx(const Mat& bottom_blob, Mat& top_blob, const Mat& kernel, const Mat& _bias, const Option& opt)
-{
+static void conv3x3s1_pack1to4_lsx(const Mat &bottom_blob, Mat &top_blob,
+                                   const Mat &kernel, const Mat &_bias,
+                                   const Option &opt) {
     int inch = bottom_blob.c;
     int outw = top_blob.w;
     int outh = top_blob.h;
     int outch = top_blob.c;
 
-    const float* bias = _bias;
+    const float *bias = _bias;
 
     #pragma omp parallel for num_threads(opt.num_threads)
-    for (int p = 0; p < outch; p++)
-    {
+    for (int p = 0; p < outch; p++) {
         Mat out0 = top_blob.channel(p);
 
-        __m128 _bias0 = bias ? (__m128)__lsx_vld(bias + p * 4, 0) : (__m128)__lsx_vreplgr2vr_w(0);
+        __m128 _bias0 = bias ? (__m128)__lsx_vld(bias + p * 4, 0)
+                        : (__m128)__lsx_vreplgr2vr_w(0);
         out0.fill(_bias0);
 
-        const float* k0 = kernel.channel(p);
+        const float *k0 = kernel.channel(p);
 
         int q = 0;
-        for (; q < inch; q++)
-        {
-            float* outptr0 = out0;
+        for (; q < inch; q++) {
+            float *outptr0 = out0;
 
             const Mat img0 = bottom_blob.channel(q);
 
-            const float* r0 = img0.row(0);
-            const float* r1 = img0.row(1);
-            const float* r2 = img0.row(2);
+            const float *r0 = img0.row(0);
+            const float *r1 = img0.row(1);
+            const float *r2 = img0.row(2);
 
             __m128 _k00 = (__m128)__lsx_vld(k0, 0);
             __m128 _k01 = (__m128)__lsx_vld(k0 + 4, 0);
@@ -53,11 +56,9 @@ static void conv3x3s1_pack1to4_lsx(const Mat& bottom_blob, Mat& top_blob, const 
             __m128 _k22 = (__m128)__lsx_vld(k0 + 4 * 8, 0);
 
             int i = 0;
-            for (; i < outh; i++)
-            {
+            for (; i < outh; i++) {
                 int j = 0;
-                for (; j + 7 < outw; j += 8)
-                {
+                for (; j + 7 < outw; j += 8) {
                     __m128 _sum0 = (__m128)__lsx_vld(outptr0, 0);
                     __m128 _sum1 = (__m128)__lsx_vld(outptr0 + 4, 0);
                     __m128 _sum2 = (__m128)__lsx_vld(outptr0 + 4 * 2, 0);
@@ -202,8 +203,7 @@ static void conv3x3s1_pack1to4_lsx(const Mat& bottom_blob, Mat& top_blob, const 
                     r1 += 8;
                     r2 += 8;
                 }
-                for (; j + 3 < outw; j += 4)
-                {
+                for (; j + 3 < outw; j += 4) {
                     __m128 _sum0 = (__m128)__lsx_vld(outptr0, 0);
                     __m128 _sum1 = (__m128)__lsx_vld(outptr0 + 4, 0);
                     __m128 _sum2 = (__m128)__lsx_vld(outptr0 + 4 * 2, 0);
@@ -289,8 +289,7 @@ static void conv3x3s1_pack1to4_lsx(const Mat& bottom_blob, Mat& top_blob, const 
                     r1 += 4;
                     r2 += 4;
                 }
-                for (; j + 1 < outw; j += 2)
-                {
+                for (; j + 1 < outw; j += 2) {
                     __m128 _sum0 = (__m128)__lsx_vld(outptr0, 0);
                     __m128 _sum1 = (__m128)__lsx_vld(outptr0 + 4, 0);
 
@@ -342,8 +341,7 @@ static void conv3x3s1_pack1to4_lsx(const Mat& bottom_blob, Mat& top_blob, const 
                     r1 += 2;
                     r2 += 2;
                 }
-                for (; j < outw; j++)
-                {
+                for (; j < outw; j++) {
                     __m128 _sum0 = (__m128)__lsx_vld(outptr0, 0);
 
                     __m128i _r0 = __lsx_vld(r0, 0);
@@ -392,8 +390,9 @@ static void conv3x3s1_pack1to4_lsx(const Mat& bottom_blob, Mat& top_blob, const 
     }
 }
 
-static void conv3x3s2_pack1to4_lsx(const Mat& bottom_blob, Mat& top_blob, const Mat& kernel, const Mat& _bias, const Option& opt)
-{
+static void conv3x3s2_pack1to4_lsx(const Mat &bottom_blob, Mat &top_blob,
+                                   const Mat &kernel, const Mat &_bias,
+                                   const Option &opt) {
     int w = bottom_blob.w;
     int inch = bottom_blob.c;
     int outw = top_blob.w;
@@ -402,28 +401,27 @@ static void conv3x3s2_pack1to4_lsx(const Mat& bottom_blob, Mat& top_blob, const 
 
     const int tailstep = w - 2 * outw + w;
 
-    const float* bias = _bias;
+    const float *bias = _bias;
 
     #pragma omp parallel for num_threads(opt.num_threads)
-    for (int p = 0; p < outch; p++)
-    {
+    for (int p = 0; p < outch; p++) {
         Mat out0 = top_blob.channel(p);
 
-        __m128 _bias0 = bias ? (__m128)__lsx_vld(bias + p * 4, 0) : (__m128)__lsx_vreplgr2vr_w(0);
+        __m128 _bias0 = bias ? (__m128)__lsx_vld(bias + p * 4, 0)
+                        : (__m128)__lsx_vreplgr2vr_w(0);
         out0.fill(_bias0);
 
-        const float* k0 = kernel.channel(p);
+        const float *k0 = kernel.channel(p);
 
         int q = 0;
-        for (; q < inch; q++)
-        {
-            float* outptr0 = out0;
+        for (; q < inch; q++) {
+            float *outptr0 = out0;
 
             const Mat img0 = bottom_blob.channel(q);
 
-            const float* r0 = img0.row(0);
-            const float* r1 = img0.row(1);
-            const float* r2 = img0.row(2);
+            const float *r0 = img0.row(0);
+            const float *r1 = img0.row(1);
+            const float *r2 = img0.row(2);
 
             __m128 _k00 = (__m128)__lsx_vld(k0, 0);
             __m128 _k01 = (__m128)__lsx_vld(k0 + 4, 0);
@@ -436,11 +434,9 @@ static void conv3x3s2_pack1to4_lsx(const Mat& bottom_blob, Mat& top_blob, const 
             __m128 _k22 = (__m128)__lsx_vld(k0 + 4 * 8, 0);
 
             int i = 0;
-            for (; i < outh; i++)
-            {
+            for (; i < outh; i++) {
                 int j = 0;
-                for (; j + 7 < outw; j += 8)
-                {
+                for (; j + 7 < outw; j += 8) {
                     __m128 _sum0 = (__m128)__lsx_vld(outptr0, 0);
                     __m128 _sum1 = (__m128)__lsx_vld(outptr0 + 4, 0);
                     __m128 _sum2 = (__m128)__lsx_vld(outptr0 + 4 * 2, 0);
@@ -609,8 +605,7 @@ static void conv3x3s2_pack1to4_lsx(const Mat& bottom_blob, Mat& top_blob, const 
                     r1 += 16;
                     r2 += 16;
                 }
-                for (; j + 3 < outw; j += 4)
-                {
+                for (; j + 3 < outw; j += 4) {
                     __m128 _sum0 = (__m128)__lsx_vld(outptr0, 0);
                     __m128 _sum1 = (__m128)__lsx_vld(outptr0 + 4, 0);
                     __m128 _sum2 = (__m128)__lsx_vld(outptr0 + 4 * 2, 0);
@@ -705,8 +700,7 @@ static void conv3x3s2_pack1to4_lsx(const Mat& bottom_blob, Mat& top_blob, const 
                     r1 += 8;
                     r2 += 8;
                 }
-                for (; j + 1 < outw; j += 2)
-                {
+                for (; j + 1 < outw; j += 2) {
                     __m128 _sum0 = (__m128)__lsx_vld(outptr0, 0);
                     __m128 _sum1 = (__m128)__lsx_vld(outptr0 + 4, 0);
 
@@ -761,8 +755,7 @@ static void conv3x3s2_pack1to4_lsx(const Mat& bottom_blob, Mat& top_blob, const 
                     r1 += 4;
                     r2 += 4;
                 }
-                for (; j < outw; j++)
-                {
+                for (; j < outw; j++) {
                     __m128 _sum0 = (__m128)__lsx_vld(outptr0, 0);
 
                     __m128i _r0 = __lsx_vld(r0, 0);

@@ -1,19 +1,23 @@
-// Tencent is pleased to support the open source community by making ncnn available.
+// Tencent is pleased to support the open source community by making ncnn
+// available.
 //
 // Copyright (C) 2022 THL A29 Limited, a Tencent company. All rights reserved.
 //
-// Licensed under the BSD 3-Clause License (the "License"); you may not use this file except
-// in compliance with the License. You may obtain a copy of the License at
+// Licensed under the BSD 3-Clause License (the "License"); you may not use this
+// file except in compliance with the License. You may obtain a copy of the
+// License at
 //
 // https://opensource.org/licenses/BSD-3-Clause
 //
-// Unless required by applicable law or agreed to in writing, software distributed
-// under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
-// CONDITIONS OF ANY KIND, either express or implied. See the License for the
-// specific language governing permissions and limitations under the License.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+// WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+// License for the specific language governing permissions and limitations under
+// the License.
 
-static void convolution_winograd_dot_sse(Mat& bottom_blob_tm, int outch, const Mat& kernel_tm, Mat& top_blob_tm, const Option& opt)
-{
+static void convolution_winograd_dot_sse(Mat &bottom_blob_tm, int outch,
+        const Mat &kernel_tm, Mat &top_blob_tm,
+        const Option &opt) {
     // Mat bottom_blob_tm(tiles, 16/36/64, inch, 4u, 1, opt.workspace_allocator);
 
     const int tiles = bottom_blob_tm.w;
@@ -24,14 +28,17 @@ static void convolution_winograd_dot_sse(Mat& bottom_blob_tm, int outch, const M
     Mat bottom_blob_tm2;
 #if __AVX__
     if (tiles >= 8)
-        bottom_blob_tm2.create(8 * inch, tiles / 8 + (tiles % 8) / 4 + tiles % 4, batch, 4u, opt.workspace_allocator);
+        bottom_blob_tm2.create(8 * inch, tiles / 8 + (tiles % 8) / 4 + tiles % 4,
+                               batch, 4u, opt.workspace_allocator);
     else if (tiles >= 4)
-        bottom_blob_tm2.create(4 * inch, tiles / 4 + tiles % 4, batch, 4u, opt.workspace_allocator);
+        bottom_blob_tm2.create(4 * inch, tiles / 4 + tiles % 4, batch, 4u,
+                               opt.workspace_allocator);
     else
         bottom_blob_tm2.create(1 * inch, tiles, batch, 4u, opt.workspace_allocator);
 #elif __SSE2__
     if (tiles >= 4)
-        bottom_blob_tm2.create(4 * inch, tiles / 4 + tiles % 4, batch, 4u, opt.workspace_allocator);
+        bottom_blob_tm2.create(4 * inch, tiles / 4 + tiles % 4, batch, 4u,
+                               opt.workspace_allocator);
     else
         bottom_blob_tm2.create(1 * inch, tiles, batch, 4u, opt.workspace_allocator);
 #else
@@ -39,24 +46,21 @@ static void convolution_winograd_dot_sse(Mat& bottom_blob_tm, int outch, const M
 #endif
 
     #pragma omp parallel for num_threads(opt.num_threads)
-    for (int r = 0; r < batch; r++)
-    {
+    for (int r = 0; r < batch; r++) {
         Mat tm2 = bottom_blob_tm2.channel(r);
 
         // tile
         int i = 0;
 #if __SSE2__
 #if __AVX__
-        for (; i + 7 < tiles; i += 8)
-        {
-            float* tmpptr = tm2.row(i / 8);
+        for (; i + 7 < tiles; i += 8) {
+            float *tmpptr = tm2.row(i / 8);
 
-            const float* r0 = bottom_blob_tm;
+            const float *r0 = bottom_blob_tm;
 
             r0 += (r * tiles + i);
 
-            for (int q = 0; q < inch; q++)
-            {
+            for (int q = 0; q < inch; q++) {
                 __m256 _r0 = _mm256_loadu_ps(r0);
                 _mm256_storeu_ps(tmpptr, _r0);
 
@@ -64,21 +68,19 @@ static void convolution_winograd_dot_sse(Mat& bottom_blob_tm, int outch, const M
                 tmpptr += 8;
             }
         }
-#endif // __AVX__
-        for (; i + 3 < tiles; i += 4)
-        {
+#endif  // __AVX__
+        for (; i + 3 < tiles; i += 4) {
 #if __AVX__
-            float* tmpptr = tm2.row(i / 8 + (i % 8) / 4);
+            float *tmpptr = tm2.row(i / 8 + (i % 8) / 4);
 #else
-            float* tmpptr = tm2.row(i / 4);
+            float *tmpptr = tm2.row(i / 4);
 #endif
 
-            const float* r0 = bottom_blob_tm;
+            const float *r0 = bottom_blob_tm;
 
             r0 += (r * tiles + i);
 
-            for (int q = 0; q < inch; q++)
-            {
+            for (int q = 0; q < inch; q++) {
                 __m128 _r0 = _mm_loadu_ps(r0);
                 _mm_storeu_ps(tmpptr, _r0);
 
@@ -86,23 +88,21 @@ static void convolution_winograd_dot_sse(Mat& bottom_blob_tm, int outch, const M
                 tmpptr += 4;
             }
         }
-#endif // __SSE2__
-        for (; i < tiles; i++)
-        {
+#endif  // __SSE2__
+        for (; i < tiles; i++) {
 #if __AVX__
-            float* tmpptr = tm2.row(i / 8 + (i % 8) / 4 + i % 4);
+            float *tmpptr = tm2.row(i / 8 + (i % 8) / 4 + i % 4);
 #elif __SSE2__
-            float* tmpptr = tm2.row(i / 4 + i % 4);
+            float *tmpptr = tm2.row(i / 4 + i % 4);
 #else
-            float* tmpptr = tm2.row(i);
+            float *tmpptr = tm2.row(i);
 #endif
 
-            const float* r0 = bottom_blob_tm;
+            const float *r0 = bottom_blob_tm;
 
             r0 += (r * tiles + i);
 
-            for (int q = 0; q < inch; q++)
-            {
+            for (int q = 0; q < inch; q++) {
                 tmpptr[0] = r0[0];
 
                 r0 += bottom_blob_tm.cstep;
@@ -121,33 +121,30 @@ static void convolution_winograd_dot_sse(Mat& bottom_blob_tm, int outch, const M
     int remain_outch_start = nn_outch << 3;
 
     #pragma omp parallel for num_threads(opt.num_threads)
-    for (int pp = 0; pp < nn_outch; pp++)
-    {
+    for (int pp = 0; pp < nn_outch; pp++) {
         int p = pp * 8;
 
-        float* output0_tm = top_blob_tm.channel(p);
-        float* output1_tm = top_blob_tm.channel(p + 1);
-        float* output2_tm = top_blob_tm.channel(p + 2);
-        float* output3_tm = top_blob_tm.channel(p + 3);
-        float* output4_tm = top_blob_tm.channel(p + 4);
-        float* output5_tm = top_blob_tm.channel(p + 5);
-        float* output6_tm = top_blob_tm.channel(p + 6);
-        float* output7_tm = top_blob_tm.channel(p + 7);
+        float *output0_tm = top_blob_tm.channel(p);
+        float *output1_tm = top_blob_tm.channel(p + 1);
+        float *output2_tm = top_blob_tm.channel(p + 2);
+        float *output3_tm = top_blob_tm.channel(p + 3);
+        float *output4_tm = top_blob_tm.channel(p + 4);
+        float *output5_tm = top_blob_tm.channel(p + 5);
+        float *output6_tm = top_blob_tm.channel(p + 6);
+        float *output7_tm = top_blob_tm.channel(p + 7);
 
         const Mat kernel0_tm = kernel_tm.channel(p / 8);
 
-        for (int r = 0; r < batch; r++)
-        {
+        for (int r = 0; r < batch; r++) {
             const Mat bb2 = bottom_blob_tm2.channel(r);
 
             int i = 0;
 #if __AVX__
-            for (; i + 7 < tiles; i += 8)
-            {
-                const float* r0 = bb2.row(i / 8);
-                const float* k0 = kernel0_tm.row(r);
+            for (; i + 7 < tiles; i += 8) {
+                const float *r0 = bb2.row(i / 8);
+                const float *k0 = kernel0_tm.row(r);
 
-                int nn = inch; // inch always > 0
+                int nn = inch;  // inch always > 0
 
                 __m256 _sum0 = _mm256_setzero_ps();
                 __m256 _sum1 = _mm256_setzero_ps();
@@ -159,8 +156,7 @@ static void convolution_winograd_dot_sse(Mat& bottom_blob_tm, int outch, const M
                 __m256 _sum7 = _mm256_setzero_ps();
 
                 int j = 0;
-                for (; j + 3 < nn; j += 4)
-                {
+                for (; j + 3 < nn; j += 4) {
                     __m256 _val = _mm256_loadu_ps(r0);
 
                     __m256 _w0 = _mm256_broadcast_ss(k0);
@@ -249,8 +245,7 @@ static void convolution_winograd_dot_sse(Mat& bottom_blob_tm, int outch, const M
                     r0 += 8;
                     k0 += 8;
                 }
-                for (; j < nn; j++)
-                {
+                for (; j < nn; j++) {
                     __m256 _val = _mm256_loadu_ps(r0);
 
                     __m256 _w0 = _mm256_broadcast_ss(k0);
@@ -292,17 +287,16 @@ static void convolution_winograd_dot_sse(Mat& bottom_blob_tm, int outch, const M
                 output6_tm += 8;
                 output7_tm += 8;
             }
-#endif // __AVX__
-            for (; i + 3 < tiles; i += 4)
-            {
+#endif  // __AVX__
+            for (; i + 3 < tiles; i += 4) {
 #if __AVX__
-                const float* r0 = bb2.row(i / 8 + (i % 8) / 4);
+                const float *r0 = bb2.row(i / 8 + (i % 8) / 4);
 #else
-                const float* r0 = bb2.row(i / 4);
+                const float *r0 = bb2.row(i / 4);
 #endif
-                const float* k0 = kernel0_tm.row(r);
+                const float *k0 = kernel0_tm.row(r);
 
-                int nn = inch; // inch always > 0
+                int nn = inch;  // inch always > 0
 
                 __m128 _sum0 = _mm_setzero_ps();
                 __m128 _sum1 = _mm_setzero_ps();
@@ -314,8 +308,7 @@ static void convolution_winograd_dot_sse(Mat& bottom_blob_tm, int outch, const M
                 __m128 _sum7 = _mm_setzero_ps();
 
                 int j = 0;
-                for (; j + 3 < nn; j += 4)
-                {
+                for (; j + 3 < nn; j += 4) {
                     __m128 _val = _mm_loadu_ps(r0);
 
                     __m128 _w0 = _mm_load1_ps(k0);
@@ -404,8 +397,7 @@ static void convolution_winograd_dot_sse(Mat& bottom_blob_tm, int outch, const M
                     r0 += 4;
                     k0 += 8;
                 }
-                for (; j < nn; j++)
-                {
+                for (; j < nn; j++) {
                     __m128 _val = _mm_loadu_ps(r0);
 
                     __m128 _w0 = _mm_load1_ps(k0);
@@ -447,16 +439,15 @@ static void convolution_winograd_dot_sse(Mat& bottom_blob_tm, int outch, const M
                 output6_tm += 4;
                 output7_tm += 4;
             }
-            for (; i < tiles; i++)
-            {
+            for (; i < tiles; i++) {
 #if __AVX__
-                const float* r0 = bb2.row(i / 8 + (i % 8) / 4 + i % 4);
+                const float *r0 = bb2.row(i / 8 + (i % 8) / 4 + i % 4);
 #else
-                const float* r0 = bb2.row(i / 4 + i % 4);
+                const float *r0 = bb2.row(i / 4 + i % 4);
 #endif
-                const float* k0 = kernel0_tm.row(r);
+                const float *k0 = kernel0_tm.row(r);
 
-                int nn = inch; // inch always > 0
+                int nn = inch;  // inch always > 0
 
 #if __AVX__
                 __m256 _sum = _mm256_setzero_ps();
@@ -466,8 +457,7 @@ static void convolution_winograd_dot_sse(Mat& bottom_blob_tm, int outch, const M
 #endif
 
                 int j = 0;
-                for (; j + 3 < nn; j += 4)
-                {
+                for (; j + 3 < nn; j += 4) {
 #if __AVX__
                     __m256 _val0 = _mm256_broadcast_ss(r0);
                     __m256 _w0 = _mm256_loadu_ps(k0);
@@ -512,8 +502,7 @@ static void convolution_winograd_dot_sse(Mat& bottom_blob_tm, int outch, const M
                     r0 += 4;
                     k0 += 32;
                 }
-                for (; j < nn; j++)
-                {
+                for (; j < nn; j++) {
 #if __AVX__
                     __m256 _val = _mm256_broadcast_ss(r0);
                     __m256 _w = _mm256_loadu_ps(k0);
@@ -561,29 +550,26 @@ static void convolution_winograd_dot_sse(Mat& bottom_blob_tm, int outch, const M
     nn_outch = (outch - remain_outch_start) >> 2;
 
     #pragma omp parallel for num_threads(opt.num_threads)
-    for (int pp = 0; pp < nn_outch; pp++)
-    {
+    for (int pp = 0; pp < nn_outch; pp++) {
         int p = remain_outch_start + pp * 4;
 
-        float* output0_tm = top_blob_tm.channel(p);
-        float* output1_tm = top_blob_tm.channel(p + 1);
-        float* output2_tm = top_blob_tm.channel(p + 2);
-        float* output3_tm = top_blob_tm.channel(p + 3);
+        float *output0_tm = top_blob_tm.channel(p);
+        float *output1_tm = top_blob_tm.channel(p + 1);
+        float *output2_tm = top_blob_tm.channel(p + 2);
+        float *output3_tm = top_blob_tm.channel(p + 3);
 
         const Mat kernel0_tm = kernel_tm.channel(p / 8 + (p % 8) / 4);
 
-        for (int r = 0; r < batch; r++)
-        {
+        for (int r = 0; r < batch; r++) {
             const Mat bb2 = bottom_blob_tm2.channel(r);
 
             int i = 0;
 #if __AVX__
-            for (; i + 7 < tiles; i += 8)
-            {
-                const float* r0 = bb2.row(i / 8);
-                const float* k0 = kernel0_tm.row(r);
+            for (; i + 7 < tiles; i += 8) {
+                const float *r0 = bb2.row(i / 8);
+                const float *k0 = kernel0_tm.row(r);
 
-                int nn = inch; // inch always > 0
+                int nn = inch;  // inch always > 0
 
                 __m256 _sum0 = _mm256_setzero_ps();
                 __m256 _sum1 = _mm256_setzero_ps();
@@ -591,8 +577,7 @@ static void convolution_winograd_dot_sse(Mat& bottom_blob_tm, int outch, const M
                 __m256 _sum3 = _mm256_setzero_ps();
 
                 int j = 0;
-                for (; j + 3 < nn; j += 4)
-                {
+                for (; j + 3 < nn; j += 4) {
                     __m256 _val = _mm256_loadu_ps(r0);
                     __m256 _w0 = _mm256_broadcast_ss(k0);
                     __m256 _w1 = _mm256_broadcast_ss(k0 + 1);
@@ -645,8 +630,7 @@ static void convolution_winograd_dot_sse(Mat& bottom_blob_tm, int outch, const M
                     r0 += 8;
                     k0 += 4;
                 }
-                for (; j < nn; j++)
-                {
+                for (; j < nn; j++) {
                     __m256 _val = _mm256_loadu_ps(r0);
                     __m256 _w0 = _mm256_broadcast_ss(k0);
                     __m256 _w1 = _mm256_broadcast_ss(k0 + 1);
@@ -671,17 +655,16 @@ static void convolution_winograd_dot_sse(Mat& bottom_blob_tm, int outch, const M
                 output2_tm += 8;
                 output3_tm += 8;
             }
-#endif // __AVX__
-            for (; i + 3 < tiles; i += 4)
-            {
+#endif  // __AVX__
+            for (; i + 3 < tiles; i += 4) {
 #if __AVX__
-                const float* r0 = bb2.row(i / 8 + (i % 8) / 4);
+                const float *r0 = bb2.row(i / 8 + (i % 8) / 4);
 #else
-                const float* r0 = bb2.row(i / 4);
+                const float *r0 = bb2.row(i / 4);
 #endif
-                const float* k0 = kernel0_tm.row(r);
+                const float *k0 = kernel0_tm.row(r);
 
-                int nn = inch; // inch always > 0
+                int nn = inch;  // inch always > 0
 
                 __m128 _sum0 = _mm_setzero_ps();
                 __m128 _sum1 = _mm_setzero_ps();
@@ -689,8 +672,7 @@ static void convolution_winograd_dot_sse(Mat& bottom_blob_tm, int outch, const M
                 __m128 _sum3 = _mm_setzero_ps();
 
                 int j = 0;
-                for (; j + 3 < nn; j += 4)
-                {
+                for (; j + 3 < nn; j += 4) {
                     __m128 _val = _mm_loadu_ps(r0);
                     __m128 _w0 = _mm_load1_ps(k0);
                     __m128 _w1 = _mm_load1_ps(k0 + 1);
@@ -743,8 +725,7 @@ static void convolution_winograd_dot_sse(Mat& bottom_blob_tm, int outch, const M
                     r0 += 4;
                     k0 += 4;
                 }
-                for (; j < nn; j++)
-                {
+                for (; j < nn; j++) {
                     __m128 _val = _mm_loadu_ps(r0);
                     __m128 _w0 = _mm_load1_ps(k0);
                     __m128 _w1 = _mm_load1_ps(k0 + 1);
@@ -769,22 +750,20 @@ static void convolution_winograd_dot_sse(Mat& bottom_blob_tm, int outch, const M
                 output2_tm += 4;
                 output3_tm += 4;
             }
-            for (; i < tiles; i++)
-            {
+            for (; i < tiles; i++) {
 #if __AVX__
-                const float* r0 = bb2.row(i / 8 + (i % 8) / 4 + i % 4);
+                const float *r0 = bb2.row(i / 8 + (i % 8) / 4 + i % 4);
 #else
-                const float* r0 = bb2.row(i / 4 + i % 4);
+                const float *r0 = bb2.row(i / 4 + i % 4);
 #endif
-                const float* k0 = kernel0_tm.row(r);
+                const float *k0 = kernel0_tm.row(r);
 
-                int nn = inch; // inch always > 0
+                int nn = inch;  // inch always > 0
 
                 __m128 _sum = _mm_setzero_ps();
 
                 int j = 0;
-                for (; j + 3 < nn; j += 4)
-                {
+                for (; j + 3 < nn; j += 4) {
                     __m128 _val0 = _mm_load1_ps(r0);
                     __m128 _w0 = _mm_loadu_ps(k0);
                     _sum = _mm_comp_fmadd_ps(_val0, _w0, _sum);
@@ -804,8 +783,7 @@ static void convolution_winograd_dot_sse(Mat& bottom_blob_tm, int outch, const M
                     r0 += 4;
                     k0 += 16;
                 }
-                for (; j < nn; j++)
-                {
+                for (; j < nn; j++) {
                     __m128 _val = _mm_load1_ps(r0);
                     __m128 _w0 = _mm_loadu_ps(k0);
                     _sum = _mm_comp_fmadd_ps(_val, _w0, _sum);
@@ -836,9 +814,8 @@ static void convolution_winograd_dot_sse(Mat& bottom_blob_tm, int outch, const M
 #endif
 
     #pragma omp parallel for num_threads(opt.num_threads)
-    for (int p = remain_outch_start; p < outch; p++)
-    {
-        float* output0_tm = top_blob_tm.channel(p);
+    for (int p = remain_outch_start; p < outch; p++) {
+        float *output0_tm = top_blob_tm.channel(p);
 
 #if __SSE2__
         const Mat kernel0_tm = kernel_tm.channel(p / 8 + (p % 8) / 4 + p % 4);
@@ -846,25 +823,22 @@ static void convolution_winograd_dot_sse(Mat& bottom_blob_tm, int outch, const M
         const Mat kernel0_tm = kernel_tm.channel(p);
 #endif
 
-        for (int r = 0; r < batch; r++)
-        {
+        for (int r = 0; r < batch; r++) {
             const Mat bb2 = bottom_blob_tm2.channel(r);
 
             int i = 0;
 #if __SSE2__
 #if __AVX__
-            for (; i + 7 < tiles; i += 8)
-            {
-                const float* r0 = bb2.row(i / 8);
-                const float* k0 = kernel0_tm.row(r);
+            for (; i + 7 < tiles; i += 8) {
+                const float *r0 = bb2.row(i / 8);
+                const float *k0 = kernel0_tm.row(r);
 
-                int nn = inch; // inch always > 0
+                int nn = inch;  // inch always > 0
 
                 __m256 _sum0 = _mm256_setzero_ps();
 
                 int j = 0;
-                for (; j + 3 < nn; j += 4)
-                {
+                for (; j + 3 < nn; j += 4) {
                     __m256 _val0 = _mm256_loadu_ps(r0);
                     __m256 _w0 = _mm256_broadcast_ss(k0);
                     _sum0 = _mm256_comp_fmadd_ps(_val0, _w0, _sum0);
@@ -884,8 +858,7 @@ static void convolution_winograd_dot_sse(Mat& bottom_blob_tm, int outch, const M
                     r0 += 32;
                     k0 += 4;
                 }
-                for (; j < nn; j++)
-                {
+                for (; j < nn; j++) {
                     __m256 _val = _mm256_loadu_ps(r0);
                     __m256 _w0 = _mm256_broadcast_ss(k0);
                     _sum0 = _mm256_comp_fmadd_ps(_val, _w0, _sum0);
@@ -896,23 +869,21 @@ static void convolution_winograd_dot_sse(Mat& bottom_blob_tm, int outch, const M
                 _mm256_storeu_ps(output0_tm, _sum0);
                 output0_tm += 8;
             }
-#endif // __AVX__
-            for (; i + 3 < tiles; i += 4)
-            {
+#endif  // __AVX__
+            for (; i + 3 < tiles; i += 4) {
 #if __AVX__
-                const float* r0 = bb2.row(i / 8 + (i % 8) / 4);
+                const float *r0 = bb2.row(i / 8 + (i % 8) / 4);
 #else
-                const float* r0 = bb2.row(i / 4);
+                const float *r0 = bb2.row(i / 4);
 #endif
-                const float* k0 = kernel0_tm.row(r);
+                const float *k0 = kernel0_tm.row(r);
 
-                int nn = inch; // inch always > 0
+                int nn = inch;  // inch always > 0
 
                 __m128 _sum0 = _mm_setzero_ps();
 
                 int j = 0;
-                for (; j + 3 < nn; j += 4)
-                {
+                for (; j + 3 < nn; j += 4) {
                     __m128 _val0 = _mm_loadu_ps(r0);
                     __m128 _w0 = _mm_load1_ps(k0);
                     _sum0 = _mm_comp_fmadd_ps(_val0, _w0, _sum0);
@@ -932,8 +903,7 @@ static void convolution_winograd_dot_sse(Mat& bottom_blob_tm, int outch, const M
                     r0 += 16;
                     k0 += 4;
                 }
-                for (; j < nn; j++)
-                {
+                for (; j < nn; j++) {
                     __m128 _val = _mm_loadu_ps(r0);
                     __m128 _w0 = _mm_load1_ps(k0);
                     _sum0 = _mm_comp_fmadd_ps(_val, _w0, _sum0);
@@ -944,24 +914,22 @@ static void convolution_winograd_dot_sse(Mat& bottom_blob_tm, int outch, const M
                 _mm_storeu_ps(output0_tm, _sum0);
                 output0_tm += 4;
             }
-#endif // __SSE2__
-            for (; i < tiles; i++)
-            {
+#endif  // __SSE2__
+            for (; i < tiles; i++) {
 #if __AVX__
-                const float* r0 = bb2.row(i / 8 + (i % 8) / 4 + i % 4);
+                const float *r0 = bb2.row(i / 8 + (i % 8) / 4 + i % 4);
 #elif __SSE2__
-                const float* r0 = bb2.row(i / 4 + i % 4);
+                const float *r0 = bb2.row(i / 4 + i % 4);
 #else
-                const float* r0 = bb2.row(i);
+                const float *r0 = bb2.row(i);
 #endif
-                const float* k0 = kernel0_tm.row(r);
+                const float *k0 = kernel0_tm.row(r);
 
-                int nn = inch; // inch always > 0
+                int nn = inch;  // inch always > 0
 
                 float sum = 0.f;
 
-                for (int j = 0; j < nn; j++)
-                {
+                for (int j = 0; j < nn; j++) {
                     float w0 = k0[0];
                     float val0 = r0[0];
                     sum += val0 * w0;

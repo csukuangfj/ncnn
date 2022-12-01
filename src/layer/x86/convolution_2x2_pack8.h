@@ -1,52 +1,53 @@
-// Tencent is pleased to support the open source community by making ncnn available.
+// Tencent is pleased to support the open source community by making ncnn
+// available.
 //
 // Copyright (C) 2019 THL A29 Limited, a Tencent company. All rights reserved.
 //
-// Licensed under the BSD 3-Clause License (the "License"); you may not use this file except
-// in compliance with the License. You may obtain a copy of the License at
+// Licensed under the BSD 3-Clause License (the "License"); you may not use this
+// file except in compliance with the License. You may obtain a copy of the
+// License at
 //
 // https://opensource.org/licenses/BSD-3-Clause
 //
-// Unless required by applicable law or agreed to in writing, software distributed
-// under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
-// CONDITIONS OF ANY KIND, either express or implied. See the License for the
-// specific language governing permissions and limitations under the License.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+// WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+// License for the specific language governing permissions and limitations under
+// the License.
 
-static void conv2x2s1_pack8_avx(const Mat& bottom_blob, Mat& top_blob, const Mat& kernel, const Mat& _bias, const Option& opt)
-{
+static void conv2x2s1_pack8_avx(const Mat &bottom_blob, Mat &top_blob,
+                                const Mat &kernel, const Mat &_bias,
+                                const Option &opt) {
     int inch = bottom_blob.c;
     int outw = top_blob.w;
     int outh = top_blob.h;
     int outch = top_blob.c;
-    const float* bias = _bias;
+    const float *bias = _bias;
 
     #pragma omp parallel for num_threads(opt.num_threads)
-    for (int p = 0; p < outch; p++)
-    {
+    for (int p = 0; p < outch; p++) {
         Mat out0 = top_blob.channel(p);
 
-        __m256 _bias0 = bias ? _mm256_loadu_ps((const float*)bias + p * 8) : _mm256_set1_ps(0.f);
+        __m256 _bias0 = bias ? _mm256_loadu_ps((const float *)bias + p * 8)
+                        : _mm256_set1_ps(0.f);
         out0.fill(_bias0);
 
-        for (int q = 0; q < inch; q++)
-        {
-            float* outptr0 = out0.row(0);
+        for (int q = 0; q < inch; q++) {
+            float *outptr0 = out0.row(0);
 
             const Mat img0 = bottom_blob.channel(q);
 
-            const float* r0 = img0.row(0);
-            const float* r1 = img0.row(1);
+            const float *r0 = img0.row(0);
+            const float *r1 = img0.row(1);
 
-            const float* kptr = (const float*)kernel.channel(p).row(q);
+            const float *kptr = (const float *)kernel.channel(p).row(q);
             // const float* kptr = (const float*)kernel + 4 * inch * p * 64;
 
             int i = 0;
-            for (; i < outh; i++)
-            {
+            for (; i < outh; i++) {
                 int j = 0;
 
-                for (; j + 1 < outw; j += 2)
-                {
+                for (; j + 1 < outw; j += 2) {
                     __m256 _sum0 = _mm256_loadu_ps(outptr0);
                     __m256 _sum1 = _mm256_loadu_ps(outptr0 + 8);
 
@@ -240,8 +241,7 @@ static void conv2x2s1_pack8_avx(const Mat& bottom_blob, Mat& top_blob, const Mat
                     outptr0 += 16;
                 }
 
-                for (; j < outw; j++)
-                {
+                for (; j < outw; j++) {
                     __m256 _sum = _mm256_loadu_ps(outptr0);
 
                     __m256 _r00 = _mm256_broadcast_ss(r0);

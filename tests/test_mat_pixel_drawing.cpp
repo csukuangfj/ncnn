@@ -1,49 +1,49 @@
-// Tencent is pleased to support the open source community by making ncnn available.
+// Tencent is pleased to support the open source community by making ncnn
+// available.
 //
 // Copyright (C) 2021 THL A29 Limited, a Tencent company. All rights reserved.
 //
-// Licensed under the BSD 3-Clause License (the "License"); you may not use this file except
-// in compliance with the License. You may obtain a copy of the License at
+// Licensed under the BSD 3-Clause License (the "License"); you may not use this
+// file except in compliance with the License. You may obtain a copy of the
+// License at
 //
 // https://opensource.org/licenses/BSD-3-Clause
 //
-// Unless required by applicable law or agreed to in writing, software distributed
-// under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
-// CONDITIONS OF ANY KIND, either express or implied. See the License for the
-// specific language governing permissions and limitations under the License.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+// WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+// License for the specific language governing permissions and limitations under
+// the License.
+
+#include <string.h>
 
 #include "mat.h"
 #include "prng.h"
 
-#include <string.h>
-
 static struct prng_rand_t g_prng_rand_state;
 #define SRAND(seed) prng_srand(seed, &g_prng_rand_state)
-#define RAND()      prng_rand(&g_prng_rand_state)
+#define RAND() prng_rand(&g_prng_rand_state)
 
-static int RandomInt(int a, int b)
-{
-    float random = ((float)RAND()) / (float)uint64_t(-1); //RAND_MAX;
+static int RandomInt(int a, int b) {
+    float random = ((float)RAND()) / (float)uint64_t(-1);  // RAND_MAX;
     int diff = b - a;
     float r = random * diff;
     return a + (int)r;
 }
 
-static int RandomInt2(int a, int b)
-{
-    float random = ((float)RAND()) / (float)uint64_t(-1); //RAND_MAX;
+static int RandomInt2(int a, int b) {
+    float random = ((float)RAND()) / (float)uint64_t(-1);  // RAND_MAX;
     int diff = b - a;
     float r = random * diff;
     return (a + (int)r + 1) / 2 * 2;
 }
 
-static int test_mat_pixel_drawing_c1(int w, int h)
-{
+static int test_mat_pixel_drawing_c1(int w, int h) {
     ncnn::Mat a(w, h, (size_t)1u, 1);
     ncnn::Mat b(h, w, (size_t)1u, 1);
 
     int _color = 0;
-    unsigned char* color = (unsigned char*)&_color;
+    unsigned char *color = (unsigned char *)&_color;
 
     // fill with color
     color[0] = 255;
@@ -122,15 +122,14 @@ static int test_mat_pixel_drawing_c1(int w, int h)
     int th;
     ncnn::get_text_drawing_size(text, fontpixelsize, &tw, &th);
     const int len = strlen(text);
-    for (int i = 0; i < 8; i++)
-    {
+    for (int i = 0; i < 8; i++) {
         const char ch[2] = {text[i], '\0'};
         ncnn::draw_text_c1(c, w, h, ch, tx + tw / 8 * i, ty, fontpixelsize, _color);
     }
-    for (int i = 9; i < len; i++)
-    {
+    for (int i = 9; i < len; i++) {
         const char ch[2] = {text[i], '\0'};
-        ncnn::draw_text_c1(c, w, h, ch, tx + tw / 8 * (i - 9), ty + th / 2, fontpixelsize, _color);
+        ncnn::draw_text_c1(c, w, h, ch, tx + tw / 8 * (i - 9), ty + th / 2,
+                           fontpixelsize, _color);
     }
 
     // draw text out of image
@@ -142,8 +141,7 @@ static int test_mat_pixel_drawing_c1(int w, int h)
     ncnn::draw_text_c1(c, w, h, "A", -3 + tw / 3, -5, fontpixelsize, _color);
     ncnn::draw_text_c1(c, w, h, "Q", -3 + tw / 3 * 2, -5, fontpixelsize, _color);
 
-    if (memcmp(a, c, w * h) != 0)
-    {
+    if (memcmp(a, c, w * h) != 0) {
         fprintf(stderr, "test_mat_pixel_drawing_c1 failed w=%d h=%d\n", w, h);
         return -1;
     }
@@ -151,13 +149,12 @@ static int test_mat_pixel_drawing_c1(int w, int h)
     return 0;
 }
 
-static int test_mat_pixel_drawing_c2(int w, int h)
-{
+static int test_mat_pixel_drawing_c2(int w, int h) {
     ncnn::Mat a(w, h, (size_t)2u, 2);
     ncnn::Mat b(h, w, (size_t)2u, 2);
 
     int _color = 0;
-    unsigned char* color = (unsigned char*)&_color;
+    unsigned char *color = (unsigned char *)&_color;
 
     // fill with color
     color[0] = 255;
@@ -248,15 +245,14 @@ static int test_mat_pixel_drawing_c2(int w, int h)
     int th;
     ncnn::get_text_drawing_size(text, fontpixelsize, &tw, &th);
     const int len = strlen(text);
-    for (int i = 0; i < 6; i++)
-    {
+    for (int i = 0; i < 6; i++) {
         const char ch[2] = {text[i], '\0'};
         ncnn::draw_text_c2(c, w, h, ch, tx + tw / 8 * i, ty, fontpixelsize, _color);
     }
-    for (int i = 7; i < len; i++)
-    {
+    for (int i = 7; i < len; i++) {
         const char ch[2] = {text[i], '\0'};
-        ncnn::draw_text_c2(c, w, h, ch, tx + tw / 8 * (i - 7), ty + th / 2, fontpixelsize, _color);
+        ncnn::draw_text_c2(c, w, h, ch, tx + tw / 8 * (i - 7), ty + th / 2,
+                           fontpixelsize, _color);
     }
 
     // draw text out of image
@@ -267,10 +263,10 @@ static int test_mat_pixel_drawing_c2(int w, int h)
     ncnn::get_text_drawing_size("!@#$%^&", fontpixelsize, &tw, &th);
     ncnn::draw_text_c2(c, w, h, "!@#", -1, -2, fontpixelsize, _color);
     ncnn::draw_text_c2(c, w, h, "$", -1 + tw / 7 * 3, -2, fontpixelsize, _color);
-    ncnn::draw_text_c2(c, w, h, "%^&", -1 + tw / 7 * 4, -2, fontpixelsize, _color);
+    ncnn::draw_text_c2(c, w, h, "%^&", -1 + tw / 7 * 4, -2, fontpixelsize,
+                       _color);
 
-    if (memcmp(a, c, w * h * 2) != 0)
-    {
+    if (memcmp(a, c, w * h * 2) != 0) {
         fprintf(stderr, "test_mat_pixel_drawing_c2 failed w=%d h=%d\n", w, h);
         return -1;
     }
@@ -278,13 +274,12 @@ static int test_mat_pixel_drawing_c2(int w, int h)
     return 0;
 }
 
-static int test_mat_pixel_drawing_c3(int w, int h)
-{
+static int test_mat_pixel_drawing_c3(int w, int h) {
     ncnn::Mat a(w, h, (size_t)3u, 3);
     ncnn::Mat b(h, w, (size_t)3u, 3);
 
     int _color = 0;
-    unsigned char* color = (unsigned char*)&_color;
+    unsigned char *color = (unsigned char *)&_color;
 
     // fill with color
     color[0] = 255;
@@ -387,15 +382,14 @@ static int test_mat_pixel_drawing_c3(int w, int h)
     int th;
     ncnn::get_text_drawing_size(text, fontpixelsize, &tw, &th);
     const int len = strlen(text);
-    for (int i = 0; i < 6; i++)
-    {
+    for (int i = 0; i < 6; i++) {
         const char ch[2] = {text[i], '\0'};
         ncnn::draw_text_c3(c, w, h, ch, tx + tw / 8 * i, ty, fontpixelsize, _color);
     }
-    for (int i = 7; i < len; i++)
-    {
+    for (int i = 7; i < len; i++) {
         const char ch[2] = {text[i], '\0'};
-        ncnn::draw_text_c3(c, w, h, ch, tx + tw / 8 * (i - 7), ty + th / 2, fontpixelsize, _color);
+        ncnn::draw_text_c3(c, w, h, ch, tx + tw / 8 * (i - 7), ty + th / 2,
+                           fontpixelsize, _color);
     }
 
     // draw text out of image
@@ -406,11 +400,12 @@ static int test_mat_pixel_drawing_c3(int w, int h)
     ncnn::draw_text_c3(a, w, h, "qwqwqwq", -13, -15, fontpixelsize, _color);
     ncnn::get_text_drawing_size("qwqwqwq", fontpixelsize, &tw, &th);
     ncnn::draw_text_c3(c, w, h, "qwq", -13, -15, fontpixelsize, _color);
-    ncnn::draw_text_c3(c, w, h, "w", -13 + tw / 7 * 3, -15, fontpixelsize, _color);
-    ncnn::draw_text_c3(c, w, h, "qwq", -13 + tw / 7 * 4, -15, fontpixelsize, _color);
+    ncnn::draw_text_c3(c, w, h, "w", -13 + tw / 7 * 3, -15, fontpixelsize,
+                       _color);
+    ncnn::draw_text_c3(c, w, h, "qwq", -13 + tw / 7 * 4, -15, fontpixelsize,
+                       _color);
 
-    if (memcmp(a, c, w * h * 3) != 0)
-    {
+    if (memcmp(a, c, w * h * 3) != 0) {
         fprintf(stderr, "test_mat_pixel_drawing_c3 failed w=%d h=%d\n", w, h);
         return -1;
     }
@@ -418,13 +413,12 @@ static int test_mat_pixel_drawing_c3(int w, int h)
     return 0;
 }
 
-static int test_mat_pixel_drawing_c4(int w, int h)
-{
+static int test_mat_pixel_drawing_c4(int w, int h) {
     ncnn::Mat a(w, h, (size_t)4u, 4);
     ncnn::Mat b(h, w, (size_t)4u, 4);
 
     int _color = 0;
-    unsigned char* color = (unsigned char*)&_color;
+    unsigned char *color = (unsigned char *)&_color;
 
     // fill with color
     color[0] = 255;
@@ -539,20 +533,19 @@ static int test_mat_pixel_drawing_c4(int w, int h)
     int th;
     ncnn::get_text_drawing_size(text, fontpixelsize, &tw, &th);
     const int len = strlen(text);
-    for (int i = 0; i < 3; i++)
-    {
+    for (int i = 0; i < 3; i++) {
         const char ch[2] = {text[i], '\0'};
         ncnn::draw_text_c4(c, w, h, ch, tx + tw / 5 * i, ty, fontpixelsize, _color);
     }
-    for (int i = 4; i < 9; i++)
-    {
+    for (int i = 4; i < 9; i++) {
         const char ch[2] = {text[i], '\0'};
-        ncnn::draw_text_c4(c, w, h, ch, tx + tw / 5 * (i - 4), ty + th / 3, fontpixelsize, _color);
+        ncnn::draw_text_c4(c, w, h, ch, tx + tw / 5 * (i - 4), ty + th / 3,
+                           fontpixelsize, _color);
     }
-    for (int i = 10; i < len; i++)
-    {
+    for (int i = 10; i < len; i++) {
         const char ch[2] = {text[i], '\0'};
-        ncnn::draw_text_c4(c, w, h, ch, tx + tw / 5 * (i - 10), ty + th / 3 * 2, fontpixelsize, _color);
+        ncnn::draw_text_c4(c, w, h, ch, tx + tw / 5 * (i - 10), ty + th / 3 * 2,
+                           fontpixelsize, _color);
     }
 
     // draw text out of image
@@ -564,11 +557,12 @@ static int test_mat_pixel_drawing_c4(int w, int h)
     ncnn::draw_text_c4(a, w, h, "=_+!//zzzz", -13, -15, fontpixelsize, _color);
     ncnn::get_text_drawing_size("=_+!//zzzz", fontpixelsize, &tw, &th);
     ncnn::draw_text_c4(c, w, h, "=_+", -13, -15, fontpixelsize, _color);
-    ncnn::draw_text_c4(c, w, h, "!", -13 + tw / 10 * 3, -15, fontpixelsize, _color);
-    ncnn::draw_text_c4(c, w, h, "//zzzz", -13 + tw / 10 * 4, -15, fontpixelsize, _color);
+    ncnn::draw_text_c4(c, w, h, "!", -13 + tw / 10 * 3, -15, fontpixelsize,
+                       _color);
+    ncnn::draw_text_c4(c, w, h, "//zzzz", -13 + tw / 10 * 4, -15, fontpixelsize,
+                       _color);
 
-    if (memcmp(a, c, w * h * 4) != 0)
-    {
+    if (memcmp(a, c, w * h * 4) != 0) {
         fprintf(stderr, "test_mat_pixel_drawing_c4 failed w=%d h=%d\n", w, h);
         return -1;
     }
@@ -576,27 +570,23 @@ static int test_mat_pixel_drawing_c4(int w, int h)
     return 0;
 }
 
-static int test_mat_pixel_drawing_0()
-{
-    return 0
-           || test_mat_pixel_drawing_c1(22, 33)
-           || test_mat_pixel_drawing_c2(22, 23)
-           || test_mat_pixel_drawing_c3(32, 23)
-           || test_mat_pixel_drawing_c4(42, 13)
+static int test_mat_pixel_drawing_0() {
+    return 0 || test_mat_pixel_drawing_c1(22, 33) ||
+           test_mat_pixel_drawing_c2(22, 23) ||
+           test_mat_pixel_drawing_c3(32, 23) || test_mat_pixel_drawing_c4(42, 13)
 
-           || test_mat_pixel_drawing_c1(202, 303)
-           || test_mat_pixel_drawing_c2(202, 203)
-           || test_mat_pixel_drawing_c3(302, 203)
-           || test_mat_pixel_drawing_c4(402, 103);
+           || test_mat_pixel_drawing_c1(202, 303) ||
+           test_mat_pixel_drawing_c2(202, 203) ||
+           test_mat_pixel_drawing_c3(302, 203) ||
+           test_mat_pixel_drawing_c4(402, 103);
 }
 
-static int test_mat_pixel_drawing_yuv420sp(int w, int h)
-{
+static int test_mat_pixel_drawing_yuv420sp(int w, int h) {
     ncnn::Mat a(w, h * 3 / 2, (size_t)1u, 1);
     ncnn::Mat b(h, w * 3 / 2, (size_t)1u, 1);
 
     int _color = 0;
-    unsigned char* color = (unsigned char*)&_color;
+    unsigned char *color = (unsigned char *)&_color;
 
     // fill with color
     color[0] = 255;
@@ -632,8 +622,10 @@ static int test_mat_pixel_drawing_yuv420sp(int w, int h)
     color[0] = 44;
     color[1] = 144;
     color[2] = 44;
-    ncnn::draw_rectangle_yuv420sp(a, w, h, rx + w / 2, ry + h / 2, rw, rh, _color, 2);
-    ncnn::draw_rectangle_yuv420sp(b, h, w, ry + h / 2, rx + w / 2, rh, rw, _color, 2);
+    ncnn::draw_rectangle_yuv420sp(a, w, h, rx + w / 2, ry + h / 2, rw, rh, _color,
+                                  2);
+    ncnn::draw_rectangle_yuv420sp(b, h, w, ry + h / 2, rx + w / 2, rh, rw, _color,
+                                  2);
     color[0] = 66;
     color[1] = 44;
     color[2] = 33;
@@ -661,8 +653,10 @@ static int test_mat_pixel_drawing_yuv420sp(int w, int h)
     color[0] = 130;
     color[1] = 255;
     color[2] = 130;
-    ncnn::draw_circle_yuv420sp(a, w, h, cx, cy, radius + std::min(w, h) / 2, _color, 6);
-    ncnn::draw_circle_yuv420sp(b, h, w, cy, cx, radius + std::min(w, h) / 2, _color, 6);
+    ncnn::draw_circle_yuv420sp(a, w, h, cx, cy, radius + std::min(w, h) / 2,
+                               _color, 6);
+    ncnn::draw_circle_yuv420sp(b, h, w, cy, cx, radius + std::min(w, h) / 2,
+                               _color, 6);
 
     // draw line
     int x0 = RandomInt2(0, w);
@@ -699,20 +693,20 @@ static int test_mat_pixel_drawing_yuv420sp(int w, int h)
     int th;
     ncnn::get_text_drawing_size(text, fontpixelsize, &tw, &th);
     const int len = strlen(text);
-    for (int i = 0; i < 3; i++)
-    {
+    for (int i = 0; i < 3; i++) {
         const char ch[2] = {text[i], '\0'};
-        ncnn::draw_text_yuv420sp(c, w, h, ch, tx + tw / 5 * i, ty, fontpixelsize, _color);
+        ncnn::draw_text_yuv420sp(c, w, h, ch, tx + tw / 5 * i, ty, fontpixelsize,
+                                 _color);
     }
-    for (int i = 4; i < 9; i++)
-    {
+    for (int i = 4; i < 9; i++) {
         const char ch[2] = {text[i], '\0'};
-        ncnn::draw_text_yuv420sp(c, w, h, ch, tx + tw / 5 * (i - 4), ty + th / 3, fontpixelsize, _color);
+        ncnn::draw_text_yuv420sp(c, w, h, ch, tx + tw / 5 * (i - 4), ty + th / 3,
+                                 fontpixelsize, _color);
     }
-    for (int i = 10; i < len; i++)
-    {
+    for (int i = 10; i < len; i++) {
         const char ch[2] = {text[i], '\0'};
-        ncnn::draw_text_yuv420sp(c, w, h, ch, tx + tw / 5 * (i - 10), ty + th / 3 * 2, fontpixelsize, _color);
+        ncnn::draw_text_yuv420sp(c, w, h, ch, tx + tw / 5 * (i - 10),
+                                 ty + th / 3 * 2, fontpixelsize, _color);
     }
 
     // draw text out of image
@@ -720,14 +714,16 @@ static int test_mat_pixel_drawing_yuv420sp(int w, int h)
     color[0] = 228;
     color[1] = 0;
     color[2] = 128;
-    ncnn::draw_text_yuv420sp(a, w, h, "=_+!//zzzz", -14, -12, fontpixelsize, _color);
+    ncnn::draw_text_yuv420sp(a, w, h, "=_+!//zzzz", -14, -12, fontpixelsize,
+                             _color);
     ncnn::get_text_drawing_size("=_+!//zzzz", fontpixelsize, &tw, &th);
     ncnn::draw_text_yuv420sp(c, w, h, "=_+", -14, -12, fontpixelsize, _color);
-    ncnn::draw_text_yuv420sp(c, w, h, "!", -14 + tw / 10 * 3, -12, fontpixelsize, _color);
-    ncnn::draw_text_yuv420sp(c, w, h, "//zzzz", -14 + tw / 10 * 4, -12, fontpixelsize, _color);
+    ncnn::draw_text_yuv420sp(c, w, h, "!", -14 + tw / 10 * 3, -12, fontpixelsize,
+                             _color);
+    ncnn::draw_text_yuv420sp(c, w, h, "//zzzz", -14 + tw / 10 * 4, -12,
+                             fontpixelsize, _color);
 
-    if (memcmp(a, c, w * h * 3 / 2) != 0)
-    {
+    if (memcmp(a, c, w * h * 3 / 2) != 0) {
         fprintf(stderr, "test_mat_pixel_drawing_yuv420sp failed w=%d h=%d\n", w, h);
         return -1;
     }
@@ -735,19 +731,14 @@ static int test_mat_pixel_drawing_yuv420sp(int w, int h)
     return 0;
 }
 
-static int test_mat_pixel_drawing_1()
-{
-    return 0
-           || test_mat_pixel_drawing_yuv420sp(10, 10)
-           || test_mat_pixel_drawing_yuv420sp(120, 160)
-           || test_mat_pixel_drawing_yuv420sp(220, 340);
+static int test_mat_pixel_drawing_1() {
+    return 0 || test_mat_pixel_drawing_yuv420sp(10, 10) ||
+           test_mat_pixel_drawing_yuv420sp(120, 160) ||
+           test_mat_pixel_drawing_yuv420sp(220, 340);
 }
 
-int main()
-{
+int main() {
     SRAND(7767517);
 
-    return 0
-           || test_mat_pixel_drawing_0()
-           || test_mat_pixel_drawing_1();
+    return 0 || test_mat_pixel_drawing_0() || test_mat_pixel_drawing_1();
 }

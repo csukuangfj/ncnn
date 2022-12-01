@@ -1,62 +1,58 @@
-// Tencent is pleased to support the open source community by making ncnn available.
+// Tencent is pleased to support the open source community by making ncnn
+// available.
 //
 // Copyright (C) 2021 THL A29 Limited, a Tencent company. All rights reserved.
 //
-// Licensed under the BSD 3-Clause License (the "License"); you may not use this file except
-// in compliance with the License. You may obtain a copy of the License at
+// Licensed under the BSD 3-Clause License (the "License"); you may not use this
+// file except in compliance with the License. You may obtain a copy of the
+// License at
 //
 // https://opensource.org/licenses/BSD-3-Clause
 //
-// Unless required by applicable law or agreed to in writing, software distributed
-// under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
-// CONDITIONS OF ANY KIND, either express or implied. See the License for the
-// specific language governing permissions and limitations under the License.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+// WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+// License for the specific language governing permissions and limitations under
+// the License.
 
 #include "eval_expression.h"
 
 #include <math.h>
 
+#include <algorithm>
 #include <iostream>
 #include <sstream>
-#include <algorithm>
 #include <stack>
-#include <vector>
 #include <string>
+#include <vector>
 
 namespace pnnx {
 
-static bool token_is_argument(const std::string& t)
-{
-    if (t[0] != '@' || t.size() < 2)
-        return false;
+static bool token_is_argument(const std::string &t) {
+    if (t[0] != '@' || t.size() < 2) return false;
 
-    for (size_t i = 1; i < t.size(); i++)
-    {
-        if (t[i] < '0' || t[i] > '9')
-            return false;
+    for (size_t i = 1; i < t.size(); i++) {
+        if (t[i] < '0' || t[i] > '9') return false;
     }
 
     return true;
 }
 
-static bool token_is_literal(const std::string& t)
-{
+static bool token_is_literal(const std::string &t) {
     std::istringstream iss(t);
     float f;
     iss >> std::noskipws >> f;
     return iss.eof() && !iss.fail();
 }
 
-static bool token_is_interger_literal(const std::string& t)
-{
+static bool token_is_interger_literal(const std::string &t) {
     std::istringstream iss(t);
     int f;
     iss >> std::noskipws >> f;
     return iss.eof() && !iss.fail();
 }
 
-static std::string eval_expression(const Operator* op)
-{
+static std::string eval_expression(const Operator *op) {
     std::string expr = op->params.at("expr").s;
 
     //     fprintf(stderr, "eval_expression %s\n", expr.c_str());
@@ -65,362 +61,266 @@ static std::string eval_expression(const Operator* op)
     std::vector<std::string> tokens;
     {
         std::string t;
-        for (size_t i = 0; i < expr.size(); i++)
-        {
+        for (size_t i = 0; i < expr.size(); i++) {
             char ch = expr[i];
 
-            if (ch == '[') // list
+            if (ch == '[')  // list
             {
                 t += ch;
                 tokens.push_back(t);
                 t.clear();
-            }
-            else if (ch == '(' || ch == ')' || ch == ',' || ch == ']')
-            {
-                if (!t.empty())
-                {
+            } else if (ch == '(' || ch == ')' || ch == ',' || ch == ']') {
+                if (!t.empty()) {
                     tokens.push_back(t);
                     t.clear();
                 }
-            }
-            else
-            {
+            } else {
                 t += ch;
             }
         }
 
-        if (!t.empty())
-        {
+        if (!t.empty()) {
             tokens.push_back(t);
         }
     }
 
     // scan and stack
     std::stack<std::string> exprstack;
-    for (int i = (int)tokens.size() - 1; i >= 0; i--)
-    {
-        const std::string& t = tokens[i];
+    for (int i = (int)tokens.size() - 1; i >= 0; i--) {
+        const std::string &t = tokens[i];
 
-        if (t == "size")
-        {
+        if (t == "size") {
             std::string a = exprstack.top();
             exprstack.pop();
             std::string b = exprstack.top();
             exprstack.pop();
 
-            if (token_is_argument(a) && token_is_literal(b))
-            {
+            if (token_is_argument(a) && token_is_literal(b)) {
                 int input_index = std::stoi(a.substr(1));
-                if (op->inputs[input_index]->shape.empty())
-                {
+                if (op->inputs[input_index]->shape.empty()) {
                     std::string r = std::string("size(") + a + "," + b + ")";
                     exprstack.push(r);
-                }
-                else
-                {
+                } else {
                     int bi = std::stoi(b);
                     int r = op->inputs[input_index]->shape[bi];
-                    if (r == -1)
-                    {
+                    if (r == -1) {
                         // do not evaluate dynamic size info as -1
                         // just keep the size expression
                         std::string r = std::string("size(") + a + "," + b + ")";
                         exprstack.push(r);
-                    }
-                    else
-                    {
+                    } else {
                         exprstack.push(std::to_string(r));
                     }
                 }
-            }
-            else
-            {
+            } else {
                 std::string r = std::string("size(") + a + "," + b + ")";
                 exprstack.push(r);
             }
-        }
-        else if (t == "int"
-                 || t == "abs"
-                 || t == "acos"
-                 || t == "acosh"
-                 || t == "asin"
-                 || t == "asinh"
-                 || t == "atan"
-                 || t == "atanh"
-                 || t == "ceil"
-                 || t == "cos"
-                 || t == "cosh"
-                 || t == "exp"
-                 || t == "floor"
-                 || t == "log"
-                 || t == "neg"
-                 || t == "reciprocal"
-                 || t == "rsqrt"
-                 || t == "sign"
-                 || t == "sin"
-                 || t == "sinh"
-                 || t == "sqrt"
-                 || t == "square"
-                 || t == "tan"
-                 || t == "tanh"
-                 || t == "trunc")
-        {
+        } else if (t == "int" || t == "abs" || t == "acos" || t == "acosh" ||
+                   t == "asin" || t == "asinh" || t == "atan" || t == "atanh" ||
+                   t == "ceil" || t == "cos" || t == "cosh" || t == "exp" ||
+                   t == "floor" || t == "log" || t == "neg" || t == "reciprocal" ||
+                   t == "rsqrt" || t == "sign" || t == "sin" || t == "sinh" ||
+                   t == "sqrt" || t == "square" || t == "tan" || t == "tanh" ||
+                   t == "trunc") {
             std::string a = exprstack.top();
             exprstack.pop();
 
-            if (token_is_literal(a))
-            {
+            if (token_is_literal(a)) {
                 float af = std::stof(a);
 
-                if (t == "int")
-                {
+                if (t == "int") {
                     int r = int(af);
                     exprstack.push(std::to_string(r));
                 }
-                if (t == "abs")
-                {
+                if (t == "abs") {
                     float r = abs(af);
                     exprstack.push(std::to_string(r));
                 }
-                if (t == "acos")
-                {
+                if (t == "acos") {
                     float r = acos(af);
                     exprstack.push(std::to_string(r));
                 }
-                if (t == "acosh")
-                {
+                if (t == "acosh") {
                     float r = acosh(af);
                     exprstack.push(std::to_string(r));
                 }
-                if (t == "asin")
-                {
+                if (t == "asin") {
                     float r = asin(af);
                     exprstack.push(std::to_string(r));
                 }
-                if (t == "asinh")
-                {
+                if (t == "asinh") {
                     float r = asinh(af);
                     exprstack.push(std::to_string(r));
                 }
-                if (t == "atan")
-                {
+                if (t == "atan") {
                     float r = atan(af);
                     exprstack.push(std::to_string(r));
                 }
-                if (t == "atanh")
-                {
+                if (t == "atanh") {
                     float r = atanh(af);
                     exprstack.push(std::to_string(r));
                 }
-                if (t == "ceil")
-                {
+                if (t == "ceil") {
                     float r = ceil(af);
                     exprstack.push(std::to_string(r));
                 }
-                if (t == "cos")
-                {
+                if (t == "cos") {
                     float r = cos(af);
                     exprstack.push(std::to_string(r));
                 }
-                if (t == "cosh")
-                {
+                if (t == "cosh") {
                     float r = cosh(af);
                     exprstack.push(std::to_string(r));
                 }
-                if (t == "exp")
-                {
+                if (t == "exp") {
                     float r = exp(af);
                     exprstack.push(std::to_string(r));
                 }
-                if (t == "floor")
-                {
+                if (t == "floor") {
                     float r = floor(af);
                     exprstack.push(std::to_string(r));
                 }
-                if (t == "log")
-                {
+                if (t == "log") {
                     float r = log(af);
                     exprstack.push(std::to_string(r));
                 }
-                if (t == "neg")
-                {
+                if (t == "neg") {
                     float r = -af;
                     exprstack.push(std::to_string(r));
                 }
-                if (t == "reciprocal")
-                {
+                if (t == "reciprocal") {
                     float r = 1.f / af;
                     exprstack.push(std::to_string(r));
                 }
-                if (t == "rsqrt")
-                {
+                if (t == "rsqrt") {
                     float r = 1.f / sqrt(af);
                     exprstack.push(std::to_string(r));
                 }
-                if (t == "sign")
-                {
+                if (t == "sign") {
                     float r = af > 0.f ? 1.f : (af == 0.f ? 0.f : -1.f);
                     exprstack.push(std::to_string(r));
                 }
-                if (t == "sin")
-                {
+                if (t == "sin") {
                     float r = sin(af);
                     exprstack.push(std::to_string(r));
                 }
-                if (t == "sinh")
-                {
+                if (t == "sinh") {
                     float r = sinh(af);
                     exprstack.push(std::to_string(r));
                 }
-                if (t == "sqrt")
-                {
+                if (t == "sqrt") {
                     float r = sqrt(af);
                     exprstack.push(std::to_string(r));
                 }
-                if (t == "square")
-                {
+                if (t == "square") {
                     float r = af * af;
                     exprstack.push(std::to_string(r));
                 }
-                if (t == "tan")
-                {
+                if (t == "tan") {
                     float r = tan(af);
                     exprstack.push(std::to_string(r));
                 }
-                if (t == "tanh")
-                {
+                if (t == "tanh") {
                     float r = tanh(af);
                     exprstack.push(std::to_string(r));
                 }
-                if (t == "trunc")
-                {
+                if (t == "trunc") {
                     float r = trunc(af);
                     exprstack.push(std::to_string(r));
                 }
-            }
-            else
-            {
+            } else {
                 std::string r = t + "(" + a + ")";
                 exprstack.push(r);
             }
-        }
-        else if (t == "atan2"
-                 || t == "add"
-                 || t == "sub"
-                 || t == "mul"
-                 || t == "div"
-                 || t == "floor_divide"
-                 || t == "pow"
-                 || t == "remainder")
-        {
+        } else if (t == "atan2" || t == "add" || t == "sub" || t == "mul" ||
+                   t == "div" || t == "floor_divide" || t == "pow" ||
+                   t == "remainder") {
             std::string a = exprstack.top();
             exprstack.pop();
             std::string b = exprstack.top();
             exprstack.pop();
 
-            if (token_is_literal(a) && token_is_literal(b))
-            {
+            if (token_is_literal(a) && token_is_literal(b)) {
                 float af = std::stof(a);
                 float bf = std::stof(b);
 
-                if (t == "atan2")
-                {
+                if (t == "atan2") {
                     float r = atan2(af, bf);
                     exprstack.push(std::to_string(r));
                 }
-                if (t == "add")
-                {
+                if (t == "add") {
                     float r = af + bf;
                     exprstack.push(std::to_string(r));
                 }
-                if (t == "sub")
-                {
+                if (t == "sub") {
                     float r = af - bf;
                     exprstack.push(std::to_string(r));
                 }
-                if (t == "mul")
-                {
+                if (t == "mul") {
                     float r = af * bf;
                     exprstack.push(std::to_string(r));
                 }
-                if (t == "div")
-                {
+                if (t == "div") {
                     float r = af / bf;
                     exprstack.push(std::to_string(r));
                 }
-                if (t == "floor_divide")
-                {
+                if (t == "floor_divide") {
                     int r = (int)af / (int)bf;
                     exprstack.push(std::to_string(r));
                 }
-                if (t == "pow")
-                {
+                if (t == "pow") {
                     float r = pow(af, bf);
                     exprstack.push(std::to_string(r));
                 }
-                if (t == "remainder")
-                {
+                if (t == "remainder") {
                     float r = fmod(af, bf);
-                    if (af * bf < 0)
-                        r += bf;
+                    if (af * bf < 0) r += bf;
                     exprstack.push(std::to_string(r));
                 }
-            }
-            else
-            {
+            } else {
                 std::string r = t + "(" + a + "," + b + ")";
                 exprstack.push(r);
             }
-        }
-        else if (t == "and" || t == "or" || t == "xor" || t == "lshift" || t == "rshift")
-        {
+        } else if (t == "and" || t == "or" || t == "xor" || t == "lshift" ||
+                   t == "rshift") {
             std::string a = exprstack.top();
             exprstack.pop();
             std::string b = exprstack.top();
             exprstack.pop();
 
-            if (token_is_interger_literal(a) && token_is_interger_literal(b))
-            {
+            if (token_is_interger_literal(a) && token_is_interger_literal(b)) {
                 int ai = std::stoi(a);
                 int bi = std::stoi(b);
 
-                if (t == "and")
-                {
+                if (t == "and") {
                     int r = ai & bi;
                     exprstack.push(std::to_string(r));
                 }
-                if (t == "or")
-                {
+                if (t == "or") {
                     int r = ai | bi;
                     exprstack.push(std::to_string(r));
                 }
-                if (t == "xor")
-                {
+                if (t == "xor") {
                     int r = ai ^ bi;
                     exprstack.push(std::to_string(r));
                 }
-                if (t == "lshift")
-                {
+                if (t == "lshift") {
                     int r = ai << bi;
                     exprstack.push(std::to_string(r));
                 }
-                if (t == "rshift")
-                {
+                if (t == "rshift") {
                     int r = ai >> bi;
                     exprstack.push(std::to_string(r));
                 }
-            }
-            else
-            {
+            } else {
                 std::string r = t + "(" + a + "," + b + ")";
                 exprstack.push(r);
             }
-        }
-        else if (t == "[") // list
+        } else if (t == "[")  // list
         {
             std::vector<std::string> elements;
-            while (!exprstack.empty())
-            {
+            while (!exprstack.empty()) {
                 std::string a = exprstack.top();
                 exprstack.pop();
 
@@ -428,26 +328,19 @@ static std::string eval_expression(const Operator* op)
             }
 
             std::string r = "[";
-            for (int j = 0; j < (int)elements.size() - 1; j++)
-            {
+            for (int j = 0; j < (int)elements.size() - 1; j++) {
                 r += elements[j];
-                if (j + 1 != (int)elements.size())
-                    r += ",";
+                if (j + 1 != (int)elements.size()) r += ",";
             }
-            if (!elements.empty())
-            {
+            if (!elements.empty()) {
                 r += elements[elements.size() - 1];
             }
             r += "]";
 
             exprstack.push(r);
-        }
-        else if (t[0] == '@')
-        {
+        } else if (t[0] == '@') {
             exprstack.push(t);
-        }
-        else
-        {
+        } else {
             // literal
             exprstack.push(t);
         }
@@ -455,8 +348,7 @@ static std::string eval_expression(const Operator* op)
 
     std::string r = exprstack.top();
     exprstack.pop();
-    while (!exprstack.empty())
-    {
+    while (!exprstack.empty()) {
         r += std::string(",") + exprstack.top();
         exprstack.pop();
     }
@@ -466,28 +358,24 @@ static std::string eval_expression(const Operator* op)
     return r;
 }
 
-static std::string canonicalize_arguments(const Operator* op, std::vector<Operand*>& inputs)
-{
+static std::string canonicalize_arguments(const Operator *op,
+        std::vector<Operand *> &inputs) {
     std::string expr = op->params.at("expr").s;
 
     // split into tokens
     std::vector<std::string> tokens;
     {
         std::string t;
-        for (size_t i = 0; i < expr.size(); i++)
-        {
+        for (size_t i = 0; i < expr.size(); i++) {
             char ch = expr[i];
 
-            if (ch == '[') // list
+            if (ch == '[')  // list
             {
                 t += ch;
                 tokens.push_back(t);
                 t.clear();
-            }
-            else if (ch == '(' || ch == ')' || ch == ',' || ch == ']')
-            {
-                if (!t.empty())
-                {
+            } else if (ch == '(' || ch == ')' || ch == ',' || ch == ']') {
+                if (!t.empty()) {
                     tokens.push_back(t);
                     t.clear();
                 }
@@ -495,43 +383,33 @@ static std::string canonicalize_arguments(const Operator* op, std::vector<Operan
                 t += ch;
                 tokens.push_back(t);
                 t.clear();
-            }
-            else
-            {
+            } else {
                 t += ch;
             }
         }
 
-        if (!t.empty())
-        {
+        if (!t.empty()) {
             tokens.push_back(t);
         }
     }
 
     std::string r;
-    for (auto t : tokens)
-    {
-        if (t[0] == '@')
-        {
+    for (auto t : tokens) {
+        if (t[0] == '@') {
             int input_index = std::stoi(t.substr(1));
-            Operand* operand = op->inputs[input_index];
+            Operand *operand = op->inputs[input_index];
 
             int new_input_index;
 
             auto it = std::find(inputs.begin(), inputs.end(), operand);
-            if (it == inputs.end())
-            {
+            if (it == inputs.end()) {
                 new_input_index = inputs.size();
                 inputs.push_back(operand);
-            }
-            else
-            {
+            } else {
                 new_input_index = it - inputs.begin();
             }
             r += std::string("@") + std::to_string(new_input_index);
-        }
-        else
-        {
+        } else {
             r += t;
         }
     }
@@ -541,29 +419,24 @@ static std::string canonicalize_arguments(const Operator* op, std::vector<Operan
     return r;
 }
 
-void eval_expression(Graph& graph)
-{
-    for (Operator* op : graph.ops)
-    {
-        if (op->type != "pnnx.Expression")
-            continue;
+void eval_expression(Graph &graph) {
+    for (Operator *op : graph.ops) {
+        if (op->type != "pnnx.Expression") continue;
 
         std::string expr_eval = eval_expression(op);
 
         op->params["expr"] = expr_eval;
 
-        std::vector<Operand*> inputs;
+        std::vector<Operand *> inputs;
         std::string expr_canonicalize = canonicalize_arguments(op, inputs);
 
         op->params["expr"] = expr_canonicalize;
 
-        for (auto r : op->inputs)
-        {
+        for (auto r : op->inputs) {
             r->remove_consumer(op);
         }
 
-        for (auto r : inputs)
-        {
+        for (auto r : inputs) {
             r->consumers.push_back(op);
         }
 
@@ -571,4 +444,4 @@ void eval_expression(Graph& graph)
     }
 }
 
-} // namespace pnnx
+}  // namespace pnnx

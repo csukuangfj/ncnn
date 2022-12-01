@@ -18,47 +18,42 @@
 
 namespace ncnn {
 
-GLU::GLU()
-{
+GLU::GLU() {
     one_blob_only = true;
     support_inplace = false;
 }
 
-int GLU::load_param(const ParamDict& pd)
-{
+int GLU::load_param(const ParamDict &pd) {
     axis = pd.get(0, 0);
 
     return 0;
 }
 
-int GLU::forward(const Mat& bottom_blob, Mat& top_blob,
-                 const Option& opt) const
-{
+int GLU::forward(const Mat &bottom_blob, Mat &top_blob,
+                 const Option &opt) const {
     int dims = bottom_blob.dims;
     int positive_axis = axis < 0 ? dims + axis : axis;
 
-    if (dims == 1)
-    {   // ignore axis
+    if (dims == 1) {  // ignore axis
         int w = bottom_blob.w;
         int out_w = w / 2;
         top_blob.create(out_w, sizeof(float), opt.blob_allocator);
 
-        const float* in_ptr = bottom_blob;
-        float* out_ptr = top_blob;
+        const float *in_ptr = bottom_blob;
+        float *out_ptr = top_blob;
 
         #pragma omp parallel for num_threads(opt.num_threads)
-        for (int x = 0; x < out_w; ++x)
-        {
-            float sigmoid = static_cast<float>(1.f / (1.f + expf(-in_ptr[x + out_w])));
+        for (int x = 0; x < out_w; ++x) {
+            float sigmoid =
+                static_cast<float>(1.f / (1.f + expf(-in_ptr[x + out_w])));
 
             out_ptr[x] = in_ptr[x] * sigmoid;
         }
 
         return 0;
-    } // if (dims == 1)
+    }  // if (dims == 1)
 
-    if (dims == 2 && positive_axis == 0)
-    {
+    if (dims == 2 && positive_axis == 0) {
         int w = bottom_blob.w;
         int h = bottom_blob.h;
         int out_w = w;
@@ -84,22 +79,21 @@ int GLU::forward(const Mat& bottom_blob, Mat& top_blob,
         }
 #else
         int size = offset;
-        const float* in_ptr = bottom_blob;
-        float* out_ptr = top_blob;
+        const float *in_ptr = bottom_blob;
+        float *out_ptr = top_blob;
 
         #pragma omp parallel for num_threads(opt.num_threads)
-        for (int i = 0; i < size; ++i)
-        {
-            float sigmoid = static_cast<float>(1.f / (1.f + exp(-in_ptr[i + offset])));
+        for (int i = 0; i < size; ++i) {
+            float sigmoid =
+                static_cast<float>(1.f / (1.f + exp(-in_ptr[i + offset])));
             out_ptr[i] = in_ptr[i] * sigmoid;
         }
 #endif
 
         return 0;
-    } // if (dims == 2 && positive_axis == 0)
+    }  // if (dims == 2 && positive_axis == 0)
 
-    if (dims == 2 && positive_axis == 1)
-    {
+    if (dims == 2 && positive_axis == 1) {
         int w = bottom_blob.w;
         int h = bottom_blob.h;
         int out_w = w / 2;
@@ -108,23 +102,21 @@ int GLU::forward(const Mat& bottom_blob, Mat& top_blob,
         top_blob.create(out_w, out_h, sizeof(float), opt.blob_allocator);
 
         #pragma omp parallel for num_threads(opt.num_threads)
-        for (int y = 0; y < h; ++y)
-        {
-            const float* in_ptr = bottom_blob.row(y);
-            float* out_ptr = top_blob.row(y);
+        for (int y = 0; y < h; ++y) {
+            const float *in_ptr = bottom_blob.row(y);
+            float *out_ptr = top_blob.row(y);
 
-            for (int x = 0; x < out_w; ++x)
-            {
-                float sigmoid = static_cast<float>(1.f / (1.f + exp(-in_ptr[x + out_w])));
+            for (int x = 0; x < out_w; ++x) {
+                float sigmoid =
+                    static_cast<float>(1.f / (1.f + exp(-in_ptr[x + out_w])));
                 out_ptr[x] = in_ptr[x] * sigmoid;
             }
         }
 
         return 0;
-    } // if (dims == 2 && positive_axis == 1)
+    }  // if (dims == 2 && positive_axis == 1)
 
-    if (dims == 3 && positive_axis == 0)
-    {
+    if (dims == 3 && positive_axis == 0) {
         int w = bottom_blob.w;
         int h = bottom_blob.h;
         int c = bottom_blob.c;
@@ -139,22 +131,20 @@ int GLU::forward(const Mat& bottom_blob, Mat& top_blob,
         int size = w * h;
 
         #pragma omp parallel for num_threads(opt.num_threads)
-        for (int q = 0; q < out_c; ++q)
-        {
-            const float* in_ptr = bottom_blob.channel(q);
-            float* out_ptr = top_blob.channel(q);
+        for (int q = 0; q < out_c; ++q) {
+            const float *in_ptr = bottom_blob.channel(q);
+            float *out_ptr = top_blob.channel(q);
 
-            for (int i = 0; i < size; ++i)
-            {
-                float sigmoid = static_cast<float>(1.f / (1.f + exp(-in_ptr[i + offset])));
+            for (int i = 0; i < size; ++i) {
+                float sigmoid =
+                    static_cast<float>(1.f / (1.f + exp(-in_ptr[i + offset])));
                 out_ptr[i] = in_ptr[i] * sigmoid;
             }
         }
         return 0;
-    } //   if (dims == 3 && positive_axis == 0) {
+    }  //   if (dims == 3 && positive_axis == 0) {
 
-    if (dims == 3 && positive_axis == 1)
-    {
+    if (dims == 3 && positive_axis == 1) {
         int w = bottom_blob.w;
         int h = bottom_blob.h;
         int c = bottom_blob.c;
@@ -169,22 +159,20 @@ int GLU::forward(const Mat& bottom_blob, Mat& top_blob,
         int size = offset;
 
         #pragma omp parallel for num_threads(opt.num_threads)
-        for (int q = 0; q < c; ++q)
-        {
-            const float* in_ptr = bottom_blob.channel(q);
-            float* out_ptr = top_blob.channel(q);
+        for (int q = 0; q < c; ++q) {
+            const float *in_ptr = bottom_blob.channel(q);
+            float *out_ptr = top_blob.channel(q);
 
-            for (int i = 0; i < size; ++i)
-            {
-                float sigmoid = static_cast<float>(1.f / (1.f + exp(-in_ptr[i + offset])));
+            for (int i = 0; i < size; ++i) {
+                float sigmoid =
+                    static_cast<float>(1.f / (1.f + exp(-in_ptr[i + offset])));
                 out_ptr[i] = in_ptr[i] * sigmoid;
             }
         }
         return 0;
-    } // if (dims == 3 && positive_axis == 1)
+    }  // if (dims == 3 && positive_axis == 1)
 
-    if (dims == 3 && positive_axis == 2)
-    {
+    if (dims == 3 && positive_axis == 2) {
         int w = bottom_blob.w;
         int h = bottom_blob.h;
         int c = bottom_blob.c;
@@ -196,15 +184,13 @@ int GLU::forward(const Mat& bottom_blob, Mat& top_blob,
         top_blob.create(out_w, out_h, out_c, sizeof(float), opt.blob_allocator);
 
         #pragma omp parallel for num_threads(opt.num_threads)
-        for (int q = 0; q < c; ++q)
-        {
-            const float* in_ptr = bottom_blob.channel(q);
-            float* out_ptr = top_blob.channel(q);
-            for (int y = 0; y < h; ++y)
-            {
-                for (int x = 0; x < out_w; ++x)
-                {
-                    float sigmoid = static_cast<float>(1.f / (1.f + exp(-in_ptr[x + out_w])));
+        for (int q = 0; q < c; ++q) {
+            const float *in_ptr = bottom_blob.channel(q);
+            float *out_ptr = top_blob.channel(q);
+            for (int y = 0; y < h; ++y) {
+                for (int x = 0; x < out_w; ++x) {
+                    float sigmoid =
+                        static_cast<float>(1.f / (1.f + exp(-in_ptr[x + out_w])));
                     out_ptr[x] = in_ptr[x] * sigmoid;
                 }
                 in_ptr += w;
@@ -212,9 +198,9 @@ int GLU::forward(const Mat& bottom_blob, Mat& top_blob,
             }
         }
         return 0;
-    } // if (dims == 3 && positive_axis == 2)
+    }  // if (dims == 3 && positive_axis == 2)
 
     return -100;
 }
 
-} // namespace ncnn
+}  // namespace ncnn

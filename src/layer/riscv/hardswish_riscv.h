@@ -22,19 +22,18 @@
 
 namespace ncnn {
 
-class HardSwish_riscv : virtual public HardSwish
-{
+class HardSwish_riscv : virtual public HardSwish {
 public:
     HardSwish_riscv();
 
-    virtual int forward_inplace(Mat& bottom_top_blob, const Option& opt) const;
+    virtual int forward_inplace(Mat &bottom_top_blob, const Option &opt) const;
 
 protected:
 #if __riscv_vector && __riscv_zfh
-    int forward_inplace_fp16s(Mat& bottom_top_blob, const Option& opt) const;
+    int forward_inplace_fp16s(Mat &bottom_top_blob, const Option &opt) const;
 #endif
 };
 
-} // namespace ncnn
+}  // namespace ncnn
 
-#endif // LAYER_HARDSWISH_RISCV_H
+#endif  // LAYER_HARDSWISH_RISCV_H

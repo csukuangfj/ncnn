@@ -18,10 +18,14 @@
 namespace pnnx {
 
 class RelShift : public FuseModulePass {
- public:
-  const char *match_type_str() const { return "__torch__.conformer.RelShift"; }
+public:
+    const char *match_type_str() const {
+        return "__torch__.conformer.RelShift";
+    }
 
-  const char *type_str() const { return "icefall.RelShift"; }
+    const char *type_str() const {
+        return "icefall.RelShift";
+    }
 };
 
 REGISTER_GLOBAL_PNNX_FUSE_MODULE_PASS(RelShift)

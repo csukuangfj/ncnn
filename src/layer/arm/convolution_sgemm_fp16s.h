@@ -1,19 +1,23 @@
-// Tencent is pleased to support the open source community by making ncnn available.
+// Tencent is pleased to support the open source community by making ncnn
+// available.
 //
 // Copyright (C) 2021 THL A29 Limited, a Tencent company. All rights reserved.
 //
-// Licensed under the BSD 3-Clause License (the "License"); you may not use this file except
-// in compliance with the License. You may obtain a copy of the License at
+// Licensed under the BSD 3-Clause License (the "License"); you may not use this
+// file except in compliance with the License. You may obtain a copy of the
+// License at
 //
 // https://opensource.org/licenses/BSD-3-Clause
 //
-// Unless required by applicable law or agreed to in writing, software distributed
-// under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
-// CONDITIONS OF ANY KIND, either express or implied. See the License for the
-// specific language governing permissions and limitations under the License.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+// WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+// License for the specific language governing permissions and limitations under
+// the License.
 
-static void im2col_sgemm_fp16sa_neon(const Mat& bottom_im2col, Mat& top_blob, const Mat& kernel, const Mat& _bias, const Option& opt)
-{
+static void im2col_sgemm_fp16sa_neon(const Mat &bottom_im2col, Mat &top_blob,
+                                     const Mat &kernel, const Mat &_bias,
+                                     const Option &opt) {
     // Mat bottom_im2col(size, maxk, inch, 2u, 1, opt.workspace_allocator);
 
     const int size = bottom_im2col.w;
@@ -22,12 +26,13 @@ static void im2col_sgemm_fp16sa_neon(const Mat& bottom_im2col, Mat& top_blob, co
 
     const int outch = top_blob.c;
 
-    const __fp16* bias = _bias;
+    const __fp16 *bias = _bias;
 
     // permute
     Mat tmp;
     if (size >= 8)
-        tmp.create(8 * maxk, inch, size / 8 + size % 8, 2u, 1, opt.workspace_allocator);
+        tmp.create(8 * maxk, inch, size / 8 + size % 8, 2u, 1,
+                   opt.workspace_allocator);
     else
         tmp.create(maxk, inch, size, 2u, 1, opt.workspace_allocator);
     {
@@ -35,18 +40,15 @@ static void im2col_sgemm_fp16sa_neon(const Mat& bottom_im2col, Mat& top_blob, co
         int remain_size_start = 0;
 
         #pragma omp parallel for num_threads(opt.num_threads)
-        for (int ii = 0; ii < nn_size; ii++)
-        {
+        for (int ii = 0; ii < nn_size; ii++) {
             int i = remain_size_start + ii * 8;
 
-            __fp16* tmpptr = tmp.channel(i / 8);
+            __fp16 *tmpptr = tmp.channel(i / 8);
 
-            for (int q = 0; q < inch; q++)
-            {
-                const __fp16* img0 = (const __fp16*)bottom_im2col.channel(q) + i;
+            for (int q = 0; q < inch; q++) {
+                const __fp16 *img0 = (const __fp16 *)bottom_im2col.channel(q) + i;
 
-                for (int k = 0; k < maxk; k++)
-                {
+                for (int k = 0; k < maxk; k++) {
                     vst1q_f16(tmpptr, vld1q_f16(img0));
                     tmpptr += 8;
                     img0 += size;
@@ -57,16 +59,13 @@ static void im2col_sgemm_fp16sa_neon(const Mat& bottom_im2col, Mat& top_blob, co
         remain_size_start += nn_size << 3;
 
         #pragma omp parallel for num_threads(opt.num_threads)
-        for (int i = remain_size_start; i < size; i++)
-        {
-            __fp16* tmpptr = tmp.channel(i / 8 + i % 8);
+        for (int i = remain_size_start; i < size; i++) {
+            __fp16 *tmpptr = tmp.channel(i / 8 + i % 8);
 
-            for (int q = 0; q < inch; q++)
-            {
-                const __fp16* img0 = (const __fp16*)bottom_im2col.channel(q) + i;
+            for (int q = 0; q < inch; q++) {
+                const __fp16 *img0 = (const __fp16 *)bottom_im2col.channel(q) + i;
 
-                for (int k = 0; k < maxk; k++)
-                {
+                for (int k = 0; k < maxk; k++) {
                     tmpptr[0] = img0[0];
                     tmpptr += 1;
                     img0 += size;
@@ -82,31 +81,29 @@ static void im2col_sgemm_fp16sa_neon(const Mat& bottom_im2col, Mat& top_blob, co
     remain_outch_start = nn_outch << 3;
 
     #pragma omp parallel for num_threads(opt.num_threads)
-    for (int pp = 0; pp < nn_outch; pp++)
-    {
+    for (int pp = 0; pp < nn_outch; pp++) {
         int p = pp * 8;
 
-        __fp16* outptr0 = top_blob.channel(p);
-        __fp16* outptr1 = top_blob.channel(p + 1);
-        __fp16* outptr2 = top_blob.channel(p + 2);
-        __fp16* outptr3 = top_blob.channel(p + 3);
-        __fp16* outptr4 = top_blob.channel(p + 4);
-        __fp16* outptr5 = top_blob.channel(p + 5);
-        __fp16* outptr6 = top_blob.channel(p + 6);
-        __fp16* outptr7 = top_blob.channel(p + 7);
+        __fp16 *outptr0 = top_blob.channel(p);
+        __fp16 *outptr1 = top_blob.channel(p + 1);
+        __fp16 *outptr2 = top_blob.channel(p + 2);
+        __fp16 *outptr3 = top_blob.channel(p + 3);
+        __fp16 *outptr4 = top_blob.channel(p + 4);
+        __fp16 *outptr5 = top_blob.channel(p + 5);
+        __fp16 *outptr6 = top_blob.channel(p + 6);
+        __fp16 *outptr7 = top_blob.channel(p + 7);
 
         const __fp16 zeros[8] = {0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f};
-        const __fp16* biasptr = bias ? bias + p : zeros;
+        const __fp16 *biasptr = bias ? bias + p : zeros;
         float16x8_t _bias0 = vld1q_f16(biasptr);
 
         int i = 0;
 
-        for (; i + 7 < size; i += 8)
-        {
-            const __fp16* tmpptr = tmp.channel(i / 8);
-            const __fp16* kptr = kernel.channel(p / 8);
+        for (; i + 7 < size; i += 8) {
+            const __fp16 *tmpptr = tmp.channel(i / 8);
+            const __fp16 *kptr = kernel.channel(p / 8);
 
-            int nn = inch * maxk; // inch always > 0
+            int nn = inch * maxk;  // inch always > 0
 
             int q = 0;
 
@@ -119,8 +116,7 @@ static void im2col_sgemm_fp16sa_neon(const Mat& bottom_im2col, Mat& top_blob, co
             float16x8_t _sum6 = vdupq_laneq_f16(_bias0, 6);
             float16x8_t _sum7 = vdupq_laneq_f16(_bias0, 7);
 
-            for (; q + 7 < nn; q += 8)
-            {
+            for (; q + 7 < nn; q += 8) {
                 float16x8_t _p0 = vld1q_f16(tmpptr);
                 float16x8_t _p1 = vld1q_f16(tmpptr + 8);
                 float16x8_t _p2 = vld1q_f16(tmpptr + 16);
@@ -215,8 +211,7 @@ static void im2col_sgemm_fp16sa_neon(const Mat& bottom_im2col, Mat& top_blob, co
                 kptr += 64;
             }
 
-            for (; q < nn; q++)
-            {
+            for (; q < nn; q++) {
                 float16x8_t _p0 = vld1q_f16(tmpptr);
 
                 float16x8_t _k0 = vld1q_f16(kptr);
@@ -253,19 +248,17 @@ static void im2col_sgemm_fp16sa_neon(const Mat& bottom_im2col, Mat& top_blob, co
             outptr7 += 8;
         }
 
-        for (; i < size; i++)
-        {
-            const __fp16* tmpptr = tmp.channel(i / 8 + i % 8);
-            const __fp16* kptr = kernel.channel(p / 8);
+        for (; i < size; i++) {
+            const __fp16 *tmpptr = tmp.channel(i / 8 + i % 8);
+            const __fp16 *kptr = kernel.channel(p / 8);
 
-            int nn = inch * maxk; // inch always > 0
+            int nn = inch * maxk;  // inch always > 0
 
             int q = 0;
 
             float16x8_t _sum0 = _bias0;
 
-            for (; q + 7 < nn; q += 8)
-            {
+            for (; q + 7 < nn; q += 8) {
                 float16x8_t _p0 = vld1q_f16(tmpptr);
 
                 float16x8_t _k0 = vld1q_f16(kptr);
@@ -290,8 +283,7 @@ static void im2col_sgemm_fp16sa_neon(const Mat& bottom_im2col, Mat& top_blob, co
                 kptr += 64;
             }
 
-            for (; q < nn; q++)
-            {
+            for (; q < nn; q++) {
                 float16x8_t _p0 = vld1q_dup_f16(tmpptr);
 
                 float16x8_t _k0 = vld1q_f16(kptr);
@@ -323,29 +315,26 @@ static void im2col_sgemm_fp16sa_neon(const Mat& bottom_im2col, Mat& top_blob, co
     }
 
     #pragma omp parallel for num_threads(opt.num_threads)
-    for (int p = remain_outch_start; p < outch; p++)
-    {
+    for (int p = remain_outch_start; p < outch; p++) {
         Mat out0 = top_blob.channel(p);
 
         const __fp16 bias0 = bias ? bias[p] : 0.f;
 
-        __fp16* outptr0 = out0;
+        __fp16 *outptr0 = out0;
 
         int i = 0;
 
-        for (; i + 7 < size; i += 8)
-        {
-            const __fp16* tmpptr = tmp.channel(i / 8);
-            const __fp16* kptr = kernel.channel(p / 8 + p % 8);
+        for (; i + 7 < size; i += 8) {
+            const __fp16 *tmpptr = tmp.channel(i / 8);
+            const __fp16 *kptr = kernel.channel(p / 8 + p % 8);
 
-            int nn = inch * maxk; // inch always > 0
+            int nn = inch * maxk;  // inch always > 0
 
             int q = 0;
 
             float16x8_t _sum0 = vdupq_n_f16(bias0);
 
-            for (; q + 7 < nn; q += 8)
-            {
+            for (; q + 7 < nn; q += 8) {
                 float16x8_t _p0 = vld1q_f16(tmpptr);
                 float16x8_t _p1 = vld1q_f16(tmpptr + 8);
                 float16x8_t _p2 = vld1q_f16(tmpptr + 16);
@@ -370,8 +359,7 @@ static void im2col_sgemm_fp16sa_neon(const Mat& bottom_im2col, Mat& top_blob, co
                 kptr += 8;
             }
 
-            for (; q < nn; q++)
-            {
+            for (; q < nn; q++) {
                 float16x8_t _p0 = vld1q_f16(tmpptr);
 
                 float16x8_t _k0 = vld1q_dup_f16(kptr);
@@ -387,19 +375,17 @@ static void im2col_sgemm_fp16sa_neon(const Mat& bottom_im2col, Mat& top_blob, co
             outptr0 += 8;
         }
 
-        for (; i < size; i++)
-        {
-            const __fp16* tmpptr = tmp.channel(i / 8 + i % 8);
-            const __fp16* kptr = kernel.channel(p / 8 + p % 8);
+        for (; i < size; i++) {
+            const __fp16 *tmpptr = tmp.channel(i / 8 + i % 8);
+            const __fp16 *kptr = kernel.channel(p / 8 + p % 8);
 
-            int nn = inch * maxk; // inch always > 0
+            int nn = inch * maxk;  // inch always > 0
 
             int q = 0;
 
             float16x8_t _sum0 = vdupq_n_f16(0.f);
 
-            for (; q + 7 < nn; q += 8)
-            {
+            for (; q + 7 < nn; q += 8) {
                 float16x8_t _p0 = vld1q_f16(tmpptr);
 
                 float16x8_t _k0 = vld1q_f16(kptr);
@@ -410,10 +396,10 @@ static void im2col_sgemm_fp16sa_neon(const Mat& bottom_im2col, Mat& top_blob, co
                 kptr += 8;
             }
 
-            __fp16 sum0 = bias0 + vaddvq_f32(vcvt_f32_f16(vadd_f16(vget_low_f16(_sum0), vget_high_f16(_sum0))));
+            __fp16 sum0 = bias0 + vaddvq_f32(vcvt_f32_f16(vadd_f16(
+                                                 vget_low_f16(_sum0), vget_high_f16(_sum0))));
 
-            for (; q < nn; q++)
-            {
+            for (; q < nn; q++) {
                 sum0 += tmpptr[0] * kptr[0];
 
                 tmpptr++;
@@ -427,8 +413,9 @@ static void im2col_sgemm_fp16sa_neon(const Mat& bottom_im2col, Mat& top_blob, co
     }
 }
 
-static void convolution_im2col_sgemm_transform_kernel_fp16sa_neon(const Mat& _kernel, Mat& kernel_tm, int inch, int outch, int kernel_w, int kernel_h)
-{
+static void convolution_im2col_sgemm_transform_kernel_fp16sa_neon(
+    const Mat &_kernel, Mat &kernel_tm, int inch, int outch, int kernel_w,
+    int kernel_h) {
     const int maxk = kernel_w * kernel_h;
 
     // interleave
@@ -438,17 +425,13 @@ static void convolution_im2col_sgemm_transform_kernel_fp16sa_neon(const Mat& _ke
     kernel_tm.create(8 * maxk, inch, outch / 8 + outch % 8, (size_t)2u);
 
     int q = 0;
-    for (; q + 7 < outch; q += 8)
-    {
-        __fp16* g00 = kernel_tm.channel(q / 8);
+    for (; q + 7 < outch; q += 8) {
+        __fp16 *g00 = kernel_tm.channel(q / 8);
 
-        for (int p = 0; p < inch; p++)
-        {
-            for (int k = 0; k < maxk; k++)
-            {
-                for (int j = 0; j < 8; j++)
-                {
-                    const float* k00 = kernel.channel(q + j).row(p);
+        for (int p = 0; p < inch; p++) {
+            for (int k = 0; k < maxk; k++) {
+                for (int j = 0; j < 8; j++) {
+                    const float *k00 = kernel.channel(q + j).row(p);
 
                     g00[0] = (__fp16)k00[k];
 
@@ -457,15 +440,12 @@ static void convolution_im2col_sgemm_transform_kernel_fp16sa_neon(const Mat& _ke
             }
         }
     }
-    for (; q < outch; q++)
-    {
-        __fp16* g00 = kernel_tm.channel(q / 8 + q % 8);
+    for (; q < outch; q++) {
+        __fp16 *g00 = kernel_tm.channel(q / 8 + q % 8);
 
-        for (int p = 0; p < inch; p++)
-        {
-            for (int k = 0; k < maxk; k++)
-            {
-                const float* k00 = kernel.channel(q).row(p);
+        for (int p = 0; p < inch; p++) {
+            for (int k = 0; k < maxk; k++) {
+                const float *k00 = kernel.channel(q).row(p);
 
                 g00[0] = (__fp16)k00[k];
 
@@ -475,8 +455,10 @@ static void convolution_im2col_sgemm_transform_kernel_fp16sa_neon(const Mat& _ke
     }
 }
 
-static void convolution_im2col_sgemm_fp16sa_neon(const Mat& bottom_blob, Mat& top_blob, const Mat& kernel, const Mat& _bias, int kernel_w, int kernel_h, int dilation_w, int dilation_h, int stride_w, int stride_h, const Option& opt)
-{
+static void convolution_im2col_sgemm_fp16sa_neon(
+    const Mat &bottom_blob, Mat &top_blob, const Mat &kernel, const Mat &_bias,
+    int kernel_w, int kernel_h, int dilation_w, int dilation_h, int stride_w,
+    int stride_h, const Option &opt) {
     int w = bottom_blob.w;
     int inch = bottom_blob.c;
 
@@ -492,22 +474,18 @@ static void convolution_im2col_sgemm_fp16sa_neon(const Mat& bottom_blob, Mat& to
         const int gap = w * stride_h - outw * stride_w;
 
         #pragma omp parallel for num_threads(opt.num_threads)
-        for (int p = 0; p < inch; p++)
-        {
+        for (int p = 0; p < inch; p++) {
             const Mat img = bottom_blob.channel(p);
-            __fp16* ptr = bottom_im2col.channel(p);
+            __fp16 *ptr = bottom_im2col.channel(p);
 
-            for (int u = 0; u < kernel_h; u++)
-            {
-                for (int v = 0; v < kernel_w; v++)
-                {
-                    const __fp16* sptr = img.row<const __fp16>(dilation_h * u) + dilation_w * v;
+            for (int u = 0; u < kernel_h; u++) {
+                for (int v = 0; v < kernel_w; v++) {
+                    const __fp16 *sptr =
+                        img.row<const __fp16>(dilation_h * u) + dilation_w * v;
 
-                    for (int i = 0; i < outh; i++)
-                    {
+                    for (int i = 0; i < outh; i++) {
                         int j = 0;
-                        for (; j < outw; j++)
-                        {
+                        for (; j < outw; j++) {
                             ptr[0] = sptr[0];
 
                             sptr += stride_w;

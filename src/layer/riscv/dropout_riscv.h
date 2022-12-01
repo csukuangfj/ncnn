@@ -22,14 +22,13 @@
 
 namespace ncnn {
 
-class Dropout_riscv : virtual public Dropout
-{
+class Dropout_riscv : virtual public Dropout {
 public:
     Dropout_riscv();
 
-    virtual int forward_inplace(Mat& bottom_top_blob, const Option& opt) const;
+    virtual int forward_inplace(Mat &bottom_top_blob, const Option &opt) const;
 };
 
-} // namespace ncnn
+}  // namespace ncnn
 
-#endif // LAYER_DROPOUT_RISCV_H
+#endif  // LAYER_DROPOUT_RISCV_H

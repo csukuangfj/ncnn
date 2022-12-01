@@ -17,90 +17,72 @@ limitations under the License.
 #ifndef TENSORFLOW_COMPILER_MLIR_TENSORFLOW_IR_TF_SIDE_EFFECTS_H_
 #define TENSORFLOW_COMPILER_MLIR_TENSORFLOW_IR_TF_SIDE_EFFECTS_H_
 
-#include "mlir/Interfaces/SideEffectInterfaces.h" // from @llvm-project
+#include "mlir/Interfaces/SideEffectInterfaces.h"  // from @llvm-project
 
 namespace mlir {
 namespace TF {
 namespace ResourceEffects {
 
-struct Variable : ::mlir::SideEffects::Resource::Base<Variable>
-{
-    StringRef getName() final
-    {
+struct Variable : ::mlir::SideEffects::Resource::Base<Variable> {
+    StringRef getName() final {
         return "Variable";
     }
 };
 
-struct Stack : ::mlir::SideEffects::Resource::Base<Stack>
-{
-    StringRef getName() final
-    {
+struct Stack : ::mlir::SideEffects::Resource::Base<Stack> {
+    StringRef getName() final {
         return "Stack";
     }
 };
 
-struct TensorArray : ::mlir::SideEffects::Resource::Base<TensorArray>
-{
-    StringRef getName() final
-    {
+struct TensorArray : ::mlir::SideEffects::Resource::Base<TensorArray> {
+    StringRef getName() final {
         return "TensorArray";
     }
 };
 
-struct Summary : ::mlir::SideEffects::Resource::Base<Summary>
-{
-    StringRef getName() final
-    {
+struct Summary : ::mlir::SideEffects::Resource::Base<Summary> {
+    StringRef getName() final {
         return "Summary";
     }
 };
 
-struct LookupTable : ::mlir::SideEffects::Resource::Base<LookupTable>
-{
-    StringRef getName() final
-    {
+struct LookupTable : ::mlir::SideEffects::Resource::Base<LookupTable> {
+    StringRef getName() final {
         return "LookupTable";
     }
 };
 
 struct DatasetSeedGenerator
-    : ::mlir::SideEffects::Resource::Base<DatasetSeedGenerator>
-{
-    StringRef getName() final
-    {
+    : ::mlir::SideEffects::Resource::Base<DatasetSeedGenerator> {
+    StringRef getName() final {
         return "DatasetSeedGenerator";
     }
 };
 
 struct DatasetMemoryCache
-    : ::mlir::SideEffects::Resource::Base<DatasetMemoryCache>
-{
-    StringRef getName() final
-    {
+    : ::mlir::SideEffects::Resource::Base<DatasetMemoryCache> {
+    StringRef getName() final {
         return "DatasetMemoryCache";
     }
 };
 
-struct DatasetIterator : ::mlir::SideEffects::Resource::Base<DatasetIterator>
-{
-    StringRef getName() final
-    {
+struct DatasetIterator : ::mlir::SideEffects::Resource::Base<DatasetIterator> {
+    StringRef getName() final {
         return "DatasetIterator";
     }
 };
 
 // Special resource type to track TPU Embedding specific ops, which must execute
 // but do not have side effects with one another or with resource variable ops.
-struct TPUEmbedding : ::mlir::SideEffects::Resource::Base<TPUEmbedding>
-{
-    StringRef getName() final
-    {
+struct TPUEmbedding : ::mlir::SideEffects::Resource::Base<TPUEmbedding> {
+    StringRef getName() final {
         return "TPUEmbedding";
     }
 };
 
-} // namespace ResourceEffects
-} // namespace TF
-} // namespace mlir
+}  // namespace ResourceEffects
+}  // namespace TF
+}  // namespace mlir
 
-#endif // TENSORFLOW_COMPILER_MLIR_TENSORFLOW_IR_TF_SIDE_EFFECTS_H_
+#endif  // TENSORFLOW_COMPILER_MLIR_TENSORFLOW_IR_TF_SIDE_EFFECTS_H_
