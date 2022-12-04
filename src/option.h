@@ -1,16 +1,19 @@
-// Tencent is pleased to support the open source community by making ncnn available.
+// Tencent is pleased to support the open source community by making ncnn
+// available.
 //
 // Copyright (C) 2019 THL A29 Limited, a Tencent company. All rights reserved.
 //
-// Licensed under the BSD 3-Clause License (the "License"); you may not use this file except
-// in compliance with the License. You may obtain a copy of the License at
+// Licensed under the BSD 3-Clause License (the "License"); you may not use this
+// file except in compliance with the License. You may obtain a copy of the
+// License at
 //
 // https://opensource.org/licenses/BSD-3-Clause
 //
-// Unless required by applicable law or agreed to in writing, software distributed
-// under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
-// CONDITIONS OF ANY KIND, either express or implied. See the License for the
-// specific language governing permissions and limitations under the License.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+// WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+// License for the specific language governing permissions and limitations under
+// the License.
 
 #ifndef NCNN_OPTION_H
 #define NCNN_OPTION_H
@@ -22,11 +25,10 @@ namespace ncnn {
 #if NCNN_VULKAN
 class VkAllocator;
 class PipelineCache;
-#endif // NCNN_VULKAN
+#endif  // NCNN_VULKAN
 
 class Allocator;
-class NCNN_EXPORT Option
-{
+class NCNN_EXPORT Option {
 public:
     // default option
     Option();
@@ -42,24 +44,24 @@ public:
     int num_threads;
 
     // blob memory allocator
-    Allocator* blob_allocator;
+    Allocator *blob_allocator;
 
     // workspace memory allocator
-    Allocator* workspace_allocator;
+    Allocator *workspace_allocator;
 
 #if NCNN_VULKAN
     // blob memory allocator
-    VkAllocator* blob_vkallocator;
+    VkAllocator *blob_vkallocator;
 
     // workspace memory allocator
-    VkAllocator* workspace_vkallocator;
+    VkAllocator *workspace_vkallocator;
 
     // staging memory allocator
-    VkAllocator* staging_vkallocator;
+    VkAllocator *staging_vkallocator;
 
     // pipeline cache
-    PipelineCache* pipeline_cache;
-#endif // NCNN_VULKAN
+    PipelineCache *pipeline_cache;
+#endif  // NCNN_VULKAN
 
     // the time openmp threads busy-wait for more work before going to sleep
     // default value is 20ms to keep the cores enabled
@@ -88,7 +90,8 @@ public:
     bool use_vulkan_compute;
 
     // enable bf16 data type for storage
-    // improve most operator performance on all arm devices, may consume more memory
+    // improve most operator performance on all arm devices, may consume more
+    // memory
     bool use_bf16_storage;
 
     // enable options for gpu inference
@@ -100,9 +103,9 @@ public:
     bool use_int8_arithmetic;
 
     // enable simd-friendly packed memory layout
-    // improve all operator performance on all arm devices, will consume more memory
-    // changes should be applied before loading network structure and weight
-    // enabled by default
+    // improve all operator performance on all arm devices, will consume more
+    // memory changes should be applied before loading network structure and
+    // weight enabled by default
     bool use_packing_layout;
 
     bool use_shader_pack8;
@@ -148,6 +151,6 @@ public:
     bool use_reserved_11;
 };
 
-} // namespace ncnn
+}  // namespace ncnn
 
-#endif // NCNN_OPTION_H
+#endif  // NCNN_OPTION_H

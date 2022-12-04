@@ -1,19 +1,23 @@
-// Tencent is pleased to support the open source community by making ncnn available.
+// Tencent is pleased to support the open source community by making ncnn
+// available.
 //
 // Copyright (C) 2022 THL A29 Limited, a Tencent company. All rights reserved.
 //
-// Licensed under the BSD 3-Clause License (the "License"); you may not use this file except
-// in compliance with the License. You may obtain a copy of the License at
+// Licensed under the BSD 3-Clause License (the "License"); you may not use this
+// file except in compliance with the License. You may obtain a copy of the
+// License at
 //
 // https://opensource.org/licenses/BSD-3-Clause
 //
-// Unless required by applicable law or agreed to in writing, software distributed
-// under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
-// CONDITIONS OF ANY KIND, either express or implied. See the License for the
-// specific language governing permissions and limitations under the License.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+// WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+// License for the specific language governing permissions and limitations under
+// the License.
 
-static void im2col_sgemm_pack1to4_int8_msa(const Mat& bottom_im2col, Mat& top_blob, const Mat& kernel, const Option& opt)
-{
+static void im2col_sgemm_pack1to4_int8_msa(const Mat &bottom_im2col,
+        Mat &top_blob, const Mat &kernel,
+        const Option &opt) {
     // Mat bottom_im2col(size, maxk, inch, 8u, 8, opt.workspace_allocator);
 
     const int size = bottom_im2col.w;
@@ -24,17 +28,17 @@ static void im2col_sgemm_pack1to4_int8_msa(const Mat& bottom_im2col, Mat& top_bl
 
     // permute
     Mat tmp;
-    if (inch >= 4)
-    {
+    if (inch >= 4) {
         if (size >= 2)
-            tmp.create(2 * maxk, inch / 4 + inch % 4, size / 2 + size % 2, 4u, 4, opt.workspace_allocator);
+            tmp.create(2 * maxk, inch / 4 + inch % 4, size / 2 + size % 2, 4u, 4,
+                       opt.workspace_allocator);
         else
-            tmp.create(maxk, inch / 4 + inch % 4, size, 4u, 4, opt.workspace_allocator);
-    }
-    else
-    {
+            tmp.create(maxk, inch / 4 + inch % 4, size, 4u, 4,
+                       opt.workspace_allocator);
+    } else {
         if (size >= 2)
-            tmp.create(2 * maxk, inch, size / 2 + size % 2, 1u, 1, opt.workspace_allocator);
+            tmp.create(2 * maxk, inch, size / 2 + size % 2, 1u, 1,
+                       opt.workspace_allocator);
         else
             tmp.create(maxk, inch, size, 1u, 1, opt.workspace_allocator);
     }
@@ -43,22 +47,23 @@ static void im2col_sgemm_pack1to4_int8_msa(const Mat& bottom_im2col, Mat& top_bl
         int nn_size = (size - remain_size_start) >> 1;
 
         #pragma omp parallel for num_threads(opt.num_threads)
-        for (int ii = 0; ii < nn_size; ii++)
-        {
+        for (int ii = 0; ii < nn_size; ii++) {
             int i = remain_size_start + ii * 2;
 
-            signed char* tmpptr = tmp.channel(i / 2);
+            signed char *tmpptr = tmp.channel(i / 2);
 
             int q = 0;
-            for (; q + 3 < inch; q += 4)
-            {
-                const signed char* img0 = (const signed char*)bottom_im2col.channel(q) + i;
-                const signed char* img1 = (const signed char*)bottom_im2col.channel(q + 1) + i;
-                const signed char* img2 = (const signed char*)bottom_im2col.channel(q + 2) + i;
-                const signed char* img3 = (const signed char*)bottom_im2col.channel(q + 3) + i;
+            for (; q + 3 < inch; q += 4) {
+                const signed char *img0 =
+                    (const signed char *)bottom_im2col.channel(q) + i;
+                const signed char *img1 =
+                    (const signed char *)bottom_im2col.channel(q + 1) + i;
+                const signed char *img2 =
+                    (const signed char *)bottom_im2col.channel(q + 2) + i;
+                const signed char *img3 =
+                    (const signed char *)bottom_im2col.channel(q + 3) + i;
 
-                for (int k = 0; k < maxk; k++)
-                {
+                for (int k = 0; k < maxk; k++) {
                     tmpptr[0] = img0[0];
                     tmpptr[1] = img1[0];
                     tmpptr[2] = img2[0];
@@ -75,12 +80,11 @@ static void im2col_sgemm_pack1to4_int8_msa(const Mat& bottom_im2col, Mat& top_bl
                     img3 += size;
                 }
             }
-            for (; q < inch; q++)
-            {
-                const signed char* img0 = (const signed char*)bottom_im2col.channel(q) + i;
+            for (; q < inch; q++) {
+                const signed char *img0 =
+                    (const signed char *)bottom_im2col.channel(q) + i;
 
-                for (int k = 0; k < maxk; k++)
-                {
+                for (int k = 0; k < maxk; k++) {
                     tmpptr[0] = img0[0];
                     tmpptr[1] = img0[1];
 
@@ -94,20 +98,21 @@ static void im2col_sgemm_pack1to4_int8_msa(const Mat& bottom_im2col, Mat& top_bl
         remain_size_start += nn_size << 1;
 
         #pragma omp parallel for num_threads(opt.num_threads)
-        for (int i = remain_size_start; i < size; i++)
-        {
-            signed char* tmpptr = tmp.channel(i / 2 + i % 2);
+        for (int i = remain_size_start; i < size; i++) {
+            signed char *tmpptr = tmp.channel(i / 2 + i % 2);
 
             int q = 0;
-            for (; q + 3 < inch; q += 4)
-            {
-                const signed char* img0 = (const signed char*)bottom_im2col.channel(q) + i;
-                const signed char* img1 = (const signed char*)bottom_im2col.channel(q + 1) + i;
-                const signed char* img2 = (const signed char*)bottom_im2col.channel(q + 2) + i;
-                const signed char* img3 = (const signed char*)bottom_im2col.channel(q + 3) + i;
+            for (; q + 3 < inch; q += 4) {
+                const signed char *img0 =
+                    (const signed char *)bottom_im2col.channel(q) + i;
+                const signed char *img1 =
+                    (const signed char *)bottom_im2col.channel(q + 1) + i;
+                const signed char *img2 =
+                    (const signed char *)bottom_im2col.channel(q + 2) + i;
+                const signed char *img3 =
+                    (const signed char *)bottom_im2col.channel(q + 3) + i;
 
-                for (int k = 0; k < maxk; k++)
-                {
+                for (int k = 0; k < maxk; k++) {
                     tmpptr[0] = img0[0];
                     tmpptr[1] = img1[0];
                     tmpptr[2] = img2[0];
@@ -120,12 +125,11 @@ static void im2col_sgemm_pack1to4_int8_msa(const Mat& bottom_im2col, Mat& top_bl
                     img3 += size;
                 }
             }
-            for (; q < inch; q++)
-            {
-                const signed char* img0 = (const signed char*)bottom_im2col.channel(q) + i;
+            for (; q < inch; q++) {
+                const signed char *img0 =
+                    (const signed char *)bottom_im2col.channel(q) + i;
 
-                for (int k = 0; k < maxk; k++)
-                {
+                for (int k = 0; k < maxk; k++) {
                     tmpptr[0] = img0[0];
 
                     tmpptr += 1;
@@ -137,15 +141,13 @@ static void im2col_sgemm_pack1to4_int8_msa(const Mat& bottom_im2col, Mat& top_bl
     }
 
     #pragma omp parallel for num_threads(opt.num_threads)
-    for (int p = 0; p < outch; p++)
-    {
-        int* outptr0 = top_blob.channel(p);
+    for (int p = 0; p < outch; p++) {
+        int *outptr0 = top_blob.channel(p);
 
         int i = 0;
-        for (; i + 1 < size; i += 2)
-        {
-            const signed char* tmpptr = tmp.channel(i / 2);
-            const signed char* kptr = kernel.channel(p);
+        for (; i + 1 < size; i += 2) {
+            const signed char *tmpptr = tmp.channel(i / 2);
+            const signed char *kptr = kernel.channel(p);
 
             int nn4 = (inch / 4) * maxk;
             int nn1 = (inch % 4) * maxk;
@@ -153,8 +155,7 @@ static void im2col_sgemm_pack1to4_int8_msa(const Mat& bottom_im2col, Mat& top_bl
             v4i32 _sum00 = __msa_fill_w(0);
             v4i32 _sum10 = __msa_fill_w(0);
 
-            if (nn4 > 0)
-            {
+            if (nn4 > 0) {
                 v4i32 _sum01 = __msa_fill_w(0);
                 v4i32 _sum02 = __msa_fill_w(0);
                 v4i32 _sum03 = __msa_fill_w(0);
@@ -163,8 +164,7 @@ static void im2col_sgemm_pack1to4_int8_msa(const Mat& bottom_im2col, Mat& top_bl
                 v4i32 _sum13 = __msa_fill_w(0);
 
                 int j = 0;
-                for (; j < nn4; j++)
-                {
+                for (; j < nn4; j++) {
                     __builtin_prefetch(tmpptr + 32);
                     __builtin_prefetch(kptr + 64);
                     v16i8 _val = __msa_ld_b(tmpptr, 0);
@@ -243,8 +243,7 @@ static void im2col_sgemm_pack1to4_int8_msa(const Mat& bottom_im2col, Mat& top_bl
             }
 
             int j = 0;
-            for (; j < nn1; j++)
-            {
+            for (; j < nn1; j++) {
                 v8i16 _val0 = __msa_fill_h(tmpptr[0]);
                 v8i16 _val1 = __msa_fill_h(tmpptr[1]);
                 v8i16 _val = (v8i16)__msa_ilvr_d((v2i64)_val1, (v2i64)_val0);
@@ -270,25 +269,22 @@ static void im2col_sgemm_pack1to4_int8_msa(const Mat& bottom_im2col, Mat& top_bl
             __msa_st_w(_sum10, outptr0 + 4, 0);
             outptr0 += 8;
         }
-        for (; i < size; i++)
-        {
-            const signed char* tmpptr = tmp.channel(i / 2 + i % 2);
-            const signed char* kptr = kernel.channel(p);
+        for (; i < size; i++) {
+            const signed char *tmpptr = tmp.channel(i / 2 + i % 2);
+            const signed char *kptr = kernel.channel(p);
 
             int nn4 = (inch / 4) * maxk;
             int nn1 = (inch % 4) * maxk;
 
             v4i32 _sum0 = __msa_fill_w(0);
 
-            if (nn4 > 0)
-            {
+            if (nn4 > 0) {
                 v4i32 _sum1 = __msa_fill_w(0);
                 v4i32 _sum2 = __msa_fill_w(0);
                 v4i32 _sum3 = __msa_fill_w(0);
 
                 int j = 0;
-                for (; j < nn4; j++)
-                {
+                for (; j < nn4; j++) {
                     __builtin_prefetch(tmpptr + 16);
                     __builtin_prefetch(kptr + 64);
                     v16i8 _val = __msa_ld_b(tmpptr, 0);
@@ -339,8 +335,7 @@ static void im2col_sgemm_pack1to4_int8_msa(const Mat& bottom_im2col, Mat& top_bl
             }
 
             int j = 0;
-            for (; j < nn1; j++)
-            {
+            for (; j < nn1; j++) {
                 v8i16 _val = __msa_fill_h(tmpptr[0]);
 
                 v16i8 _w = __msa_ld_b(kptr, 0);
@@ -361,8 +356,9 @@ static void im2col_sgemm_pack1to4_int8_msa(const Mat& bottom_im2col, Mat& top_bl
     }
 }
 
-static void convolution_im2col_sgemm_transform_kernel_pack1to4_int8_msa(const Mat& _kernel, Mat& kernel_tm, int inch, int outch, int kernel_w, int kernel_h)
-{
+static void convolution_im2col_sgemm_transform_kernel_pack1to4_int8_msa(
+    const Mat &_kernel, Mat &kernel_tm, int inch, int outch, int kernel_w,
+    int kernel_h) {
     const int maxk = kernel_w * kernel_h;
 
     // interleave
@@ -374,20 +370,16 @@ static void convolution_im2col_sgemm_transform_kernel_pack1to4_int8_msa(const Ma
     else
         kernel_tm.create(4 * maxk, inch, outch / 4, (size_t)1u);
 
-    for (int q = 0; q + 3 < outch; q += 4)
-    {
-        signed char* g00 = kernel_tm.channel(q / 4);
+    for (int q = 0; q + 3 < outch; q += 4) {
+        signed char *g00 = kernel_tm.channel(q / 4);
 
         int p = 0;
-        for (; p + 3 < inch; p += 4)
-        {
-            for (int k = 0; k < maxk; k++)
-            {
-                for (int i = 0; i < 4; i++)
-                {
-                    for (int j = 0; j < 4; j++)
-                    {
-                        const signed char* k00 = kernel.channel(q + i).row<const signed char>(p + j);
+        for (; p + 3 < inch; p += 4) {
+            for (int k = 0; k < maxk; k++) {
+                for (int i = 0; i < 4; i++) {
+                    for (int j = 0; j < 4; j++) {
+                        const signed char *k00 =
+                            kernel.channel(q + i).row<const signed char>(p + j);
 
                         g00[0] = k00[k];
 
@@ -396,13 +388,11 @@ static void convolution_im2col_sgemm_transform_kernel_pack1to4_int8_msa(const Ma
                 }
             }
         }
-        for (; p < inch; p++)
-        {
-            for (int k = 0; k < maxk; k++)
-            {
-                for (int i = 0; i < 4; i++)
-                {
-                    const signed char* k00 = kernel.channel(q + i).row<const signed char>(p);
+        for (; p < inch; p++) {
+            for (int k = 0; k < maxk; k++) {
+                for (int i = 0; i < 4; i++) {
+                    const signed char *k00 =
+                        kernel.channel(q + i).row<const signed char>(p);
 
                     g00[0] = k00[k];
 
@@ -413,8 +403,10 @@ static void convolution_im2col_sgemm_transform_kernel_pack1to4_int8_msa(const Ma
     }
 }
 
-static void convolution_im2col_sgemm_pack1to4_int8_msa(const Mat& bottom_blob, Mat& top_blob, const Mat& kernel, int kernel_w, int kernel_h, int dilation_w, int dilation_h, int stride_w, int stride_h, const Option& opt)
-{
+static void convolution_im2col_sgemm_pack1to4_int8_msa(
+    const Mat &bottom_blob, Mat &top_blob, const Mat &kernel, int kernel_w,
+    int kernel_h, int dilation_w, int dilation_h, int stride_w, int stride_h,
+    const Option &opt) {
     int w = bottom_blob.w;
     int inch = bottom_blob.c;
 
@@ -430,22 +422,18 @@ static void convolution_im2col_sgemm_pack1to4_int8_msa(const Mat& bottom_blob, M
         const int gap = w * stride_h - outw * stride_w;
 
         #pragma omp parallel for num_threads(opt.num_threads)
-        for (int p = 0; p < inch; p++)
-        {
+        for (int p = 0; p < inch; p++) {
             const Mat img = bottom_blob.channel(p);
-            signed char* ptr = bottom_im2col.channel(p);
+            signed char *ptr = bottom_im2col.channel(p);
 
-            for (int u = 0; u < kernel_h; u++)
-            {
-                for (int v = 0; v < kernel_w; v++)
-                {
-                    const signed char* sptr = img.row<const signed char>(dilation_h * u) + dilation_w * v;
+            for (int u = 0; u < kernel_h; u++) {
+                for (int v = 0; v < kernel_w; v++) {
+                    const signed char *sptr =
+                        img.row<const signed char>(dilation_h * u) + dilation_w * v;
 
-                    for (int i = 0; i < outh; i++)
-                    {
+                    for (int i = 0; i < outh; i++) {
                         int j = 0;
-                        for (; j + 3 < outw; j += 4)
-                        {
+                        for (; j + 3 < outw; j += 4) {
                             ptr[0] = sptr[0];
                             ptr[1] = sptr[stride_w];
                             ptr[2] = sptr[stride_w * 2];
@@ -454,16 +442,14 @@ static void convolution_im2col_sgemm_pack1to4_int8_msa(const Mat& bottom_blob, M
                             sptr += stride_w * 4;
                             ptr += 4;
                         }
-                        for (; j + 1 < outw; j += 2)
-                        {
+                        for (; j + 1 < outw; j += 2) {
                             ptr[0] = sptr[0];
                             ptr[1] = sptr[stride_w];
 
                             sptr += stride_w * 2;
                             ptr += 2;
                         }
-                        for (; j < outw; j++)
-                        {
+                        for (; j < outw; j++) {
                             ptr[0] = sptr[0];
 
                             sptr += stride_w;

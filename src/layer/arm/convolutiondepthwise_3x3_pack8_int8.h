@@ -1,19 +1,22 @@
-// Tencent is pleased to support the open source community by making ncnn available.
+// Tencent is pleased to support the open source community by making ncnn
+// available.
 //
 // Copyright (C) 2021 THL A29 Limited, a Tencent company. All rights reserved.
 //
-// Licensed under the BSD 3-Clause License (the "License"); you may not use this file except
-// in compliance with the License. You may obtain a copy of the License at
+// Licensed under the BSD 3-Clause License (the "License"); you may not use this
+// file except in compliance with the License. You may obtain a copy of the
+// License at
 //
 // https://opensource.org/licenses/BSD-3-Clause
 //
-// Unless required by applicable law or agreed to in writing, software distributed
-// under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
-// CONDITIONS OF ANY KIND, either express or implied. See the License for the
-// specific language governing permissions and limitations under the License.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+// WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+// License for the specific language governing permissions and limitations under
+// the License.
 
-static void convdw3x3s1_pack8_int8_neon(const Mat& bottom_blob, Mat& top_blob, const Mat& kernel, const Option& opt)
-{
+static void convdw3x3s1_pack8_int8_neon(const Mat &bottom_blob, Mat &top_blob,
+                                        const Mat &kernel, const Option &opt) {
     int w = bottom_blob.w;
 
     int outw = top_blob.w;
@@ -22,21 +25,20 @@ static void convdw3x3s1_pack8_int8_neon(const Mat& bottom_blob, Mat& top_blob, c
     const int group = bottom_blob.c;
 
     #pragma omp parallel for num_threads(opt.num_threads)
-    for (int g = 0; g < group; g++)
-    {
+    for (int g = 0; g < group; g++) {
         Mat out = top_blob.channel(g);
 
-        const signed char* k0 = kernel.row<const signed char>(g);
+        const signed char *k0 = kernel.row<const signed char>(g);
 
-        int* outptr0 = out.row<int>(0);
-        int* outptr1 = out.row<int>(1);
+        int *outptr0 = out.row<int>(0);
+        int *outptr1 = out.row<int>(1);
 
         const Mat img0 = bottom_blob.channel(g);
 
-        const signed char* r0 = img0.row<const signed char>(0);
-        const signed char* r1 = img0.row<const signed char>(1);
-        const signed char* r2 = img0.row<const signed char>(2);
-        const signed char* r3 = img0.row<const signed char>(3);
+        const signed char *r0 = img0.row<const signed char>(0);
+        const signed char *r1 = img0.row<const signed char>(1);
+        const signed char *r2 = img0.row<const signed char>(2);
+        const signed char *r3 = img0.row<const signed char>(3);
 
         int8x8_t _k00 = vld1_s8(k0);
         int8x8_t _k01 = vld1_s8(k0 + 8);
@@ -49,11 +51,9 @@ static void convdw3x3s1_pack8_int8_neon(const Mat& bottom_blob, Mat& top_blob, c
         int8x8_t _k22 = vld1_s8(k0 + 64);
 
         int i = 0;
-        for (; i + 1 < outh; i += 2)
-        {
+        for (; i + 1 < outh; i += 2) {
             int j = 0;
-            for (; j + 1 < outw; j += 2)
-            {
+            for (; j + 1 < outw; j += 2) {
                 int8x16_t _r0001 = vld1q_s8(r0);
                 int8x16_t _r0203 = vld1q_s8(r0 + 16);
                 int8x16_t _r1011 = vld1q_s8(r1);
@@ -153,8 +153,7 @@ static void convdw3x3s1_pack8_int8_neon(const Mat& bottom_blob, Mat& top_blob, c
                 outptr0 += 16;
                 outptr1 += 16;
             }
-            for (; j < outw; j++)
-            {
+            for (; j < outw; j++) {
                 int8x8_t _r00 = vld1_s8(r0);
                 int8x8_t _r01 = vld1_s8(r0 + 8);
                 int8x8_t _r02 = vld1_s8(r0 + 16);
@@ -225,11 +224,9 @@ static void convdw3x3s1_pack8_int8_neon(const Mat& bottom_blob, Mat& top_blob, c
             outptr0 += outw * 8;
             outptr1 += outw * 8;
         }
-        for (; i < outh; i++)
-        {
+        for (; i < outh; i++) {
             int j = 0;
-            for (; j + 1 < outw; j += 2)
-            {
+            for (; j + 1 < outw; j += 2) {
                 int8x16_t _r0001 = vld1q_s8(r0);
                 int8x16_t _r0203 = vld1q_s8(r0 + 16);
                 int8x16_t _r1011 = vld1q_s8(r1);
@@ -283,8 +280,7 @@ static void convdw3x3s1_pack8_int8_neon(const Mat& bottom_blob, Mat& top_blob, c
                 r2 += 16;
                 outptr0 += 16;
             }
-            for (; j < outw; j++)
-            {
+            for (; j < outw; j++) {
                 int8x8_t _r00 = vld1_s8(r0);
                 int8x8_t _r01 = vld1_s8(r0 + 8);
                 int8x8_t _r02 = vld1_s8(r0 + 16);
@@ -330,8 +326,8 @@ static void convdw3x3s1_pack8_int8_neon(const Mat& bottom_blob, Mat& top_blob, c
     }
 }
 
-static void convdw3x3s2_pack8_int8_neon(const Mat& bottom_blob, Mat& top_blob, const Mat& kernel, const Option& opt)
-{
+static void convdw3x3s2_pack8_int8_neon(const Mat &bottom_blob, Mat &top_blob,
+                                        const Mat &kernel, const Option &opt) {
     int w = bottom_blob.w;
 
     int outw = top_blob.w;
@@ -342,19 +338,18 @@ static void convdw3x3s2_pack8_int8_neon(const Mat& bottom_blob, Mat& top_blob, c
     const int tailstep = (w - 2 * outw + w) * 8;
 
     #pragma omp parallel for num_threads(opt.num_threads)
-    for (int g = 0; g < group; g++)
-    {
+    for (int g = 0; g < group; g++) {
         Mat out = top_blob.channel(g);
 
-        const signed char* k0 = kernel.row<const signed char>(g);
+        const signed char *k0 = kernel.row<const signed char>(g);
 
-        int* outptr0 = out;
+        int *outptr0 = out;
 
         const Mat img0 = bottom_blob.channel(g);
 
-        const signed char* r0 = img0.row<const signed char>(0);
-        const signed char* r1 = img0.row<const signed char>(1);
-        const signed char* r2 = img0.row<const signed char>(2);
+        const signed char *r0 = img0.row<const signed char>(0);
+        const signed char *r1 = img0.row<const signed char>(1);
+        const signed char *r2 = img0.row<const signed char>(2);
 
         int8x8_t _k00 = vld1_s8(k0);
         int8x8_t _k01 = vld1_s8(k0 + 8);
@@ -367,11 +362,9 @@ static void convdw3x3s2_pack8_int8_neon(const Mat& bottom_blob, Mat& top_blob, c
         int8x8_t _k22 = vld1_s8(k0 + 64);
 
         int i = 0;
-        for (; i < outh; i++)
-        {
+        for (; i < outh; i++) {
             int j = 0;
-            for (; j + 1 < outw; j += 2)
-            {
+            for (; j + 1 < outw; j += 2) {
                 int8x8_t _r00 = vld1_s8(r0);
                 int8x8_t _r01 = vld1_s8(r0 + 8);
                 int8x8_t _r02 = vld1_s8(r0 + 16);
@@ -434,8 +427,7 @@ static void convdw3x3s2_pack8_int8_neon(const Mat& bottom_blob, Mat& top_blob, c
                 r2 += 32;
                 outptr0 += 16;
             }
-            for (; j < outw; j++)
-            {
+            for (; j < outw; j++) {
                 int8x8_t _r00 = vld1_s8(r0);
                 int8x8_t _r01 = vld1_s8(r0 + 8);
                 int8x8_t _r02 = vld1_s8(r0 + 16);

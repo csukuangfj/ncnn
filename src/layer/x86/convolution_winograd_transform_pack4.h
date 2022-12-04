@@ -1,19 +1,22 @@
-// Tencent is pleased to support the open source community by making ncnn available.
+// Tencent is pleased to support the open source community by making ncnn
+// available.
 //
 // Copyright (C) 2022 THL A29 Limited, a Tencent company. All rights reserved.
 //
-// Licensed under the BSD 3-Clause License (the "License"); you may not use this file except
-// in compliance with the License. You may obtain a copy of the License at
+// Licensed under the BSD 3-Clause License (the "License"); you may not use this
+// file except in compliance with the License. You may obtain a copy of the
+// License at
 //
 // https://opensource.org/licenses/BSD-3-Clause
 //
-// Unless required by applicable law or agreed to in writing, software distributed
-// under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
-// CONDITIONS OF ANY KIND, either express or implied. See the License for the
-// specific language governing permissions and limitations under the License.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+// WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+// License for the specific language governing permissions and limitations under
+// the License.
 
-static void conv3x3s1_winograd63_transform_input_pack4_sse(const Mat& bottom_blob, Mat& bottom_blob_tm, const Option& opt)
-{
+static void conv3x3s1_winograd63_transform_input_pack4_sse(
+    const Mat &bottom_blob, Mat &bottom_blob_tm, const Option &opt) {
     const int w = bottom_blob.w;
     const int h = bottom_blob.h;
     const int inch = bottom_blob.c;
@@ -52,8 +55,7 @@ static void conv3x3s1_winograd63_transform_input_pack4_sse(const Mat& bottom_blo
     // 6 = (r06 + (r02 - r04 * 1.25) * 4) - (r01 * 2 - r03 * 2.5 + r05 * 0.5)
 
     #pragma omp parallel for num_threads(opt.num_threads)
-    for (int q = 0; q < inch; q++)
-    {
+    for (int q = 0; q < inch; q++) {
         const Mat img0 = bottom_blob.channel(q);
         Mat img0_tm = bottom_blob_tm.channel(q);
 
@@ -74,14 +76,11 @@ static void conv3x3s1_winograd63_transform_input_pack4_sse(const Mat& bottom_blo
         __m128 _v4 = _mm_set1_ps(4.f);
 
         // tile
-        for (int i = 0; i < h_tiles; i++)
-        {
-            for (int j = 0; j < w_tiles; j++)
-            {
-                const float* r0 = img0.row(i * 6) + (j * 6) * 4;
+        for (int i = 0; i < h_tiles; i++) {
+            for (int j = 0; j < w_tiles; j++) {
+                const float *r0 = img0.row(i * 6) + (j * 6) * 4;
 
-                for (int m = 0; m < 8; m++)
-                {
+                for (int m = 0; m < 8; m++) {
                     __m128 _r00 = _mm_load_ps(r0);
                     __m128 _r01 = _mm_load_ps(r0 + 4);
                     __m128 _r02 = _mm_load_ps(r0 + 4 * 2);
@@ -91,29 +90,39 @@ static void conv3x3s1_winograd63_transform_input_pack4_sse(const Mat& bottom_blo
                     __m128 _r06 = _mm_load_ps(r0 + 4 * 6);
                     __m128 _r07 = _mm_load_ps(r0 + 4 * 7);
 
-                    __m128 _tmp0m = _mm_comp_fmadd_ps(_v5_25, _mm_sub_ps(_r04, _r02), _mm_sub_ps(_r00, _r06));
-                    __m128 _tmp7m = _mm_comp_fmadd_ps(_v5_25, _mm_sub_ps(_r03, _r05), _mm_sub_ps(_r07, _r01));
+                    __m128 _tmp0m = _mm_comp_fmadd_ps(_v5_25, _mm_sub_ps(_r04, _r02),
+                                                      _mm_sub_ps(_r00, _r06));
+                    __m128 _tmp7m = _mm_comp_fmadd_ps(_v5_25, _mm_sub_ps(_r03, _r05),
+                                                      _mm_sub_ps(_r07, _r01));
                     _mm_store_ps(tmp[0][m], _tmp0m);
                     _mm_store_ps(tmp[7][m], _tmp7m);
 
-                    __m128 _tmp12a = _mm_comp_fmadd_ps(_vm4_25, _r04, _mm_add_ps(_r02, _r06));
-                    __m128 _tmp12b = _mm_comp_fmadd_ps(_vm4_25, _r03, _mm_add_ps(_r01, _r05));
+                    __m128 _tmp12a =
+                        _mm_comp_fmadd_ps(_vm4_25, _r04, _mm_add_ps(_r02, _r06));
+                    __m128 _tmp12b =
+                        _mm_comp_fmadd_ps(_vm4_25, _r03, _mm_add_ps(_r01, _r05));
 
                     __m128 _tmp1m = _mm_add_ps(_tmp12a, _tmp12b);
                     __m128 _tmp2m = _mm_sub_ps(_tmp12a, _tmp12b);
                     _mm_store_ps(tmp[1][m], _tmp1m);
                     _mm_store_ps(tmp[2][m], _tmp2m);
 
-                    __m128 _tmp34a = _mm_comp_fmadd_ps(_vm1_25, _r04, _mm_comp_fmadd_ps(_v0_25, _r02, _r06));
-                    __m128 _tmp34b = _mm_comp_fmadd_ps(_v2, _r05, _mm_comp_fmadd_ps(_vm2_5, _r03, _mm_mul_ps(_r01, _v0_5)));
+                    __m128 _tmp34a = _mm_comp_fmadd_ps(
+                                         _vm1_25, _r04, _mm_comp_fmadd_ps(_v0_25, _r02, _r06));
+                    __m128 _tmp34b = _mm_comp_fmadd_ps(
+                                         _v2, _r05,
+                                         _mm_comp_fmadd_ps(_vm2_5, _r03, _mm_mul_ps(_r01, _v0_5)));
 
                     __m128 _tmp3m = _mm_add_ps(_tmp34a, _tmp34b);
                     __m128 _tmp4m = _mm_sub_ps(_tmp34a, _tmp34b);
                     _mm_store_ps(tmp[3][m], _tmp3m);
                     _mm_store_ps(tmp[4][m], _tmp4m);
 
-                    __m128 _tmp56a = _mm_comp_fmadd_ps(_v4, _mm_comp_fmadd_ps(_vm1_25, _r04, _r02), _r06);
-                    __m128 _tmp56b = _mm_comp_fmadd_ps(_v0_5, _r05, _mm_comp_fmadd_ps(_vm2_5, _r03, _mm_mul_ps(_r01, _v2)));
+                    __m128 _tmp56a = _mm_comp_fmadd_ps(
+                                         _v4, _mm_comp_fmadd_ps(_vm1_25, _r04, _r02), _r06);
+                    __m128 _tmp56b = _mm_comp_fmadd_ps(
+                                         _v0_5, _r05,
+                                         _mm_comp_fmadd_ps(_vm2_5, _r03, _mm_mul_ps(_r01, _v2)));
 
                     __m128 _tmp5m = _mm_add_ps(_tmp56a, _tmp56b);
                     __m128 _tmp6m = _mm_sub_ps(_tmp56a, _tmp56b);
@@ -123,17 +132,16 @@ static void conv3x3s1_winograd63_transform_input_pack4_sse(const Mat& bottom_blo
                     r0 += w * 4;
                 }
 
-                float* r0_tm_0 = (float*)img0_tm + (i * w_tiles + j) * 4;
-                float* r0_tm_1 = r0_tm_0 + tiles * 4;
-                float* r0_tm_2 = r0_tm_0 + tiles * 4 * 2;
-                float* r0_tm_3 = r0_tm_0 + tiles * 4 * 3;
-                float* r0_tm_4 = r0_tm_0 + tiles * 4 * 4;
-                float* r0_tm_5 = r0_tm_0 + tiles * 4 * 5;
-                float* r0_tm_6 = r0_tm_0 + tiles * 4 * 6;
-                float* r0_tm_7 = r0_tm_0 + tiles * 4 * 7;
+                float *r0_tm_0 = (float *)img0_tm + (i * w_tiles + j) * 4;
+                float *r0_tm_1 = r0_tm_0 + tiles * 4;
+                float *r0_tm_2 = r0_tm_0 + tiles * 4 * 2;
+                float *r0_tm_3 = r0_tm_0 + tiles * 4 * 3;
+                float *r0_tm_4 = r0_tm_0 + tiles * 4 * 4;
+                float *r0_tm_5 = r0_tm_0 + tiles * 4 * 5;
+                float *r0_tm_6 = r0_tm_0 + tiles * 4 * 6;
+                float *r0_tm_7 = r0_tm_0 + tiles * 4 * 7;
 
-                for (int m = 0; m < 8; m++)
-                {
+                for (int m = 0; m < 8; m++) {
                     __m128 _tmp00 = _mm_load_ps(tmp[m][0]);
                     __m128 _tmp01 = _mm_load_ps(tmp[m][1]);
                     __m128 _tmp02 = _mm_load_ps(tmp[m][2]);
@@ -143,23 +151,33 @@ static void conv3x3s1_winograd63_transform_input_pack4_sse(const Mat& bottom_blo
                     __m128 _tmp06 = _mm_load_ps(tmp[m][6]);
                     __m128 _tmp07 = _mm_load_ps(tmp[m][7]);
 
-                    __m128 _r0tm0 = _mm_comp_fmadd_ps(_v5_25, _mm_sub_ps(_tmp04, _tmp02), _mm_sub_ps(_tmp00, _tmp06));
-                    __m128 _r0tm7 = _mm_comp_fmadd_ps(_v5_25, _mm_sub_ps(_tmp03, _tmp05), _mm_sub_ps(_tmp07, _tmp01));
+                    __m128 _r0tm0 = _mm_comp_fmadd_ps(_v5_25, _mm_sub_ps(_tmp04, _tmp02),
+                                                      _mm_sub_ps(_tmp00, _tmp06));
+                    __m128 _r0tm7 = _mm_comp_fmadd_ps(_v5_25, _mm_sub_ps(_tmp03, _tmp05),
+                                                      _mm_sub_ps(_tmp07, _tmp01));
 
-                    __m128 _tmp12a = _mm_comp_fmadd_ps(_vm4_25, _tmp04, _mm_add_ps(_tmp02, _tmp06));
-                    __m128 _tmp12b = _mm_comp_fmadd_ps(_vm4_25, _tmp03, _mm_add_ps(_tmp01, _tmp05));
+                    __m128 _tmp12a =
+                        _mm_comp_fmadd_ps(_vm4_25, _tmp04, _mm_add_ps(_tmp02, _tmp06));
+                    __m128 _tmp12b =
+                        _mm_comp_fmadd_ps(_vm4_25, _tmp03, _mm_add_ps(_tmp01, _tmp05));
 
                     __m128 _r0tm1 = _mm_add_ps(_tmp12a, _tmp12b);
                     __m128 _r0tm2 = _mm_sub_ps(_tmp12a, _tmp12b);
 
-                    __m128 _tmp34a = _mm_comp_fmadd_ps(_vm1_25, _tmp04, _mm_comp_fmadd_ps(_v0_25, _tmp02, _tmp06));
-                    __m128 _tmp34b = _mm_comp_fmadd_ps(_v2, _tmp05, _mm_comp_fmadd_ps(_vm2_5, _tmp03, _mm_mul_ps(_tmp01, _v0_5)));
+                    __m128 _tmp34a = _mm_comp_fmadd_ps(
+                                         _vm1_25, _tmp04, _mm_comp_fmadd_ps(_v0_25, _tmp02, _tmp06));
+                    __m128 _tmp34b = _mm_comp_fmadd_ps(
+                                         _v2, _tmp05,
+                                         _mm_comp_fmadd_ps(_vm2_5, _tmp03, _mm_mul_ps(_tmp01, _v0_5)));
 
                     __m128 _r0tm3 = _mm_add_ps(_tmp34a, _tmp34b);
                     __m128 _r0tm4 = _mm_sub_ps(_tmp34a, _tmp34b);
 
-                    __m128 _tmp56a = _mm_comp_fmadd_ps(_v4, _mm_comp_fmadd_ps(_vm1_25, _tmp04, _tmp02), _tmp06);
-                    __m128 _tmp56b = _mm_comp_fmadd_ps(_v0_5, _tmp05, _mm_comp_fmadd_ps(_vm2_5, _tmp03, _mm_mul_ps(_tmp01, _v2)));
+                    __m128 _tmp56a = _mm_comp_fmadd_ps(
+                                         _v4, _mm_comp_fmadd_ps(_vm1_25, _tmp04, _tmp02), _tmp06);
+                    __m128 _tmp56b = _mm_comp_fmadd_ps(
+                                         _v0_5, _tmp05,
+                                         _mm_comp_fmadd_ps(_vm2_5, _tmp03, _mm_mul_ps(_tmp01, _v2)));
 
                     __m128 _r0tm5 = _mm_add_ps(_tmp56a, _tmp56b);
                     __m128 _r0tm6 = _mm_sub_ps(_tmp56a, _tmp56b);
@@ -187,8 +205,8 @@ static void conv3x3s1_winograd63_transform_input_pack4_sse(const Mat& bottom_blo
     }
 }
 
-static void conv3x3s1_winograd63_transform_output_pack4_sse(const Mat& top_blob_tm, Mat& top_blob, const Mat& bias, const Option& opt)
-{
+static void conv3x3s1_winograd63_transform_output_pack4_sse(
+    const Mat &top_blob_tm, Mat &top_blob, const Mat &bias, const Option &opt) {
     const int outw = top_blob.w;
     const int outh = top_blob.h;
     const int outch = top_blob.c;
@@ -197,7 +215,7 @@ static void conv3x3s1_winograd63_transform_output_pack4_sse(const Mat& top_blob_
     const int h_tiles = outh / 6;
     const int tiles = w_tiles * h_tiles;
 
-    const float* biasptr = bias;
+    const float *biasptr = bias;
 
     // const float otm[6][8] = {
     //     {1.0f,  1.0f,   1.0f,   1.0f,   1.0f,  32.0f, 32.0f, 0.0f},
@@ -216,8 +234,7 @@ static void conv3x3s1_winograd63_transform_output_pack4_sse(const Mat& top_blob_
     // 5 = r7 + (r1 - r2) + (r3 - r4) * 32+ (r5 - r6)
 
     #pragma omp parallel for num_threads(opt.num_threads)
-    for (int p = 0; p < outch; p++)
-    {
+    for (int p = 0; p < outch; p++) {
         const Mat out0_tm = top_blob_tm.channel(p);
         Mat out0 = top_blob.channel(p);
 
@@ -237,23 +254,21 @@ static void conv3x3s1_winograd63_transform_output_pack4_sse(const Mat& top_blob_
         __m128 _v2 = _mm_set1_ps(2.f);
 
         // tile
-        for (int i = 0; i < h_tiles; i++)
-        {
-            for (int j = 0; j < w_tiles; j++)
-            {
-                const float* output0_tm_0 = (const float*)out0_tm + (i * w_tiles + j) * 4;
-                const float* output0_tm_1 = output0_tm_0 + tiles * 4;
-                const float* output0_tm_2 = output0_tm_0 + tiles * 4 * 2;
-                const float* output0_tm_3 = output0_tm_0 + tiles * 4 * 3;
-                const float* output0_tm_4 = output0_tm_0 + tiles * 4 * 4;
-                const float* output0_tm_5 = output0_tm_0 + tiles * 4 * 5;
-                const float* output0_tm_6 = output0_tm_0 + tiles * 4 * 6;
-                const float* output0_tm_7 = output0_tm_0 + tiles * 4 * 7;
+        for (int i = 0; i < h_tiles; i++) {
+            for (int j = 0; j < w_tiles; j++) {
+                const float *output0_tm_0 =
+                    (const float *)out0_tm + (i * w_tiles + j) * 4;
+                const float *output0_tm_1 = output0_tm_0 + tiles * 4;
+                const float *output0_tm_2 = output0_tm_0 + tiles * 4 * 2;
+                const float *output0_tm_3 = output0_tm_0 + tiles * 4 * 3;
+                const float *output0_tm_4 = output0_tm_0 + tiles * 4 * 4;
+                const float *output0_tm_5 = output0_tm_0 + tiles * 4 * 5;
+                const float *output0_tm_6 = output0_tm_0 + tiles * 4 * 6;
+                const float *output0_tm_7 = output0_tm_0 + tiles * 4 * 7;
 
-                float* output0 = out0.row(i * 6) + (j * 6) * 4;
+                float *output0 = out0.row(i * 6) + (j * 6) * 4;
 
-                for (int m = 0; m < 8; m++)
-                {
+                for (int m = 0; m < 8; m++) {
                     __m128 _out0tm0 = _mm_load_ps(output0_tm_0);
                     __m128 _out0tm1 = _mm_load_ps(output0_tm_1);
                     __m128 _out0tm2 = _mm_load_ps(output0_tm_2);
@@ -272,16 +287,24 @@ static void conv3x3s1_winograd63_transform_output_pack4_sse(const Mat& top_blob_
                     __m128 _tmp024c = _mm_add_ps(_out0tm5, _out0tm6);
                     __m128 _tmp135c = _mm_sub_ps(_out0tm5, _out0tm6);
 
-                    __m128 _tmp0m = _mm_add_ps(_mm_add_ps(_out0tm0, _tmp024a), _mm_comp_fmadd_ps(_v32, _tmp024c, _tmp024b));
-                    __m128 _tmp2m = _mm_comp_fmadd_ps(_v8, _tmp024c, _mm_comp_fmadd_ps(_v4, _tmp024b, _tmp024a));
-                    __m128 _tmp4m = _mm_comp_fmadd_ps(_v2, _tmp024c, _mm_comp_fmadd_ps(_v16, _tmp024b, _tmp024a));
+                    __m128 _tmp0m =
+                        _mm_add_ps(_mm_add_ps(_out0tm0, _tmp024a),
+                                   _mm_comp_fmadd_ps(_v32, _tmp024c, _tmp024b));
+                    __m128 _tmp2m = _mm_comp_fmadd_ps(
+                                        _v8, _tmp024c, _mm_comp_fmadd_ps(_v4, _tmp024b, _tmp024a));
+                    __m128 _tmp4m = _mm_comp_fmadd_ps(
+                                        _v2, _tmp024c, _mm_comp_fmadd_ps(_v16, _tmp024b, _tmp024a));
                     _mm_store_ps(tmp[0][m], _tmp0m);
                     _mm_store_ps(tmp[2][m], _tmp2m);
                     _mm_store_ps(tmp[4][m], _tmp4m);
 
-                    __m128 _tmp1m = _mm_comp_fmadd_ps(_v16, _tmp135c, _mm_comp_fmadd_ps(_v2, _tmp135b, _tmp135a));
-                    __m128 _tmp3m = _mm_comp_fmadd_ps(_v4, _tmp135c, _mm_comp_fmadd_ps(_v8, _tmp135b, _tmp135a));
-                    __m128 _tmp5m = _mm_add_ps(_mm_add_ps(_out0tm7, _tmp135a), _mm_comp_fmadd_ps(_v32, _tmp135b, _tmp135c));
+                    __m128 _tmp1m = _mm_comp_fmadd_ps(
+                                        _v16, _tmp135c, _mm_comp_fmadd_ps(_v2, _tmp135b, _tmp135a));
+                    __m128 _tmp3m = _mm_comp_fmadd_ps(
+                                        _v4, _tmp135c, _mm_comp_fmadd_ps(_v8, _tmp135b, _tmp135a));
+                    __m128 _tmp5m =
+                        _mm_add_ps(_mm_add_ps(_out0tm7, _tmp135a),
+                                   _mm_comp_fmadd_ps(_v32, _tmp135b, _tmp135c));
                     _mm_store_ps(tmp[1][m], _tmp1m);
                     _mm_store_ps(tmp[3][m], _tmp3m);
                     _mm_store_ps(tmp[5][m], _tmp5m);
@@ -296,8 +319,7 @@ static void conv3x3s1_winograd63_transform_output_pack4_sse(const Mat& top_blob_
                     output0_tm_7 += tiles * 4 * 8;
                 }
 
-                for (int m = 0; m < 6; m++)
-                {
+                for (int m = 0; m < 6; m++) {
                     __m128 _tmp00 = _mm_load_ps(tmp[m][0]);
                     __m128 _tmp01 = _mm_load_ps(tmp[m][1]);
                     __m128 _tmp02 = _mm_load_ps(tmp[m][2]);
@@ -316,16 +338,32 @@ static void conv3x3s1_winograd63_transform_output_pack4_sse(const Mat& top_blob_
                     __m128 _tmp024c = _mm_add_ps(_tmp05, _tmp06);
                     __m128 _tmp135c = _mm_sub_ps(_tmp05, _tmp06);
 
-                    __m128 _out00 = _mm_add_ps(_bias0, _mm_add_ps(_mm_add_ps(_tmp00, _tmp024a), _mm_comp_fmadd_ps(_v32, _tmp024c, _tmp024b)));
-                    __m128 _out02 = _mm_add_ps(_bias0, _mm_comp_fmadd_ps(_v8, _tmp024c, _mm_comp_fmadd_ps(_v4, _tmp024b, _tmp024a)));
-                    __m128 _out04 = _mm_add_ps(_bias0, _mm_comp_fmadd_ps(_v2, _tmp024c, _mm_comp_fmadd_ps(_v16, _tmp024b, _tmp024a)));
+                    __m128 _out00 = _mm_add_ps(
+                                        _bias0, _mm_add_ps(_mm_add_ps(_tmp00, _tmp024a),
+                                                           _mm_comp_fmadd_ps(_v32, _tmp024c, _tmp024b)));
+                    __m128 _out02 = _mm_add_ps(
+                                        _bias0,
+                                        _mm_comp_fmadd_ps(_v8, _tmp024c,
+                                                          _mm_comp_fmadd_ps(_v4, _tmp024b, _tmp024a)));
+                    __m128 _out04 = _mm_add_ps(
+                                        _bias0,
+                                        _mm_comp_fmadd_ps(_v2, _tmp024c,
+                                                          _mm_comp_fmadd_ps(_v16, _tmp024b, _tmp024a)));
                     _mm_store_ps(output0, _out00);
                     _mm_store_ps(output0 + 4 * 2, _out02);
                     _mm_store_ps(output0 + 4 * 4, _out04);
 
-                    __m128 _out01 = _mm_add_ps(_bias0, _mm_comp_fmadd_ps(_v16, _tmp135c, _mm_comp_fmadd_ps(_v2, _tmp135b, _tmp135a)));
-                    __m128 _out03 = _mm_add_ps(_bias0, _mm_comp_fmadd_ps(_v4, _tmp135c, _mm_comp_fmadd_ps(_v8, _tmp135b, _tmp135a)));
-                    __m128 _out05 = _mm_add_ps(_bias0, _mm_add_ps(_mm_add_ps(_tmp07, _tmp135a), _mm_comp_fmadd_ps(_v32, _tmp135b, _tmp135c)));
+                    __m128 _out01 = _mm_add_ps(
+                                        _bias0,
+                                        _mm_comp_fmadd_ps(_v16, _tmp135c,
+                                                          _mm_comp_fmadd_ps(_v2, _tmp135b, _tmp135a)));
+                    __m128 _out03 = _mm_add_ps(
+                                        _bias0,
+                                        _mm_comp_fmadd_ps(_v4, _tmp135c,
+                                                          _mm_comp_fmadd_ps(_v8, _tmp135b, _tmp135a)));
+                    __m128 _out05 = _mm_add_ps(
+                                        _bias0, _mm_add_ps(_mm_add_ps(_tmp07, _tmp135a),
+                                                           _mm_comp_fmadd_ps(_v32, _tmp135b, _tmp135c)));
                     _mm_store_ps(output0 + 4, _out01);
                     _mm_store_ps(output0 + 4 * 3, _out03);
                     _mm_store_ps(output0 + 4 * 5, _out05);
@@ -337,8 +375,8 @@ static void conv3x3s1_winograd63_transform_output_pack4_sse(const Mat& top_blob_
     }
 }
 
-static void conv3x3s1_winograd43_transform_input_pack4_sse(const Mat& bottom_blob, Mat& bottom_blob_tm, const Option& opt)
-{
+static void conv3x3s1_winograd43_transform_input_pack4_sse(
+    const Mat &bottom_blob, Mat &bottom_blob_tm, const Option &opt) {
     const int w = bottom_blob.w;
     const int h = bottom_blob.h;
     const int inch = bottom_blob.c;
@@ -364,8 +402,7 @@ static void conv3x3s1_winograd43_transform_input_pack4_sse(const Mat& bottom_blo
     // 5 =  4 * r01 - 5 * r03 + r05
 
     #pragma omp parallel for num_threads(opt.num_threads)
-    for (int q = 0; q < inch; q++)
-    {
+    for (int q = 0; q < inch; q++) {
         const Mat img0 = bottom_blob.channel(q);
         Mat img0_tm = bottom_blob_tm.channel(q);
 
@@ -383,14 +420,11 @@ static void conv3x3s1_winograd43_transform_input_pack4_sse(const Mat& bottom_blo
         __m128 _v2 = _mm_set1_ps(2.f);
 
         // tile
-        for (int i = 0; i < h_tiles; i++)
-        {
-            for (int j = 0; j < w_tiles; j++)
-            {
-                const float* r0 = img0.row(i * 4) + (j * 4) * 4;
+        for (int i = 0; i < h_tiles; i++) {
+            for (int j = 0; j < w_tiles; j++) {
+                const float *r0 = img0.row(i * 4) + (j * 4) * 4;
 
-                for (int m = 0; m < 6; m++)
-                {
+                for (int m = 0; m < 6; m++) {
                     __m128 _r00 = _mm_load_ps(r0);
                     __m128 _r01 = _mm_load_ps(r0 + 4);
                     __m128 _r02 = _mm_load_ps(r0 + 4 * 2);
@@ -398,12 +432,18 @@ static void conv3x3s1_winograd43_transform_input_pack4_sse(const Mat& bottom_blo
                     __m128 _r04 = _mm_load_ps(r0 + 4 * 4);
                     __m128 _r05 = _mm_load_ps(r0 + 4 * 5);
 
-                    __m128 _tmp0m = _mm_comp_fmadd_ps(_vm5, _r02, _mm_comp_fmadd_ps(_v4, _r00, _r04));
-                    __m128 _tmp1m = _mm_comp_fmadd_ps(_vm4, _mm_add_ps(_r01, _r02), _mm_add_ps(_r04, _r03));
-                    __m128 _tmp2m = _mm_comp_fmadd_ps(_v4, _mm_sub_ps(_r01, _r02), _mm_sub_ps(_r04, _r03));
-                    __m128 _tmp3m = _mm_comp_fmadd_ps(_vm2, _mm_sub_ps(_r01, _r03), _mm_sub_ps(_r04, _r02));
-                    __m128 _tmp4m = _mm_comp_fmadd_ps(_v2, _mm_sub_ps(_r01, _r03), _mm_sub_ps(_r04, _r02));
-                    __m128 _tmp5m = _mm_comp_fmadd_ps(_vm5, _r03, _mm_comp_fmadd_ps(_v4, _r01, _r05));
+                    __m128 _tmp0m =
+                        _mm_comp_fmadd_ps(_vm5, _r02, _mm_comp_fmadd_ps(_v4, _r00, _r04));
+                    __m128 _tmp1m = _mm_comp_fmadd_ps(_vm4, _mm_add_ps(_r01, _r02),
+                                                      _mm_add_ps(_r04, _r03));
+                    __m128 _tmp2m = _mm_comp_fmadd_ps(_v4, _mm_sub_ps(_r01, _r02),
+                                                      _mm_sub_ps(_r04, _r03));
+                    __m128 _tmp3m = _mm_comp_fmadd_ps(_vm2, _mm_sub_ps(_r01, _r03),
+                                                      _mm_sub_ps(_r04, _r02));
+                    __m128 _tmp4m = _mm_comp_fmadd_ps(_v2, _mm_sub_ps(_r01, _r03),
+                                                      _mm_sub_ps(_r04, _r02));
+                    __m128 _tmp5m =
+                        _mm_comp_fmadd_ps(_vm5, _r03, _mm_comp_fmadd_ps(_v4, _r01, _r05));
 
                     _mm_store_ps(tmp[0][m], _tmp0m);
                     _mm_store_ps(tmp[1][m], _tmp1m);
@@ -415,15 +455,14 @@ static void conv3x3s1_winograd43_transform_input_pack4_sse(const Mat& bottom_blo
                     r0 += w * 4;
                 }
 
-                float* r0_tm_0 = (float*)img0_tm + (i * w_tiles + j) * 4;
-                float* r0_tm_1 = r0_tm_0 + tiles * 4;
-                float* r0_tm_2 = r0_tm_0 + tiles * 4 * 2;
-                float* r0_tm_3 = r0_tm_0 + tiles * 4 * 3;
-                float* r0_tm_4 = r0_tm_0 + tiles * 4 * 4;
-                float* r0_tm_5 = r0_tm_0 + tiles * 4 * 5;
+                float *r0_tm_0 = (float *)img0_tm + (i * w_tiles + j) * 4;
+                float *r0_tm_1 = r0_tm_0 + tiles * 4;
+                float *r0_tm_2 = r0_tm_0 + tiles * 4 * 2;
+                float *r0_tm_3 = r0_tm_0 + tiles * 4 * 3;
+                float *r0_tm_4 = r0_tm_0 + tiles * 4 * 4;
+                float *r0_tm_5 = r0_tm_0 + tiles * 4 * 5;
 
-                for (int m = 0; m < 6; m++)
-                {
+                for (int m = 0; m < 6; m++) {
                     __m128 _tmp00 = _mm_load_ps(tmp[m][0]);
                     __m128 _tmp01 = _mm_load_ps(tmp[m][1]);
                     __m128 _tmp02 = _mm_load_ps(tmp[m][2]);
@@ -431,12 +470,18 @@ static void conv3x3s1_winograd43_transform_input_pack4_sse(const Mat& bottom_blo
                     __m128 _tmp04 = _mm_load_ps(tmp[m][4]);
                     __m128 _tmp05 = _mm_load_ps(tmp[m][5]);
 
-                    __m128 _r0tm0 = _mm_comp_fmadd_ps(_vm5, _tmp02, _mm_comp_fmadd_ps(_v4, _tmp00, _tmp04));
-                    __m128 _r0tm1 = _mm_comp_fmadd_ps(_vm4, _mm_add_ps(_tmp01, _tmp02), _mm_add_ps(_tmp04, _tmp03));
-                    __m128 _r0tm2 = _mm_comp_fmadd_ps(_v4, _mm_sub_ps(_tmp01, _tmp02), _mm_sub_ps(_tmp04, _tmp03));
-                    __m128 _r0tm3 = _mm_comp_fmadd_ps(_vm2, _mm_sub_ps(_tmp01, _tmp03), _mm_sub_ps(_tmp04, _tmp02));
-                    __m128 _r0tm4 = _mm_comp_fmadd_ps(_v2, _mm_sub_ps(_tmp01, _tmp03), _mm_sub_ps(_tmp04, _tmp02));
-                    __m128 _r0tm5 = _mm_comp_fmadd_ps(_vm5, _tmp03, _mm_comp_fmadd_ps(_v4, _tmp01, _tmp05));
+                    __m128 _r0tm0 = _mm_comp_fmadd_ps(
+                                        _vm5, _tmp02, _mm_comp_fmadd_ps(_v4, _tmp00, _tmp04));
+                    __m128 _r0tm1 = _mm_comp_fmadd_ps(_vm4, _mm_add_ps(_tmp01, _tmp02),
+                                                      _mm_add_ps(_tmp04, _tmp03));
+                    __m128 _r0tm2 = _mm_comp_fmadd_ps(_v4, _mm_sub_ps(_tmp01, _tmp02),
+                                                      _mm_sub_ps(_tmp04, _tmp03));
+                    __m128 _r0tm3 = _mm_comp_fmadd_ps(_vm2, _mm_sub_ps(_tmp01, _tmp03),
+                                                      _mm_sub_ps(_tmp04, _tmp02));
+                    __m128 _r0tm4 = _mm_comp_fmadd_ps(_v2, _mm_sub_ps(_tmp01, _tmp03),
+                                                      _mm_sub_ps(_tmp04, _tmp02));
+                    __m128 _r0tm5 = _mm_comp_fmadd_ps(
+                                        _vm5, _tmp03, _mm_comp_fmadd_ps(_v4, _tmp01, _tmp05));
 
                     _mm_store_ps(r0_tm_0, _r0tm0);
                     _mm_store_ps(r0_tm_1, _r0tm1);
@@ -457,8 +502,8 @@ static void conv3x3s1_winograd43_transform_input_pack4_sse(const Mat& bottom_blo
     }
 }
 
-static void conv3x3s1_winograd43_transform_output_pack4_sse(const Mat& top_blob_tm, Mat& top_blob, const Mat& bias, const Option& opt)
-{
+static void conv3x3s1_winograd43_transform_output_pack4_sse(
+    const Mat &top_blob_tm, Mat &top_blob, const Mat &bias, const Option &opt) {
     const int outw = top_blob.w;
     const int outh = top_blob.h;
     const int outch = top_blob.c;
@@ -467,7 +512,7 @@ static void conv3x3s1_winograd43_transform_output_pack4_sse(const Mat& top_blob_
     const int h_tiles = outh / 4;
     const int tiles = w_tiles * h_tiles;
 
-    const float* biasptr = bias;
+    const float *biasptr = bias;
 
     // const float otm[4][6] = {
     //     {1.0f, 1.0f,  1.0f, 1.0f,  1.0f, 0.0f},
@@ -482,8 +527,7 @@ static void conv3x3s1_winograd43_transform_output_pack4_sse(const Mat& top_blob_
     // 3 = r05 + (r01 - r02) + (r03 - r04) * 8
 
     #pragma omp parallel for num_threads(opt.num_threads)
-    for (int p = 0; p < outch; p++)
-    {
+    for (int p = 0; p < outch; p++) {
         const Mat out0_tm = top_blob_tm.channel(p);
         Mat out0 = top_blob.channel(p);
 
@@ -501,21 +545,19 @@ static void conv3x3s1_winograd43_transform_output_pack4_sse(const Mat& top_blob_
         __m128 _v8 = _mm_set1_ps(8.f);
 
         // tile
-        for (int i = 0; i < h_tiles; i++)
-        {
-            for (int j = 0; j < w_tiles; j++)
-            {
-                const float* output0_tm_0 = (const float*)out0_tm + (i * w_tiles + j) * 4;
-                const float* output0_tm_1 = output0_tm_0 + tiles * 4;
-                const float* output0_tm_2 = output0_tm_0 + tiles * 4 * 2;
-                const float* output0_tm_3 = output0_tm_0 + tiles * 4 * 3;
-                const float* output0_tm_4 = output0_tm_0 + tiles * 4 * 4;
-                const float* output0_tm_5 = output0_tm_0 + tiles * 4 * 5;
+        for (int i = 0; i < h_tiles; i++) {
+            for (int j = 0; j < w_tiles; j++) {
+                const float *output0_tm_0 =
+                    (const float *)out0_tm + (i * w_tiles + j) * 4;
+                const float *output0_tm_1 = output0_tm_0 + tiles * 4;
+                const float *output0_tm_2 = output0_tm_0 + tiles * 4 * 2;
+                const float *output0_tm_3 = output0_tm_0 + tiles * 4 * 3;
+                const float *output0_tm_4 = output0_tm_0 + tiles * 4 * 4;
+                const float *output0_tm_5 = output0_tm_0 + tiles * 4 * 5;
 
-                float* output0 = out0.row(i * 4) + (j * 4) * 4;
+                float *output0 = out0.row(i * 4) + (j * 4) * 4;
 
-                for (int m = 0; m < 6; m++)
-                {
+                for (int m = 0; m < 6; m++) {
                     __m128 _out0tm0 = _mm_load_ps(output0_tm_0);
                     __m128 _out0tm1 = _mm_load_ps(output0_tm_1);
                     __m128 _out0tm2 = _mm_load_ps(output0_tm_2);
@@ -532,7 +574,8 @@ static void conv3x3s1_winograd43_transform_output_pack4_sse(const Mat& top_blob_
                     __m128 _tmp0m = _mm_add_ps(_mm_add_ps(_out0tm0, _tmp02a), _tmp02b);
                     __m128 _tmp1m = _mm_comp_fmadd_ps(_v2, _tmp13b, _tmp13a);
                     __m128 _tmp2m = _mm_comp_fmadd_ps(_v4, _tmp02b, _tmp02a);
-                    __m128 _tmp3m = _mm_comp_fmadd_ps(_v8, _tmp13b, _mm_add_ps(_out0tm5, _tmp13a));
+                    __m128 _tmp3m =
+                        _mm_comp_fmadd_ps(_v8, _tmp13b, _mm_add_ps(_out0tm5, _tmp13a));
 
                     _mm_store_ps(tmp[0][m], _tmp0m);
                     _mm_store_ps(tmp[1][m], _tmp1m);
@@ -547,8 +590,7 @@ static void conv3x3s1_winograd43_transform_output_pack4_sse(const Mat& top_blob_
                     output0_tm_5 += tiles * 4 * 6;
                 }
 
-                for (int m = 0; m < 4; m++)
-                {
+                for (int m = 0; m < 4; m++) {
                     __m128 _tmp00 = _mm_load_ps(tmp[m][0]);
                     __m128 _tmp01 = _mm_load_ps(tmp[m][1]);
                     __m128 _tmp02 = _mm_load_ps(tmp[m][2]);
@@ -562,10 +604,15 @@ static void conv3x3s1_winograd43_transform_output_pack4_sse(const Mat& top_blob_
                     __m128 _tmp02b = _mm_add_ps(_tmp03, _tmp04);
                     __m128 _tmp13b = _mm_sub_ps(_tmp03, _tmp04);
 
-                    __m128 _out00 = _mm_add_ps(_bias0, _mm_add_ps(_mm_add_ps(_tmp00, _tmp02a), _tmp02b));
-                    __m128 _out01 = _mm_add_ps(_bias0, _mm_comp_fmadd_ps(_v2, _tmp13b, _tmp13a));
-                    __m128 _out02 = _mm_add_ps(_bias0, _mm_comp_fmadd_ps(_v4, _tmp02b, _tmp02a));
-                    __m128 _out03 = _mm_add_ps(_bias0, _mm_comp_fmadd_ps(_v8, _tmp13b, _mm_add_ps(_tmp05, _tmp13a)));
+                    __m128 _out00 = _mm_add_ps(
+                                        _bias0, _mm_add_ps(_mm_add_ps(_tmp00, _tmp02a), _tmp02b));
+                    __m128 _out01 =
+                        _mm_add_ps(_bias0, _mm_comp_fmadd_ps(_v2, _tmp13b, _tmp13a));
+                    __m128 _out02 =
+                        _mm_add_ps(_bias0, _mm_comp_fmadd_ps(_v4, _tmp02b, _tmp02a));
+                    __m128 _out03 = _mm_add_ps(
+                                        _bias0,
+                                        _mm_comp_fmadd_ps(_v8, _tmp13b, _mm_add_ps(_tmp05, _tmp13a)));
 
                     _mm_store_ps(output0, _out00);
                     _mm_store_ps(output0 + 4, _out01);
@@ -579,8 +626,8 @@ static void conv3x3s1_winograd43_transform_output_pack4_sse(const Mat& top_blob_
     }
 }
 
-static void conv3x3s1_winograd23_transform_input_pack4_sse(const Mat& bottom_blob, Mat& bottom_blob_tm, const Option& opt)
-{
+static void conv3x3s1_winograd23_transform_input_pack4_sse(
+    const Mat &bottom_blob, Mat &bottom_blob_tm, const Option &opt) {
     const int w = bottom_blob.w;
     const int h = bottom_blob.h;
     const int inch = bottom_blob.c;
@@ -602,8 +649,7 @@ static void conv3x3s1_winograd23_transform_input_pack4_sse(const Mat& bottom_blo
     // 3 = r03 - r01
 
     #pragma omp parallel for num_threads(opt.num_threads)
-    for (int q = 0; q < inch; q++)
-    {
+    for (int q = 0; q < inch; q++) {
         const Mat img0 = bottom_blob.channel(q);
         Mat img0_tm = bottom_blob_tm.channel(q);
 
@@ -615,14 +661,11 @@ static void conv3x3s1_winograd23_transform_input_pack4_sse(const Mat& bottom_blo
         float tmp[4][4][4];
 
         // tile
-        for (int i = 0; i < h_tiles; i++)
-        {
-            for (int j = 0; j < w_tiles; j++)
-            {
-                const float* r0 = img0.row(i * 2) + (j * 2) * 4;
+        for (int i = 0; i < h_tiles; i++) {
+            for (int j = 0; j < w_tiles; j++) {
+                const float *r0 = img0.row(i * 2) + (j * 2) * 4;
 
-                for (int m = 0; m < 4; m++)
-                {
+                for (int m = 0; m < 4; m++) {
                     __m128 _r00 = _mm_load_ps(r0);
                     __m128 _r01 = _mm_load_ps(r0 + 4);
                     __m128 _r02 = _mm_load_ps(r0 + 4 * 2);
@@ -641,13 +684,12 @@ static void conv3x3s1_winograd23_transform_input_pack4_sse(const Mat& bottom_blo
                     r0 += w * 4;
                 }
 
-                float* r0_tm_0 = (float*)img0_tm + (i * w_tiles + j) * 4;
-                float* r0_tm_1 = r0_tm_0 + tiles * 4;
-                float* r0_tm_2 = r0_tm_0 + tiles * 4 * 2;
-                float* r0_tm_3 = r0_tm_0 + tiles * 4 * 3;
+                float *r0_tm_0 = (float *)img0_tm + (i * w_tiles + j) * 4;
+                float *r0_tm_1 = r0_tm_0 + tiles * 4;
+                float *r0_tm_2 = r0_tm_0 + tiles * 4 * 2;
+                float *r0_tm_3 = r0_tm_0 + tiles * 4 * 3;
 
-                for (int m = 0; m < 4; m++)
-                {
+                for (int m = 0; m < 4; m++) {
                     __m128 _tmp00 = _mm_load_ps(tmp[m][0]);
                     __m128 _tmp01 = _mm_load_ps(tmp[m][1]);
                     __m128 _tmp02 = _mm_load_ps(tmp[m][2]);
@@ -673,8 +715,8 @@ static void conv3x3s1_winograd23_transform_input_pack4_sse(const Mat& bottom_blo
     }
 }
 
-static void conv3x3s1_winograd23_transform_output_pack4_sse(const Mat& top_blob_tm, Mat& top_blob, const Mat& bias, const Option& opt)
-{
+static void conv3x3s1_winograd23_transform_output_pack4_sse(
+    const Mat &top_blob_tm, Mat &top_blob, const Mat &bias, const Option &opt) {
     const int outw = top_blob.w;
     const int outh = top_blob.h;
     const int outch = top_blob.c;
@@ -683,7 +725,7 @@ static void conv3x3s1_winograd23_transform_output_pack4_sse(const Mat& top_blob_
     const int h_tiles = outh / 2;
     const int tiles = w_tiles * h_tiles;
 
-    const float* biasptr = bias;
+    const float *biasptr = bias;
 
     // const float otm[2][4] = {
     //     {1.0f,  1.0f,  1.0f,  0.0f},
@@ -694,8 +736,7 @@ static void conv3x3s1_winograd23_transform_output_pack4_sse(const Mat& top_blob_
     // 1 = r01 - r02 + r03
 
     #pragma omp parallel for num_threads(opt.num_threads)
-    for (int p = 0; p < outch; p++)
-    {
+    for (int p = 0; p < outch; p++) {
         const Mat out0_tm = top_blob_tm.channel(p);
         Mat out0 = top_blob.channel(p);
 
@@ -709,19 +750,17 @@ static void conv3x3s1_winograd23_transform_output_pack4_sse(const Mat& top_blob_
         float tmp[2][4][4];
 
         // tile
-        for (int i = 0; i < h_tiles; i++)
-        {
-            for (int j = 0; j < w_tiles; j++)
-            {
-                const float* output0_tm_0 = (const float*)out0_tm + (i * w_tiles + j) * 4;
-                const float* output0_tm_1 = output0_tm_0 + tiles * 4;
-                const float* output0_tm_2 = output0_tm_0 + tiles * 4 * 2;
-                const float* output0_tm_3 = output0_tm_0 + tiles * 4 * 3;
+        for (int i = 0; i < h_tiles; i++) {
+            for (int j = 0; j < w_tiles; j++) {
+                const float *output0_tm_0 =
+                    (const float *)out0_tm + (i * w_tiles + j) * 4;
+                const float *output0_tm_1 = output0_tm_0 + tiles * 4;
+                const float *output0_tm_2 = output0_tm_0 + tiles * 4 * 2;
+                const float *output0_tm_3 = output0_tm_0 + tiles * 4 * 3;
 
-                float* output0 = out0.row(i * 2) + (j * 2) * 4;
+                float *output0 = out0.row(i * 2) + (j * 2) * 4;
 
-                for (int m = 0; m < 4; m++)
-                {
+                for (int m = 0; m < 4; m++) {
                     __m128 _out0tm0 = _mm_load_ps(output0_tm_0);
                     __m128 _out0tm1 = _mm_load_ps(output0_tm_1);
                     __m128 _out0tm2 = _mm_load_ps(output0_tm_2);
@@ -739,15 +778,16 @@ static void conv3x3s1_winograd23_transform_output_pack4_sse(const Mat& top_blob_
                     output0_tm_3 += tiles * 4 * 4;
                 }
 
-                for (int m = 0; m < 2; m++)
-                {
+                for (int m = 0; m < 2; m++) {
                     __m128 _tmp00 = _mm_load_ps(tmp[m][0]);
                     __m128 _tmp01 = _mm_load_ps(tmp[m][1]);
                     __m128 _tmp02 = _mm_load_ps(tmp[m][2]);
                     __m128 _tmp03 = _mm_load_ps(tmp[m][3]);
 
-                    __m128 _out00 = _mm_add_ps(_bias0, _mm_add_ps(_mm_add_ps(_tmp00, _tmp01), _tmp02));
-                    __m128 _out01 = _mm_add_ps(_bias0, _mm_add_ps(_mm_sub_ps(_tmp01, _tmp02), _tmp03));
+                    __m128 _out00 = _mm_add_ps(
+                                        _bias0, _mm_add_ps(_mm_add_ps(_tmp00, _tmp01), _tmp02));
+                    __m128 _out01 = _mm_add_ps(
+                                        _bias0, _mm_add_ps(_mm_sub_ps(_tmp01, _tmp02), _tmp03));
 
                     _mm_store_ps(output0, _out00);
                     _mm_store_ps(output0 + 4, _out01);

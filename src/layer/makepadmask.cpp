@@ -17,37 +17,37 @@
 namespace ncnn {
 
 MakePadMask::MakePadMask() {
-  one_blob_only = true;
-  support_inplace = false;
+    one_blob_only = true;
+    support_inplace = false;
 }
 
 int MakePadMask::forward(const Mat &bottom_blob, Mat &top_blob,
                          const Option &opt) const {
-  // NOTE: We assume the input data type is int32_t and the output data
-  // type is also int32_t. We may change them later.
-  int batch_size = bottom_blob.w;  // batch size
-  int max_len =
-      *std::max_element(static_cast<const int *>(bottom_blob),
-                        static_cast<const int *>(bottom_blob) + batch_size);
+    // NOTE: We assume the input data type is int32_t and the output data
+    // type is also int32_t. We may change them later.
+    int batch_size = bottom_blob.w;  // batch size
+    int max_len =
+        *std::max_element(static_cast<const int *>(bottom_blob),
+                          static_cast<const int *>(bottom_blob) + batch_size);
 
-  top_blob.create(max_len, batch_size, sizeof(int), opt.blob_allocator);
+    top_blob.create(max_len, batch_size, sizeof(int), opt.blob_allocator);
 
-  const int *ptr = bottom_blob;
+    const int *ptr = bottom_blob;
 
-#pragma omp parallel for num_threads(opt.num_threads)
-  for (int b = 0; b < batch_size; ++b) {
-    int *out_ptr = static_cast<int *>(top_blob) + b * max_len;
-    int size = ptr[b];
-    for (int c = 0; c != max_len; ++c) {
-      if (c < size) {
-        out_ptr[c] = 0;
-      } else {
-        out_ptr[c] = 1;
-      }
+    #pragma omp parallel for num_threads(opt.num_threads)
+    for (int b = 0; b < batch_size; ++b) {
+        int *out_ptr = static_cast<int *>(top_blob) + b * max_len;
+        int size = ptr[b];
+        for (int c = 0; c != max_len; ++c) {
+            if (c < size) {
+                out_ptr[c] = 0;
+            } else {
+                out_ptr[c] = 1;
+            }
+        }
     }
-  }
 
-  return 0;
+    return 0;
 }
 
 }  // namespace ncnn

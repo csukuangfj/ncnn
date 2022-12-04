@@ -1,16 +1,19 @@
-// Tencent is pleased to support the open source community by making ncnn available.
+// Tencent is pleased to support the open source community by making ncnn
+// available.
 //
 // Copyright (C) 2021 THL A29 Limited, a Tencent company. All rights reserved.
 //
-// Licensed under the BSD 3-Clause License (the "License"); you may not use this file except
-// in compliance with the License. You may obtain a copy of the License at
+// Licensed under the BSD 3-Clause License (the "License"); you may not use this
+// file except in compliance with the License. You may obtain a copy of the
+// License at
 //
 // https://opensource.org/licenses/BSD-3-Clause
 //
-// Unless required by applicable law or agreed to in writing, software distributed
-// under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
-// CONDITIONS OF ANY KIND, either express or implied. See the License for the
-// specific language governing permissions and limitations under the License.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+// WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+// License for the specific language governing permissions and limitations under
+// the License.
 
 #include "innerproduct_mips.h"
 
@@ -18,24 +21,23 @@
 
 #if __mips_msa
 #include <msa.h>
+
 #include "msa_mathfun.h"
-#endif // __mips_msa
+#endif  // __mips_msa
 
 #include "mips_activation.h"
 
 namespace ncnn {
 
-InnerProduct_mips::InnerProduct_mips()
-{
+InnerProduct_mips::InnerProduct_mips() {
 #if __mips_msa
     support_packing = true;
-#endif // __mips_msa
+#endif  // __mips_msa
 
     flatten = 0;
 }
 
-int InnerProduct_mips::create_pipeline(const Option& opt)
-{
+int InnerProduct_mips::create_pipeline(const Option &opt) {
     {
         flatten = ncnn::create_layer(ncnn::LayerType::Flatten);
 
@@ -47,15 +49,13 @@ int InnerProduct_mips::create_pipeline(const Option& opt)
     }
 
 #if NCNN_INT8
-    if (opt.use_int8_inference && weight_data.elemsize == (size_t)1u)
-    {
+    if (opt.use_int8_inference && weight_data.elemsize == (size_t)1u) {
         return create_pipeline_int8_mips(opt);
     }
 #endif
 
 #if __mips_msa
-    if (opt.use_fp16_storage)
-    {
+    if (opt.use_fp16_storage) {
         return create_pipeline_fp16s(opt);
     }
 #endif
@@ -65,14 +65,12 @@ int InnerProduct_mips::create_pipeline(const Option& opt)
     int out_elempack = 1;
 
 #if __mips_msa
-    if (opt.use_packing_layout)
-    {
+    if (opt.use_packing_layout) {
         out_elempack = num_output % 4 == 0 ? 4 : 1;
     }
-#endif // __mips_msa
+#endif  // __mips_msa
 
-    if (out_elempack == 4)
-    {
+    if (out_elempack == 4) {
         // src = inch-outch
         // dst = 4-inch-outch/4
         {
@@ -80,37 +78,29 @@ int InnerProduct_mips::create_pipeline(const Option& opt)
 
             weight_data_tm.create(num_input, num_output / 4, (size_t)4u * 4, 4);
 
-            for (int q = 0; q + 3 < num_output; q += 4)
-            {
-                float* g0 = weight_data_tm.row(q / 4);
+            for (int q = 0; q + 3 < num_output; q += 4) {
+                float *g0 = weight_data_tm.row(q / 4);
 
-                for (int p = 0; p < num_input; p++)
-                {
-                    for (int j = 0; j < 4; j++)
-                    {
+                for (int p = 0; p < num_input; p++) {
+                    for (int j = 0; j < 4; j++) {
                         *g0++ = weight_data_r2.row(q + j)[p];
                     }
                 }
             }
         }
-    }
-    else
-    {
+    } else {
         weight_data_tm = weight_data;
     }
 
-    if (opt.lightmode)
-    {
+    if (opt.lightmode) {
         weight_data.release();
     }
 
     return 0;
 }
 
-int InnerProduct_mips::destroy_pipeline(const Option& opt)
-{
-    if (flatten)
-    {
+int InnerProduct_mips::destroy_pipeline(const Option &opt) {
+    if (flatten) {
         flatten->destroy_pipeline(opt);
         delete flatten;
         flatten = 0;
@@ -119,63 +109,55 @@ int InnerProduct_mips::destroy_pipeline(const Option& opt)
     return 0;
 }
 
-int InnerProduct_mips::forward(const Mat& bottom_blob, Mat& top_blob, const Option& opt) const
-{
+int InnerProduct_mips::forward(const Mat &bottom_blob, Mat &top_blob,
+                               const Option &opt) const {
 #if NCNN_INT8
-    if (opt.use_int8_inference && int8_scale_term)
-    {
+    if (opt.use_int8_inference && int8_scale_term) {
         return forward_int8_mips(bottom_blob, top_blob, opt);
     }
 #endif
 
 #if __mips_msa
-    if (opt.use_fp16_storage)
-    {
+    if (opt.use_fp16_storage) {
         return forward_fp16s(bottom_blob, top_blob, opt);
     }
 #endif
 
     const int num_input = weight_data_size / num_output;
 
-    if (bottom_blob.dims == 2 && bottom_blob.w == num_input && bottom_blob.h * bottom_blob.elempack > 1)
-    {
+    if (bottom_blob.dims == 2 && bottom_blob.w == num_input &&
+            bottom_blob.h * bottom_blob.elempack > 1) {
         // gemm
         int h = bottom_blob.h;
         size_t elemsize = bottom_blob.elemsize;
         int elempack = bottom_blob.elempack;
 
         top_blob.create(num_output, h, elemsize, elempack, opt.blob_allocator);
-        if (top_blob.empty())
-            return -100;
+        if (top_blob.empty()) return -100;
 
         int num_output_elempack = 1;
 #if __mips_msa
-        if (opt.use_packing_layout)
-        {
+        if (opt.use_packing_layout) {
             num_output_elempack = num_output % 4 == 0 ? 4 : 1;
         }
 #endif
 
         #pragma omp parallel for num_threads(opt.num_threads)
-        for (int j = 0; j < h; j++)
-        {
+        for (int j = 0; j < h; j++) {
 #if __mips_msa
-            if (elempack == 4 && num_output_elempack == 4)
-            {
-                float* outptr = top_blob.row(j);
+            if (elempack == 4 && num_output_elempack == 4) {
+                float *outptr = top_blob.row(j);
 
-                for (int p = 0; p < num_output / num_output_elempack; p++)
-                {
-                    const float* kptr = weight_data_tm.row(p);
-                    const float* m = bottom_blob.row(j);
+                for (int p = 0; p < num_output / num_output_elempack; p++) {
+                    const float *kptr = weight_data_tm.row(p);
+                    const float *m = bottom_blob.row(j);
 
                     v4f32 _sum0 = (v4f32)__msa_fill_w(0);
                     v4f32 _sum1 = (v4f32)__msa_fill_w(0);
                     v4f32 _sum2 = (v4f32)__msa_fill_w(0);
                     v4f32 _sum3 = (v4f32)__msa_fill_w(0);
 
-                    if (bias_term)
-                    {
+                    if (bias_term) {
                         _sum0 = __msa_fill_w_f32(bias_data[p * 4 + 0]);
                         _sum1 = __msa_fill_w_f32(bias_data[p * 4 + 1]);
                         _sum2 = __msa_fill_w_f32(bias_data[p * 4 + 2]);
@@ -183,8 +165,7 @@ int InnerProduct_mips::forward(const Mat& bottom_blob, Mat& top_blob, const Opti
                     }
 
                     int i = 0;
-                    for (; i < num_input; i++)
-                    {
+                    for (; i < num_input; i++) {
                         __builtin_prefetch(m + 16);
                         __builtin_prefetch(kptr + 16);
                         v4f32 _val = (v4f32)__msa_ld_w(m, 0);
@@ -211,28 +192,24 @@ int InnerProduct_mips::forward(const Mat& bottom_blob, Mat& top_blob, const Opti
                 }
             }
 
-            if (elempack == 1 && num_output_elempack == 4)
-            {
-                float* outptr = top_blob.row(j);
+            if (elempack == 1 && num_output_elempack == 4) {
+                float *outptr = top_blob.row(j);
 
-                for (int p = 0; p < num_output / num_output_elempack; p++)
-                {
-                    const float* kptr = weight_data_tm.row(p);
-                    const float* m = bottom_blob.row(j);
+                for (int p = 0; p < num_output / num_output_elempack; p++) {
+                    const float *kptr = weight_data_tm.row(p);
+                    const float *m = bottom_blob.row(j);
 
                     v4f32 _sum0 = (v4f32)__msa_fill_w(0);
                     v4f32 _sum1 = (v4f32)__msa_fill_w(0);
                     v4f32 _sum2 = (v4f32)__msa_fill_w(0);
                     v4f32 _sum3 = (v4f32)__msa_fill_w(0);
 
-                    if (bias_term)
-                    {
-                        _sum0 = (v4f32)__msa_ld_w((const float*)bias_data + p * 4, 0);
+                    if (bias_term) {
+                        _sum0 = (v4f32)__msa_ld_w((const float *)bias_data + p * 4, 0);
                     }
 
                     int i = 0;
-                    for (; i + 3 < num_input; i += 4)
-                    {
+                    for (; i + 3 < num_input; i += 4) {
                         __builtin_prefetch(m + 16);
                         __builtin_prefetch(kptr + 64);
                         v4i32 _val = __msa_ld_w(m, 0);
@@ -248,8 +225,7 @@ int InnerProduct_mips::forward(const Mat& bottom_blob, Mat& top_blob, const Opti
                         m += 4;
                         kptr += 16;
                     }
-                    for (; i < num_input; i++)
-                    {
+                    for (; i < num_input; i++) {
                         v4f32 _val = __msa_fill_w_f32(m[0]);
                         v4f32 _w = (v4f32)__msa_ld_w(kptr, 0);
                         _sum0 = __msa_fmadd_w(_sum0, _val, _w);
@@ -269,24 +245,20 @@ int InnerProduct_mips::forward(const Mat& bottom_blob, Mat& top_blob, const Opti
                 }
             }
 
-            if (elempack == 4 && num_output_elempack == 1)
-            {
-                float* outptr = top_blob.row(j);
+            if (elempack == 4 && num_output_elempack == 1) {
+                float *outptr = top_blob.row(j);
 
-                for (int p = 0; p < num_output; p++)
-                {
-                    const float* kptr = (const float*)weight_data_tm + num_input * p;
-                    const float* m = bottom_blob.row(j);
+                for (int p = 0; p < num_output; p++) {
+                    const float *kptr = (const float *)weight_data_tm + num_input * p;
+                    const float *m = bottom_blob.row(j);
 
                     v4f32 _sum = (v4f32)__msa_fill_w(0);
 
-                    if (bias_term)
-                    {
+                    if (bias_term) {
                         _sum = __msa_fill_w_f32(bias_data[p]);
                     }
 
-                    for (int i = 0; i < num_input; i++)
-                    {
+                    for (int i = 0; i < num_input; i++) {
                         __builtin_prefetch(m + 16);
                         __builtin_prefetch(kptr + 4);
                         v4f32 _val = (v4f32)__msa_ld_w(m, 0);
@@ -303,29 +275,25 @@ int InnerProduct_mips::forward(const Mat& bottom_blob, Mat& top_blob, const Opti
                     outptr += 4;
                 }
             }
-#endif // __mips_msa
+#endif  // __mips_msa
 
-            if (elempack == 1 && num_output_elempack == 1)
-            {
-                float* outptr = top_blob.row(j);
+            if (elempack == 1 && num_output_elempack == 1) {
+                float *outptr = top_blob.row(j);
 
-                for (int p = 0; p < num_output; p++)
-                {
-                    const float* kptr = (const float*)weight_data_tm + num_input * p;
-                    const float* m = bottom_blob.row(j);
+                for (int p = 0; p < num_output; p++) {
+                    const float *kptr = (const float *)weight_data_tm + num_input * p;
+                    const float *m = bottom_blob.row(j);
 
                     float sum = 0.f;
 
-                    if (bias_term)
-                    {
+                    if (bias_term) {
                         sum = bias_data[p];
                     }
 
                     int i = 0;
 #if __mips_msa
                     v4f32 _sum = (v4f32)__msa_fill_w(0);
-                    for (; i + 3 < num_input; i += 4)
-                    {
+                    for (; i + 3 < num_input; i += 4) {
                         __builtin_prefetch(m + 16);
                         __builtin_prefetch(kptr + 16);
                         v4f32 _m = (v4f32)__msa_ld_w(m, 0);
@@ -336,9 +304,8 @@ int InnerProduct_mips::forward(const Mat& bottom_blob, Mat& top_blob, const Opti
                         kptr += 4;
                     }
                     sum += __msa_reduce_fadd_w(_sum);
-#endif // __mips_msa
-                    for (; i < num_input; i++)
-                    {
+#endif  // __mips_msa
+                    for (; i < num_input; i++) {
                         sum += *m * *kptr;
 
                         m += 1;
@@ -358,8 +325,7 @@ int InnerProduct_mips::forward(const Mat& bottom_blob, Mat& top_blob, const Opti
 
     // flatten
     Mat bottom_blob_flattened = bottom_blob;
-    if (bottom_blob.dims != 1)
-    {
+    if (bottom_blob.dims != 1) {
         Option opt_flatten = opt;
         opt_flatten.blob_allocator = opt.workspace_allocator;
 
@@ -371,40 +337,35 @@ int InnerProduct_mips::forward(const Mat& bottom_blob, Mat& top_blob, const Opti
 
     int out_elempack = 1;
 #if __mips_msa
-    if (opt.use_packing_layout)
-    {
+    if (opt.use_packing_layout) {
         out_elempack = num_output % 4 == 0 ? 4 : 1;
     }
-#endif // __mips_msa
+#endif  // __mips_msa
     size_t out_elemsize = elemsize / elempack * out_elempack;
 
-    top_blob.create(num_output / out_elempack, out_elemsize, out_elempack, opt.blob_allocator);
-    if (top_blob.empty())
-        return -100;
+    top_blob.create(num_output / out_elempack, out_elemsize, out_elempack,
+                    opt.blob_allocator);
+    if (top_blob.empty()) return -100;
 
 #if __mips_msa
-    if (out_elempack == 4)
-    {
+    if (out_elempack == 4) {
         #pragma omp parallel for num_threads(opt.num_threads)
-        for (int p = 0; p < num_output / out_elempack; p++)
-        {
+        for (int p = 0; p < num_output / out_elempack; p++) {
             v4f32 _sum0 = (v4f32)__msa_fill_w(0);
             v4f32 _sum1 = (v4f32)__msa_fill_w(0);
             v4f32 _sum2 = (v4f32)__msa_fill_w(0);
             v4f32 _sum3 = (v4f32)__msa_fill_w(0);
 
-            if (bias_term)
-            {
-                _sum0 = (v4f32)__msa_ld_w((const float*)bias_data + p * 4, 0);
+            if (bias_term) {
+                _sum0 = (v4f32)__msa_ld_w((const float *)bias_data + p * 4, 0);
             }
 
-            const float* kptr = weight_data_tm.row(p);
+            const float *kptr = weight_data_tm.row(p);
 
-            const float* sptr = bottom_blob_flattened;
+            const float *sptr = bottom_blob_flattened;
 
             int i = 0;
-            for (; i + 3 < num_input; i += 4)
-            {
+            for (; i + 3 < num_input; i += 4) {
                 __builtin_prefetch(sptr + 16);
                 __builtin_prefetch(kptr + 64);
                 v4i32 _val = __msa_ld_w(sptr, 0);
@@ -420,8 +381,7 @@ int InnerProduct_mips::forward(const Mat& bottom_blob, Mat& top_blob, const Opti
                 sptr += 4;
                 kptr += 16;
             }
-            for (; i < num_input; i++)
-            {
+            for (; i < num_input; i++) {
                 v4f32 _val = __msa_fill_w_f32(sptr[0]);
                 v4f32 _w = (v4f32)__msa_ld_w(kptr, 0);
                 _sum0 = __msa_fmadd_w(_sum0, _val, _w);
@@ -436,20 +396,18 @@ int InnerProduct_mips::forward(const Mat& bottom_blob, Mat& top_blob, const Opti
 
             _sum0 = activation_ps(_sum0, activation_type, activation_params);
 
-            float* outptr = top_blob;
+            float *outptr = top_blob;
             __msa_st_w((v4i32)_sum0, outptr + p * 4, 0);
         }
     }
-#endif // __mips_msa
+#endif  // __mips_msa
 
-    if (out_elempack == 1)
-    {
+    if (out_elempack == 1) {
         int nn_num_output = num_output / 4;
         int remain_num_output_start = nn_num_output * 4;
 
         #pragma omp parallel for num_threads(opt.num_threads)
-        for (int pp = 0; pp < nn_num_output; pp++)
-        {
+        for (int pp = 0; pp < nn_num_output; pp++) {
             int p = pp * 4;
 
             float sum0 = 0.f;
@@ -457,20 +415,19 @@ int InnerProduct_mips::forward(const Mat& bottom_blob, Mat& top_blob, const Opti
             float sum2 = 0.f;
             float sum3 = 0.f;
 
-            if (bias_term)
-            {
+            if (bias_term) {
                 sum0 = bias_data[p];
                 sum1 = bias_data[p + 1];
                 sum2 = bias_data[p + 2];
                 sum3 = bias_data[p + 3];
             }
 
-            const float* w0 = (const float*)weight_data_tm + num_input * p;
-            const float* w1 = (const float*)weight_data_tm + num_input * (p + 1);
-            const float* w2 = (const float*)weight_data_tm + num_input * (p + 2);
-            const float* w3 = (const float*)weight_data_tm + num_input * (p + 3);
+            const float *w0 = (const float *)weight_data_tm + num_input * p;
+            const float *w1 = (const float *)weight_data_tm + num_input * (p + 1);
+            const float *w2 = (const float *)weight_data_tm + num_input * (p + 2);
+            const float *w3 = (const float *)weight_data_tm + num_input * (p + 3);
 
-            const float* m = bottom_blob_flattened;
+            const float *m = bottom_blob_flattened;
 
             int i = 0;
 #if __mips_msa
@@ -478,8 +435,7 @@ int InnerProduct_mips::forward(const Mat& bottom_blob, Mat& top_blob, const Opti
             v4f32 _sum1 = (v4f32)__msa_fill_w(0);
             v4f32 _sum2 = (v4f32)__msa_fill_w(0);
             v4f32 _sum3 = (v4f32)__msa_fill_w(0);
-            for (; i + 3 < num_input; i += 4)
-            {
+            for (; i + 3 < num_input; i += 4) {
                 __builtin_prefetch(m + 16);
                 __builtin_prefetch(w0 + 16);
                 __builtin_prefetch(w1 + 16);
@@ -501,9 +457,8 @@ int InnerProduct_mips::forward(const Mat& bottom_blob, Mat& top_blob, const Opti
                 w2 += 4;
                 w3 += 4;
             }
-#endif // __mips_msa
-            for (; i < num_input; i++)
-            {
+#endif  // __mips_msa
+            for (; i < num_input; i++) {
                 sum0 += *m * *w0;
                 sum1 += *m * *w1;
                 sum2 += *m * *w2;
@@ -521,7 +476,7 @@ int InnerProduct_mips::forward(const Mat& bottom_blob, Mat& top_blob, const Opti
             sum1 += __msa_reduce_fadd_w(_sum1);
             sum2 += __msa_reduce_fadd_w(_sum2);
             sum3 += __msa_reduce_fadd_w(_sum3);
-#endif // __mips_msa
+#endif  // __mips_msa
 
             sum0 = activation_ss(sum0, activation_type, activation_params);
             sum1 = activation_ss(sum1, activation_type, activation_params);
@@ -536,22 +491,19 @@ int InnerProduct_mips::forward(const Mat& bottom_blob, Mat& top_blob, const Opti
 
         // num_output
         #pragma omp parallel for num_threads(opt.num_threads)
-        for (int p = remain_num_output_start; p < num_output; p++)
-        {
+        for (int p = remain_num_output_start; p < num_output; p++) {
             float sum = 0.f;
 
-            if (bias_term)
-                sum = bias_data[p];
+            if (bias_term) sum = bias_data[p];
 
-            const float* w = (const float*)weight_data_tm + num_input * p;
+            const float *w = (const float *)weight_data_tm + num_input * p;
 
-            const float* m = bottom_blob_flattened;
+            const float *m = bottom_blob_flattened;
 
             int i = 0;
 #if __mips_msa
             v4f32 _sum0 = (v4f32)__msa_fill_w(0);
-            for (; i + 3 < num_input; i += 4)
-            {
+            for (; i + 3 < num_input; i += 4) {
                 __builtin_prefetch(m + 16);
                 __builtin_prefetch(w + 16);
                 v4f32 _m = (v4f32)__msa_ld_w(m, 0);
@@ -562,9 +514,8 @@ int InnerProduct_mips::forward(const Mat& bottom_blob, Mat& top_blob, const Opti
                 w += 4;
             }
             sum += __msa_reduce_fadd_w(_sum0);
-#endif // __mips_msa
-            for (; i < num_input; i++)
-            {
+#endif  // __mips_msa
+            for (; i < num_input; i++) {
                 sum += *m * *w;
 
                 m++;
@@ -581,36 +532,31 @@ int InnerProduct_mips::forward(const Mat& bottom_blob, Mat& top_blob, const Opti
 }
 
 #if __mips_msa
-int InnerProduct_mips::create_pipeline_fp16s(const Option& opt)
-{
+int InnerProduct_mips::create_pipeline_fp16s(const Option &opt) {
     const int num_input = weight_data_size / num_output;
 
     int out_elempack = 1;
-    if (opt.use_packing_layout)
-    {
+    if (opt.use_packing_layout) {
         out_elempack = num_output % 4 == 0 ? 4 : 1;
     }
 
     // src = inch-outch
     // dst = pb-inch-outch/pb
-    if (out_elempack == 4)
-    {
+    if (out_elempack == 4) {
         Mat weight_data_r2 = weight_data.reshape(num_input, num_output);
 
         weight_data_tm.create(num_input, num_output / 4, (size_t)8u, 4);
 
-        for (int q = 0; q + 3 < num_output; q += 4)
-        {
-            unsigned short* g0 = weight_data_tm.row<unsigned short>(q / 4);
+        for (int q = 0; q + 3 < num_output; q += 4) {
+            unsigned short *g0 = weight_data_tm.row<unsigned short>(q / 4);
 
-            const float* k0 = weight_data_r2.row(q);
-            const float* k1 = weight_data_r2.row(q + 1);
-            const float* k2 = weight_data_r2.row(q + 2);
-            const float* k3 = weight_data_r2.row(q + 3);
+            const float *k0 = weight_data_r2.row(q);
+            const float *k1 = weight_data_r2.row(q + 1);
+            const float *k2 = weight_data_r2.row(q + 2);
+            const float *k3 = weight_data_r2.row(q + 3);
 
             int p = 0;
-            for (; p + 3 < num_input; p += 4)
-            {
+            for (; p + 3 < num_input; p += 4) {
                 // transpose 4x4
                 v4f32 _r0 = (v4f32)__msa_ld_w(k0, 0);
                 v4f32 _r1 = (v4f32)__msa_ld_w(k1, 0);
@@ -638,8 +584,7 @@ int InnerProduct_mips::create_pipeline_fp16s(const Option& opt)
                 k3 += 4;
                 g0 += 16;
             }
-            for (; p < num_input; p++)
-            {
+            for (; p < num_input; p++) {
                 g0[0] = float32_to_float16(*k0++);
                 g0[1] = float32_to_float16(*k1++);
                 g0[2] = float32_to_float16(*k2++);
@@ -649,60 +594,53 @@ int InnerProduct_mips::create_pipeline_fp16s(const Option& opt)
         }
     }
 
-    if (out_elempack == 1)
-    {
+    if (out_elempack == 1) {
         Mat weight_data_r2 = weight_data.reshape(num_input, num_output);
         ncnn::cast_float32_to_float16(weight_data_r2, weight_data_tm, opt);
     }
 
-    if (opt.lightmode)
-    {
+    if (opt.lightmode) {
         weight_data.release();
     }
 
     return 0;
 }
 
-int InnerProduct_mips::forward_fp16s(const Mat& bottom_blob, Mat& top_blob, const Option& opt) const
-{
+int InnerProduct_mips::forward_fp16s(const Mat &bottom_blob, Mat &top_blob,
+                                     const Option &opt) const {
     const int num_input = weight_data_size / num_output;
 
-    if (bottom_blob.dims == 2 && bottom_blob.w == num_input && bottom_blob.h * bottom_blob.elempack > 1)
-    {
+    if (bottom_blob.dims == 2 && bottom_blob.w == num_input &&
+            bottom_blob.h * bottom_blob.elempack > 1) {
         // gemm
         int h = bottom_blob.h;
         size_t elemsize = bottom_blob.elemsize;
         int elempack = bottom_blob.elempack;
 
         top_blob.create(num_output, h, elemsize, elempack, opt.blob_allocator);
-        if (top_blob.empty())
-            return -100;
+        if (top_blob.empty()) return -100;
 
         int num_output_elempack = 1;
-        if (opt.use_packing_layout)
-        {
+        if (opt.use_packing_layout) {
             num_output_elempack = num_output % 4 == 0 ? 4 : 1;
         }
 
         #pragma omp parallel for num_threads(opt.num_threads)
-        for (int j = 0; j < h; j++)
-        {
-            if (elempack == 4 && num_output_elempack == 4)
-            {
-                float* outptr = top_blob.row(j);
+        for (int j = 0; j < h; j++) {
+            if (elempack == 4 && num_output_elempack == 4) {
+                float *outptr = top_blob.row(j);
 
-                for (int p = 0; p < num_output / num_output_elempack; p++)
-                {
-                    const unsigned short* kptr = weight_data_tm.row<const unsigned short>(p);
-                    const float* m = bottom_blob.row(j);
+                for (int p = 0; p < num_output / num_output_elempack; p++) {
+                    const unsigned short *kptr =
+                        weight_data_tm.row<const unsigned short>(p);
+                    const float *m = bottom_blob.row(j);
 
                     v4f32 _sum0 = (v4f32)__msa_fill_w(0);
                     v4f32 _sum1 = (v4f32)__msa_fill_w(0);
                     v4f32 _sum2 = (v4f32)__msa_fill_w(0);
                     v4f32 _sum3 = (v4f32)__msa_fill_w(0);
 
-                    if (bias_term)
-                    {
+                    if (bias_term) {
                         _sum0 = __msa_fill_w_f32(bias_data[p * 4 + 0]);
                         _sum1 = __msa_fill_w_f32(bias_data[p * 4 + 1]);
                         _sum2 = __msa_fill_w_f32(bias_data[p * 4 + 2]);
@@ -710,8 +648,7 @@ int InnerProduct_mips::forward_fp16s(const Mat& bottom_blob, Mat& top_blob, cons
                     }
 
                     int i = 0;
-                    for (; i < num_input; i++)
-                    {
+                    for (; i < num_input; i++) {
                         __builtin_prefetch(m + 16);
                         __builtin_prefetch(kptr + 16);
                         v4f32 _val = (v4f32)__msa_ld_w(m, 0);
@@ -738,28 +675,25 @@ int InnerProduct_mips::forward_fp16s(const Mat& bottom_blob, Mat& top_blob, cons
                 }
             }
 
-            if (elempack == 1 && num_output_elempack == 4)
-            {
-                float* outptr = top_blob.row(j);
+            if (elempack == 1 && num_output_elempack == 4) {
+                float *outptr = top_blob.row(j);
 
-                for (int p = 0; p < num_output / num_output_elempack; p++)
-                {
-                    const unsigned short* kptr = weight_data_tm.row<const unsigned short>(p);
-                    const float* m = bottom_blob.row(j);
+                for (int p = 0; p < num_output / num_output_elempack; p++) {
+                    const unsigned short *kptr =
+                        weight_data_tm.row<const unsigned short>(p);
+                    const float *m = bottom_blob.row(j);
 
                     v4f32 _sum0 = (v4f32)__msa_fill_w(0);
                     v4f32 _sum1 = (v4f32)__msa_fill_w(0);
                     v4f32 _sum2 = (v4f32)__msa_fill_w(0);
                     v4f32 _sum3 = (v4f32)__msa_fill_w(0);
 
-                    if (bias_term)
-                    {
-                        _sum0 = (v4f32)__msa_ld_w((const float*)bias_data + p * 4, 0);
+                    if (bias_term) {
+                        _sum0 = (v4f32)__msa_ld_w((const float *)bias_data + p * 4, 0);
                     }
 
                     int i = 0;
-                    for (; i + 3 < num_input; i += 4)
-                    {
+                    for (; i + 3 < num_input; i += 4) {
                         __builtin_prefetch(m + 16);
                         __builtin_prefetch(kptr + 64);
                         v4i32 _val = __msa_ld_w(m, 0);
@@ -777,8 +711,7 @@ int InnerProduct_mips::forward_fp16s(const Mat& bottom_blob, Mat& top_blob, cons
                         m += 4;
                         kptr += 16;
                     }
-                    for (; i < num_input; i++)
-                    {
+                    for (; i < num_input; i++) {
                         v4f32 _val = __msa_fill_w_f32(m[0]);
                         v4f32 _w = __msa_fexupr_w(__msa_ld_h(kptr, 0));
                         _sum0 = __msa_fmadd_w(_sum0, _val, _w);
@@ -798,24 +731,21 @@ int InnerProduct_mips::forward_fp16s(const Mat& bottom_blob, Mat& top_blob, cons
                 }
             }
 
-            if (elempack == 4 && num_output_elempack == 1)
-            {
-                float* outptr = top_blob.row(j);
+            if (elempack == 4 && num_output_elempack == 1) {
+                float *outptr = top_blob.row(j);
 
-                for (int p = 0; p < num_output; p++)
-                {
-                    const unsigned short* kptr = weight_data_tm.row<const unsigned short>(p);
-                    const float* m = bottom_blob.row(j);
+                for (int p = 0; p < num_output; p++) {
+                    const unsigned short *kptr =
+                        weight_data_tm.row<const unsigned short>(p);
+                    const float *m = bottom_blob.row(j);
 
                     v4f32 _sum = (v4f32)__msa_fill_w(0);
 
-                    if (bias_term)
-                    {
+                    if (bias_term) {
                         _sum = __msa_fill_w_f32(bias_data[p]);
                     }
 
-                    for (int i = 0; i < num_input; i++)
-                    {
+                    for (int i = 0; i < num_input; i++) {
                         __builtin_prefetch(m + 16);
                         __builtin_prefetch(kptr + 4);
                         v4f32 _val = (v4f32)__msa_ld_w(m, 0);
@@ -833,26 +763,23 @@ int InnerProduct_mips::forward_fp16s(const Mat& bottom_blob, Mat& top_blob, cons
                 }
             }
 
-            if (elempack == 1 && num_output_elempack == 1)
-            {
-                float* outptr = top_blob.row(j);
+            if (elempack == 1 && num_output_elempack == 1) {
+                float *outptr = top_blob.row(j);
 
-                for (int p = 0; p < num_output; p++)
-                {
-                    const unsigned short* kptr = weight_data_tm.row<const unsigned short>(p);
-                    const float* m = bottom_blob.row(j);
+                for (int p = 0; p < num_output; p++) {
+                    const unsigned short *kptr =
+                        weight_data_tm.row<const unsigned short>(p);
+                    const float *m = bottom_blob.row(j);
 
                     float sum = 0.f;
 
-                    if (bias_term)
-                    {
+                    if (bias_term) {
                         sum = bias_data[p];
                     }
 
                     int i = 0;
                     v4f32 _sum = (v4f32)__msa_fill_w(0);
-                    for (; i + 3 < num_input; i += 4)
-                    {
+                    for (; i + 3 < num_input; i += 4) {
                         __builtin_prefetch(m + 16);
                         __builtin_prefetch(kptr + 16);
                         v4f32 _m = (v4f32)__msa_ld_w(m, 0);
@@ -863,8 +790,7 @@ int InnerProduct_mips::forward_fp16s(const Mat& bottom_blob, Mat& top_blob, cons
                         kptr += 4;
                     }
                     sum += __msa_reduce_fadd_w(_sum);
-                    for (; i < num_input; i++)
-                    {
+                    for (; i < num_input; i++) {
                         sum += *m * float16_to_float32(*kptr);
 
                         m += 1;
@@ -884,8 +810,7 @@ int InnerProduct_mips::forward_fp16s(const Mat& bottom_blob, Mat& top_blob, cons
 
     // flatten
     Mat bottom_blob_flattened = bottom_blob;
-    if (bottom_blob.dims != 1)
-    {
+    if (bottom_blob.dims != 1) {
         Option opt_flatten = opt;
         opt_flatten.blob_allocator = opt.workspace_allocator;
 
@@ -896,38 +821,33 @@ int InnerProduct_mips::forward_fp16s(const Mat& bottom_blob, Mat& top_blob, cons
     int elempack = bottom_blob_flattened.elempack;
 
     int out_elempack = 1;
-    if (opt.use_packing_layout)
-    {
+    if (opt.use_packing_layout) {
         out_elempack = num_output % 4 == 0 ? 4 : 1;
     }
     size_t out_elemsize = elemsize / elempack * out_elempack;
 
-    top_blob.create(num_output / out_elempack, out_elemsize, out_elempack, opt.blob_allocator);
-    if (top_blob.empty())
-        return -100;
+    top_blob.create(num_output / out_elempack, out_elemsize, out_elempack,
+                    opt.blob_allocator);
+    if (top_blob.empty()) return -100;
 
-    if (out_elempack == 4)
-    {
+    if (out_elempack == 4) {
         #pragma omp parallel for num_threads(opt.num_threads)
-        for (int p = 0; p < num_output / out_elempack; p++)
-        {
+        for (int p = 0; p < num_output / out_elempack; p++) {
             v4f32 _sum0 = (v4f32)__msa_fill_w(0);
             v4f32 _sum1 = (v4f32)__msa_fill_w(0);
             v4f32 _sum2 = (v4f32)__msa_fill_w(0);
             v4f32 _sum3 = (v4f32)__msa_fill_w(0);
 
-            if (bias_term)
-            {
-                _sum0 = (v4f32)__msa_ld_w((const float*)bias_data + p * 4, 0);
+            if (bias_term) {
+                _sum0 = (v4f32)__msa_ld_w((const float *)bias_data + p * 4, 0);
             }
 
-            const unsigned short* kptr = weight_data_tm.row<const unsigned short>(p);
+            const unsigned short *kptr = weight_data_tm.row<const unsigned short>(p);
 
-            const float* sptr = bottom_blob_flattened;
+            const float *sptr = bottom_blob_flattened;
 
             int i = 0;
-            for (; i + 3 < num_input; i += 4)
-            {
+            for (; i + 3 < num_input; i += 4) {
                 __builtin_prefetch(sptr + 16);
                 __builtin_prefetch(kptr + 64);
                 v4i32 _val = __msa_ld_w(sptr, 0);
@@ -945,8 +865,7 @@ int InnerProduct_mips::forward_fp16s(const Mat& bottom_blob, Mat& top_blob, cons
                 sptr += 4;
                 kptr += 16;
             }
-            for (; i < num_input; i++)
-            {
+            for (; i < num_input; i++) {
                 v4f32 _val = __msa_fill_w_f32(sptr[0]);
                 v4f32 _w = __msa_fexupr_w(__msa_ld_h(kptr, 0));
                 _sum0 = __msa_fmadd_w(_sum0, _val, _w);
@@ -961,19 +880,17 @@ int InnerProduct_mips::forward_fp16s(const Mat& bottom_blob, Mat& top_blob, cons
 
             _sum0 = activation_ps(_sum0, activation_type, activation_params);
 
-            float* outptr = top_blob;
+            float *outptr = top_blob;
             __msa_st_w((v4i32)_sum0, outptr + p * 4, 0);
         }
     }
 
-    if (out_elempack == 1)
-    {
+    if (out_elempack == 1) {
         int nn_num_output = num_output / 4;
         int remain_num_output_start = nn_num_output * 4;
 
         #pragma omp parallel for num_threads(opt.num_threads)
-        for (int pp = 0; pp < nn_num_output; pp++)
-        {
+        for (int pp = 0; pp < nn_num_output; pp++) {
             int p = pp * 4;
 
             float sum0 = 0.f;
@@ -981,28 +898,29 @@ int InnerProduct_mips::forward_fp16s(const Mat& bottom_blob, Mat& top_blob, cons
             float sum2 = 0.f;
             float sum3 = 0.f;
 
-            if (bias_term)
-            {
+            if (bias_term) {
                 sum0 = bias_data[p];
                 sum1 = bias_data[p + 1];
                 sum2 = bias_data[p + 2];
                 sum3 = bias_data[p + 3];
             }
 
-            const unsigned short* w0 = weight_data_tm.row<const unsigned short>(p);
-            const unsigned short* w1 = weight_data_tm.row<const unsigned short>(p + 1);
-            const unsigned short* w2 = weight_data_tm.row<const unsigned short>(p + 2);
-            const unsigned short* w3 = weight_data_tm.row<const unsigned short>(p + 3);
+            const unsigned short *w0 = weight_data_tm.row<const unsigned short>(p);
+            const unsigned short *w1 =
+                weight_data_tm.row<const unsigned short>(p + 1);
+            const unsigned short *w2 =
+                weight_data_tm.row<const unsigned short>(p + 2);
+            const unsigned short *w3 =
+                weight_data_tm.row<const unsigned short>(p + 3);
 
-            const float* m = bottom_blob_flattened;
+            const float *m = bottom_blob_flattened;
 
             int i = 0;
             v4f32 _sum0 = (v4f32)__msa_fill_w(0);
             v4f32 _sum1 = (v4f32)__msa_fill_w(0);
             v4f32 _sum2 = (v4f32)__msa_fill_w(0);
             v4f32 _sum3 = (v4f32)__msa_fill_w(0);
-            for (; i + 3 < num_input; i += 4)
-            {
+            for (; i + 3 < num_input; i += 4) {
                 __builtin_prefetch(m + 16);
                 __builtin_prefetch(w0 + 16);
                 __builtin_prefetch(w1 + 16);
@@ -1024,8 +942,7 @@ int InnerProduct_mips::forward_fp16s(const Mat& bottom_blob, Mat& top_blob, cons
                 w2 += 4;
                 w3 += 4;
             }
-            for (; i < num_input; i++)
-            {
+            for (; i < num_input; i++) {
                 sum0 += *m * float16_to_float32(*w0);
                 sum1 += *m * float16_to_float32(*w1);
                 sum2 += *m * float16_to_float32(*w2);
@@ -1056,21 +973,18 @@ int InnerProduct_mips::forward_fp16s(const Mat& bottom_blob, Mat& top_blob, cons
 
         // num_output
         #pragma omp parallel for num_threads(opt.num_threads)
-        for (int p = remain_num_output_start; p < num_output; p++)
-        {
+        for (int p = remain_num_output_start; p < num_output; p++) {
             float sum = 0.f;
 
-            if (bias_term)
-                sum = bias_data[p];
+            if (bias_term) sum = bias_data[p];
 
-            const unsigned short* w = weight_data_tm.row<const unsigned short>(p);
+            const unsigned short *w = weight_data_tm.row<const unsigned short>(p);
 
-            const float* m = bottom_blob_flattened;
+            const float *m = bottom_blob_flattened;
 
             int i = 0;
             v4f32 _sum0 = (v4f32)__msa_fill_w(0);
-            for (; i + 3 < num_input; i += 4)
-            {
+            for (; i + 3 < num_input; i += 4) {
                 __builtin_prefetch(m + 16);
                 __builtin_prefetch(w + 16);
                 v4f32 _m = (v4f32)__msa_ld_w(m, 0);
@@ -1081,8 +995,7 @@ int InnerProduct_mips::forward_fp16s(const Mat& bottom_blob, Mat& top_blob, cons
                 w += 4;
             }
             sum += __msa_reduce_fadd_w(_sum0);
-            for (; i < num_input; i++)
-            {
+            for (; i < num_input; i++) {
                 sum += *m * float16_to_float32(*w);
 
                 m++;
@@ -1097,36 +1010,32 @@ int InnerProduct_mips::forward_fp16s(const Mat& bottom_blob, Mat& top_blob, cons
 
     return 0;
 }
-#endif // __mips_msa
+#endif  // __mips_msa
 
 #if NCNN_INT8
-int InnerProduct_mips::create_pipeline_int8_mips(const Option& opt)
-{
+int InnerProduct_mips::create_pipeline_int8_mips(const Option &opt) {
     const int num_input = weight_data_size / num_output;
 
     int out_elempack = 1;
 #if __mips_msa
-    if (opt.use_packing_layout)
-    {
+    if (opt.use_packing_layout) {
         out_elempack = num_output % 8 == 0 ? 8 : 1;
     }
-#endif // __mips_msa
+#endif  // __mips_msa
 
     // src = inch-outch
     // dst = pb-inch-outch/pb
     {
         Mat weight_data_r2 = weight_data.reshape(num_input, num_output);
 
-        weight_data_tm.create(num_input, num_output / out_elempack, (size_t)out_elempack, out_elempack);
+        weight_data_tm.create(num_input, num_output / out_elempack,
+                              (size_t)out_elempack, out_elempack);
 
-        for (int q = 0; q + (out_elempack - 1) < num_output; q += out_elempack)
-        {
-            signed char* g0 = weight_data_tm.row<signed char>(q / out_elempack);
+        for (int q = 0; q + (out_elempack - 1) < num_output; q += out_elempack) {
+            signed char *g0 = weight_data_tm.row<signed char>(q / out_elempack);
 
-            for (int p = 0; p < num_input; p++)
-            {
-                for (int j = 0; j < out_elempack; j++)
-                {
+            for (int p = 0; p < num_input; p++) {
+                for (int j = 0; j < out_elempack; j++) {
                     *g0++ = weight_data_r2.row<signed char>(q + j)[p];
                 }
             }
@@ -1134,42 +1043,41 @@ int InnerProduct_mips::create_pipeline_int8_mips(const Option& opt)
     }
 
     scale_in_data.create(num_output);
-    for (int p = 0; p < num_output; p++)
-    {
+    for (int p = 0; p < num_output; p++) {
         // dequantize
         float scale_in;
         if (weight_data_int8_scales[p] == 0)
             scale_in = 0;
         else
-            scale_in = 1.f / (bottom_blob_int8_scales[0] * weight_data_int8_scales[p]);
+            scale_in =
+                1.f / (bottom_blob_int8_scales[0] * weight_data_int8_scales[p]);
 
         scale_in_data[p] = scale_in;
     }
 
-    if (opt.lightmode)
-    {
+    if (opt.lightmode) {
         weight_data.release();
     }
 
     return 0;
 }
 
-int InnerProduct_mips::forward_int8_mips(const Mat& bottom_blob, Mat& top_blob, const Option& opt) const
-{
+int InnerProduct_mips::forward_int8_mips(const Mat &bottom_blob, Mat &top_blob,
+        const Option &opt) const {
     const int num_input = weight_data_size / num_output;
 
     int elembits = bottom_blob.elembits();
 
     Mat bottom_blob_int8 = bottom_blob;
-    if (elembits != 8)
-    {
+    if (elembits != 8) {
         Option opt_q = opt;
         opt_q.blob_allocator = opt.workspace_allocator;
-        quantize_to_int8(bottom_blob, bottom_blob_int8, bottom_blob_int8_scales, opt_q);
+        quantize_to_int8(bottom_blob, bottom_blob_int8, bottom_blob_int8_scales,
+                         opt_q);
     }
 
-    if (bottom_blob_int8.dims == 2 && bottom_blob_int8.w == num_input && bottom_blob_int8.h * bottom_blob_int8.elempack > 1)
-    {
+    if (bottom_blob_int8.dims == 2 && bottom_blob_int8.w == num_input &&
+            bottom_blob_int8.h * bottom_blob_int8.elempack > 1) {
         // gemm
         Mat bottom_blob_int8_unpacked;
         Option opt_unpack = opt;
@@ -1180,41 +1088,40 @@ int InnerProduct_mips::forward_int8_mips(const Mat& bottom_blob, Mat& top_blob, 
 
         int out_elempack = 1;
 #if __mips_msa
-        if (opt.use_packing_layout)
-        {
+        if (opt.use_packing_layout) {
             out_elempack = h % 4 == 0 ? 4 : 1;
         }
 #endif
 
         int outh = h / out_elempack;
 
-        top_blob.create(num_output, outh, (size_t)(4u * out_elempack), out_elempack, opt.blob_allocator);
-        if (top_blob.empty())
-            return -100;
+        top_blob.create(num_output, outh, (size_t)(4u * out_elempack), out_elempack,
+                        opt.blob_allocator);
+        if (top_blob.empty()) return -100;
 
         int num_output_elempack = 1;
 #if __mips_msa
-        if (opt.use_packing_layout)
-        {
+        if (opt.use_packing_layout) {
             num_output_elempack = num_output % 8 == 0 ? 8 : 1;
         }
 #endif
 
 #if __mips_msa
-        if (num_output_elempack == 8 && out_elempack == 4)
-        {
+        if (num_output_elempack == 8 && out_elempack == 4) {
             #pragma omp parallel for num_threads(opt.num_threads)
-            for (int j = 0; j < outh; j++)
-            {
-                float* outptr = top_blob.row(j);
+            for (int j = 0; j < outh; j++) {
+                float *outptr = top_blob.row(j);
 
-                for (int p = 0; p < num_output / num_output_elempack; p++)
-                {
-                    const signed char* kptr = weight_data_tm.row<const signed char>(p);
-                    const signed char* m0 = bottom_blob_int8_unpacked.row<const signed char>(j * 4);
-                    const signed char* m1 = bottom_blob_int8_unpacked.row<const signed char>(j * 4 + 1);
-                    const signed char* m2 = bottom_blob_int8_unpacked.row<const signed char>(j * 4 + 2);
-                    const signed char* m3 = bottom_blob_int8_unpacked.row<const signed char>(j * 4 + 3);
+                for (int p = 0; p < num_output / num_output_elempack; p++) {
+                    const signed char *kptr = weight_data_tm.row<const signed char>(p);
+                    const signed char *m0 =
+                        bottom_blob_int8_unpacked.row<const signed char>(j * 4);
+                    const signed char *m1 =
+                        bottom_blob_int8_unpacked.row<const signed char>(j * 4 + 1);
+                    const signed char *m2 =
+                        bottom_blob_int8_unpacked.row<const signed char>(j * 4 + 2);
+                    const signed char *m3 =
+                        bottom_blob_int8_unpacked.row<const signed char>(j * 4 + 3);
 
                     v4i32 _sum00 = __msa_fill_w(0);
                     v4i32 _sum01 = __msa_fill_w(0);
@@ -1226,8 +1133,7 @@ int InnerProduct_mips::forward_int8_mips(const Mat& bottom_blob, Mat& top_blob, 
                     v4i32 _sum31 = __msa_fill_w(0);
 
                     int i = 0;
-                    for (; i < num_input; i++)
-                    {
+                    for (; i < num_input; i++) {
                         __builtin_prefetch(m0 + 4);
                         __builtin_prefetch(m1 + 4);
                         __builtin_prefetch(m2 + 4);
@@ -1275,8 +1181,10 @@ int InnerProduct_mips::forward_int8_mips(const Mat& bottom_blob, Mat& top_blob, 
                     }
 
                     // dequantize and relu
-                    v4f32 _scale_in0 = (v4f32)__msa_ld_w((const float*)scale_in_data + p * 8, 0);
-                    v4f32 _scale_in1 = (v4f32)__msa_ld_w((const float*)scale_in_data + p * 8 + 4, 0);
+                    v4f32 _scale_in0 =
+                        (v4f32)__msa_ld_w((const float *)scale_in_data + p * 8, 0);
+                    v4f32 _scale_in1 =
+                        (v4f32)__msa_ld_w((const float *)scale_in_data + p * 8 + 4, 0);
 
                     v4f32 _sumfp32_00 = (v4f32)__msa_ffint_s_w(_sum00);
                     v4f32 _sumfp32_01 = (v4f32)__msa_ffint_s_w(_sum01);
@@ -1286,10 +1194,11 @@ int InnerProduct_mips::forward_int8_mips(const Mat& bottom_blob, Mat& top_blob, 
                     v4f32 _sumfp32_21 = (v4f32)__msa_ffint_s_w(_sum21);
                     v4f32 _sumfp32_30 = (v4f32)__msa_ffint_s_w(_sum30);
                     v4f32 _sumfp32_31 = (v4f32)__msa_ffint_s_w(_sum31);
-                    if (bias_term)
-                    {
-                        v4f32 _bias0 = (v4f32)__msa_ld_w((const float*)bias_data + p * 8, 0);
-                        v4f32 _bias1 = (v4f32)__msa_ld_w((const float*)bias_data + p * 8 + 4, 0);
+                    if (bias_term) {
+                        v4f32 _bias0 =
+                            (v4f32)__msa_ld_w((const float *)bias_data + p * 8, 0);
+                        v4f32 _bias1 =
+                            (v4f32)__msa_ld_w((const float *)bias_data + p * 8 + 4, 0);
                         _sumfp32_00 = __msa_fmadd_w(_bias0, _sumfp32_00, _scale_in0);
                         _sumfp32_01 = __msa_fmadd_w(_bias1, _sumfp32_01, _scale_in1);
                         _sumfp32_10 = __msa_fmadd_w(_bias0, _sumfp32_10, _scale_in0);
@@ -1298,9 +1207,7 @@ int InnerProduct_mips::forward_int8_mips(const Mat& bottom_blob, Mat& top_blob, 
                         _sumfp32_21 = __msa_fmadd_w(_bias1, _sumfp32_21, _scale_in1);
                         _sumfp32_30 = __msa_fmadd_w(_bias0, _sumfp32_30, _scale_in0);
                         _sumfp32_31 = __msa_fmadd_w(_bias1, _sumfp32_31, _scale_in1);
-                    }
-                    else
-                    {
+                    } else {
                         _sumfp32_00 = __msa_fmul_w(_sumfp32_00, _scale_in0);
                         _sumfp32_01 = __msa_fmul_w(_sumfp32_01, _scale_in1);
                         _sumfp32_10 = __msa_fmul_w(_sumfp32_10, _scale_in0);
@@ -1311,14 +1218,22 @@ int InnerProduct_mips::forward_int8_mips(const Mat& bottom_blob, Mat& top_blob, 
                         _sumfp32_31 = __msa_fmul_w(_sumfp32_31, _scale_in1);
                     }
 
-                    _sumfp32_00 = activation_ps(_sumfp32_00, activation_type, activation_params);
-                    _sumfp32_01 = activation_ps(_sumfp32_01, activation_type, activation_params);
-                    _sumfp32_10 = activation_ps(_sumfp32_10, activation_type, activation_params);
-                    _sumfp32_11 = activation_ps(_sumfp32_11, activation_type, activation_params);
-                    _sumfp32_20 = activation_ps(_sumfp32_20, activation_type, activation_params);
-                    _sumfp32_21 = activation_ps(_sumfp32_21, activation_type, activation_params);
-                    _sumfp32_30 = activation_ps(_sumfp32_30, activation_type, activation_params);
-                    _sumfp32_31 = activation_ps(_sumfp32_31, activation_type, activation_params);
+                    _sumfp32_00 =
+                        activation_ps(_sumfp32_00, activation_type, activation_params);
+                    _sumfp32_01 =
+                        activation_ps(_sumfp32_01, activation_type, activation_params);
+                    _sumfp32_10 =
+                        activation_ps(_sumfp32_10, activation_type, activation_params);
+                    _sumfp32_11 =
+                        activation_ps(_sumfp32_11, activation_type, activation_params);
+                    _sumfp32_20 =
+                        activation_ps(_sumfp32_20, activation_type, activation_params);
+                    _sumfp32_21 =
+                        activation_ps(_sumfp32_21, activation_type, activation_params);
+                    _sumfp32_30 =
+                        activation_ps(_sumfp32_30, activation_type, activation_params);
+                    _sumfp32_31 =
+                        activation_ps(_sumfp32_31, activation_type, activation_params);
 
                     // transpose 4x8
                     v4i32 _r01r = __msa_ilvr_w((v4i32)_sumfp32_10, (v4i32)_sumfp32_00);
@@ -1352,20 +1267,21 @@ int InnerProduct_mips::forward_int8_mips(const Mat& bottom_blob, Mat& top_blob, 
             }
         }
 
-        if (num_output_elempack == 1 && out_elempack == 4)
-        {
+        if (num_output_elempack == 1 && out_elempack == 4) {
             #pragma omp parallel for num_threads(opt.num_threads)
-            for (int j = 0; j < outh; j++)
-            {
-                float* outptr = top_blob.row(j);
+            for (int j = 0; j < outh; j++) {
+                float *outptr = top_blob.row(j);
 
-                for (int p = 0; p < num_output; p++)
-                {
-                    const signed char* kptr = weight_data_tm.row<const signed char>(p);
-                    const signed char* m0 = bottom_blob_int8_unpacked.row<const signed char>(j * 4);
-                    const signed char* m1 = bottom_blob_int8_unpacked.row<const signed char>(j * 4 + 1);
-                    const signed char* m2 = bottom_blob_int8_unpacked.row<const signed char>(j * 4 + 2);
-                    const signed char* m3 = bottom_blob_int8_unpacked.row<const signed char>(j * 4 + 3);
+                for (int p = 0; p < num_output; p++) {
+                    const signed char *kptr = weight_data_tm.row<const signed char>(p);
+                    const signed char *m0 =
+                        bottom_blob_int8_unpacked.row<const signed char>(j * 4);
+                    const signed char *m1 =
+                        bottom_blob_int8_unpacked.row<const signed char>(j * 4 + 1);
+                    const signed char *m2 =
+                        bottom_blob_int8_unpacked.row<const signed char>(j * 4 + 2);
+                    const signed char *m3 =
+                        bottom_blob_int8_unpacked.row<const signed char>(j * 4 + 3);
 
                     int sum0 = 0;
                     int sum1 = 0;
@@ -1373,8 +1289,7 @@ int InnerProduct_mips::forward_int8_mips(const Mat& bottom_blob, Mat& top_blob, 
                     int sum3 = 0;
 
                     int i = 0;
-                    for (; i < num_input; i++)
-                    {
+                    for (; i < num_input; i++) {
                         sum0 += *m0++ * kptr[0];
                         sum1 += *m1++ * kptr[0];
                         sum2 += *m2++ * kptr[0];
@@ -1388,41 +1303,41 @@ int InnerProduct_mips::forward_int8_mips(const Mat& bottom_blob, Mat& top_blob, 
                     float sumfp32_2 = sum2 * scale_in_data[p];
                     float sumfp32_3 = sum3 * scale_in_data[p];
 
-                    if (bias_term)
-                    {
+                    if (bias_term) {
                         sumfp32_0 += bias_data[p];
                         sumfp32_1 += bias_data[p];
                         sumfp32_2 += bias_data[p];
                         sumfp32_3 += bias_data[p];
                     }
 
-                    outptr[0] = activation_ss(sumfp32_0, activation_type, activation_params);
-                    outptr[1] = activation_ss(sumfp32_1, activation_type, activation_params);
-                    outptr[2] = activation_ss(sumfp32_2, activation_type, activation_params);
-                    outptr[3] = activation_ss(sumfp32_3, activation_type, activation_params);
+                    outptr[0] =
+                        activation_ss(sumfp32_0, activation_type, activation_params);
+                    outptr[1] =
+                        activation_ss(sumfp32_1, activation_type, activation_params);
+                    outptr[2] =
+                        activation_ss(sumfp32_2, activation_type, activation_params);
+                    outptr[3] =
+                        activation_ss(sumfp32_3, activation_type, activation_params);
                     outptr += 4;
                 }
             }
         }
 
-        if (num_output_elempack == 8 && out_elempack == 1)
-        {
+        if (num_output_elempack == 8 && out_elempack == 1) {
             #pragma omp parallel for num_threads(opt.num_threads)
-            for (int j = 0; j < outh; j++)
-            {
-                float* outptr = top_blob.row(j);
+            for (int j = 0; j < outh; j++) {
+                float *outptr = top_blob.row(j);
 
-                for (int p = 0; p < num_output / num_output_elempack; p++)
-                {
-                    const signed char* kptr = weight_data_tm.row<const signed char>(p);
-                    const signed char* m = bottom_blob_int8_unpacked.row<const signed char>(j);
+                for (int p = 0; p < num_output / num_output_elempack; p++) {
+                    const signed char *kptr = weight_data_tm.row<const signed char>(p);
+                    const signed char *m =
+                        bottom_blob_int8_unpacked.row<const signed char>(j);
 
                     v4i32 _sum0 = __msa_fill_w(0);
                     v4i32 _sum1 = __msa_fill_w(0);
 
                     int i = 0;
-                    for (; i < num_input; i++)
-                    {
+                    for (; i < num_input; i++) {
                         __builtin_prefetch(m + 4);
                         __builtin_prefetch(kptr + 32);
                         v8i16 _val = __msa_fill_h((short)m[0]);
@@ -1443,27 +1358,30 @@ int InnerProduct_mips::forward_int8_mips(const Mat& bottom_blob, Mat& top_blob, 
                     }
 
                     // dequantize and relu
-                    v4f32 _scale_in0 = (v4f32)__msa_ld_w((const float*)scale_in_data + p * 8, 0);
-                    v4f32 _scale_in1 = (v4f32)__msa_ld_w((const float*)scale_in_data + p * 8 + 4, 0);
+                    v4f32 _scale_in0 =
+                        (v4f32)__msa_ld_w((const float *)scale_in_data + p * 8, 0);
+                    v4f32 _scale_in1 =
+                        (v4f32)__msa_ld_w((const float *)scale_in_data + p * 8 + 4, 0);
 
                     v4f32 _sumfp32_0 = (v4f32)__msa_ffint_s_w(_sum0);
                     v4f32 _sumfp32_1 = (v4f32)__msa_ffint_s_w(_sum1);
 
-                    if (bias_term)
-                    {
-                        v4f32 _bias0 = (v4f32)__msa_ld_w((const float*)bias_data + p * 8, 0);
-                        v4f32 _bias1 = (v4f32)__msa_ld_w((const float*)bias_data + p * 8 + 4, 0);
+                    if (bias_term) {
+                        v4f32 _bias0 =
+                            (v4f32)__msa_ld_w((const float *)bias_data + p * 8, 0);
+                        v4f32 _bias1 =
+                            (v4f32)__msa_ld_w((const float *)bias_data + p * 8 + 4, 0);
                         _sumfp32_0 = __msa_fmadd_w(_bias0, _sumfp32_0, _scale_in0);
                         _sumfp32_1 = __msa_fmadd_w(_bias1, _sumfp32_1, _scale_in1);
-                    }
-                    else
-                    {
+                    } else {
                         _sumfp32_0 = __msa_fmul_w(_sumfp32_0, _scale_in0);
                         _sumfp32_1 = __msa_fmul_w(_sumfp32_1, _scale_in1);
                     }
 
-                    _sumfp32_0 = activation_ps(_sumfp32_0, activation_type, activation_params);
-                    _sumfp32_1 = activation_ps(_sumfp32_1, activation_type, activation_params);
+                    _sumfp32_0 =
+                        activation_ps(_sumfp32_0, activation_type, activation_params);
+                    _sumfp32_1 =
+                        activation_ps(_sumfp32_1, activation_type, activation_params);
 
                     __msa_st_w((v4i32)_sumfp32_0, outptr, 0);
                     __msa_st_w((v4i32)_sumfp32_1, outptr + 4, 0);
@@ -1471,35 +1389,32 @@ int InnerProduct_mips::forward_int8_mips(const Mat& bottom_blob, Mat& top_blob, 
                 }
             }
         }
-#endif // __mips_msa
+#endif  // __mips_msa
 
-        if (num_output_elempack == 1 && out_elempack == 1)
-        {
+        if (num_output_elempack == 1 && out_elempack == 1) {
             #pragma omp parallel for num_threads(opt.num_threads)
-            for (int j = 0; j < outh; j++)
-            {
-                float* outptr = top_blob.row(j);
+            for (int j = 0; j < outh; j++) {
+                float *outptr = top_blob.row(j);
 
-                for (int p = 0; p < num_output; p++)
-                {
-                    const signed char* kptr = weight_data_tm.row<const signed char>(p);
-                    const signed char* m = bottom_blob_int8_unpacked.row<const signed char>(j);
+                for (int p = 0; p < num_output; p++) {
+                    const signed char *kptr = weight_data_tm.row<const signed char>(p);
+                    const signed char *m =
+                        bottom_blob_int8_unpacked.row<const signed char>(j);
 
                     int sum = 0;
 
                     int i = 0;
-                    for (; i < num_input; i++)
-                    {
+                    for (; i < num_input; i++) {
                         sum += *m++ * *kptr++;
                     }
 
                     // dequantize and relu
                     float sumfp32 = sum * scale_in_data[p];
 
-                    if (bias_term)
-                        sumfp32 += bias_data[p];
+                    if (bias_term) sumfp32 += bias_data[p];
 
-                    outptr[0] = activation_ss(sumfp32, activation_type, activation_params);
+                    outptr[0] =
+                        activation_ss(sumfp32, activation_type, activation_params);
                     outptr += 1;
                 }
             }
@@ -1509,8 +1424,7 @@ int InnerProduct_mips::forward_int8_mips(const Mat& bottom_blob, Mat& top_blob, 
     }
 
     Mat bottom_blob_int8_flattened = bottom_blob_int8;
-    if (bottom_blob_int8.dims != 1)
-    {
+    if (bottom_blob_int8.dims != 1) {
         Option opt_flatten = opt;
         opt_flatten.blob_allocator = opt.workspace_allocator;
         flatten->forward(bottom_blob_int8, bottom_blob_int8_flattened, opt_flatten);
@@ -1520,32 +1434,28 @@ int InnerProduct_mips::forward_int8_mips(const Mat& bottom_blob, Mat& top_blob, 
 
     int out_elempack = 1;
 #if __mips_msa
-    if (opt.use_packing_layout)
-    {
+    if (opt.use_packing_layout) {
         out_elempack = num_output % 8 == 0 ? 8 : 1;
     }
-#endif // __mips_msa
+#endif  // __mips_msa
     //     size_t out_elemsize = elemsize / elempack * out_elempack;
 
-    top_blob.create(num_output / out_elempack, (size_t)(4u * out_elempack), out_elempack, opt.blob_allocator);
-    if (top_blob.empty())
-        return -100;
+    top_blob.create(num_output / out_elempack, (size_t)(4u * out_elempack),
+                    out_elempack, opt.blob_allocator);
+    if (top_blob.empty()) return -100;
 
 #if __mips_msa
-    if (out_elempack == 8)
-    {
+    if (out_elempack == 8) {
         #pragma omp parallel for num_threads(opt.num_threads)
-        for (int p = 0; p < num_output / out_elempack; p++)
-        {
+        for (int p = 0; p < num_output / out_elempack; p++) {
             v4i32 _sum0 = __msa_fill_w(0);
             v4i32 _sum1 = __msa_fill_w(0);
 
-            const signed char* kptr = weight_data_tm.row<const signed char>(p);
-            const signed char* sptr = bottom_blob_int8_flattened;
+            const signed char *kptr = weight_data_tm.row<const signed char>(p);
+            const signed char *sptr = bottom_blob_int8_flattened;
 
             int i = 0;
-            for (; i < num_input; i++)
-            {
+            for (; i < num_input; i++) {
                 __builtin_prefetch(sptr + 4);
                 __builtin_prefetch(kptr + 32);
                 v8i16 _val = __msa_fill_h((short)sptr[0]);
@@ -1566,48 +1476,47 @@ int InnerProduct_mips::forward_int8_mips(const Mat& bottom_blob, Mat& top_blob, 
             }
 
             // dequantize and relu
-            v4f32 _scale_in0 = (v4f32)__msa_ld_w((const float*)scale_in_data + p * 8, 0);
-            v4f32 _scale_in1 = (v4f32)__msa_ld_w((const float*)scale_in_data + p * 8 + 4, 0);
+            v4f32 _scale_in0 =
+                (v4f32)__msa_ld_w((const float *)scale_in_data + p * 8, 0);
+            v4f32 _scale_in1 =
+                (v4f32)__msa_ld_w((const float *)scale_in_data + p * 8 + 4, 0);
 
             v4f32 _sumfp32_0 = (v4f32)__msa_ffint_s_w(_sum0);
             v4f32 _sumfp32_1 = (v4f32)__msa_ffint_s_w(_sum1);
 
-            if (bias_term)
-            {
-                v4f32 _bias0 = (v4f32)__msa_ld_w((const float*)bias_data + p * 8, 0);
-                v4f32 _bias1 = (v4f32)__msa_ld_w((const float*)bias_data + p * 8 + 4, 0);
+            if (bias_term) {
+                v4f32 _bias0 = (v4f32)__msa_ld_w((const float *)bias_data + p * 8, 0);
+                v4f32 _bias1 =
+                    (v4f32)__msa_ld_w((const float *)bias_data + p * 8 + 4, 0);
                 _sumfp32_0 = __msa_fmadd_w(_bias0, _sumfp32_0, _scale_in0);
                 _sumfp32_1 = __msa_fmadd_w(_bias1, _sumfp32_1, _scale_in1);
-            }
-            else
-            {
+            } else {
                 _sumfp32_0 = __msa_fmul_w(_sumfp32_0, _scale_in0);
                 _sumfp32_1 = __msa_fmul_w(_sumfp32_1, _scale_in1);
             }
 
-            _sumfp32_0 = activation_ps(_sumfp32_0, activation_type, activation_params);
-            _sumfp32_1 = activation_ps(_sumfp32_1, activation_type, activation_params);
+            _sumfp32_0 =
+                activation_ps(_sumfp32_0, activation_type, activation_params);
+            _sumfp32_1 =
+                activation_ps(_sumfp32_1, activation_type, activation_params);
 
-            float* outptr = (float*)top_blob + p * 8;
+            float *outptr = (float *)top_blob + p * 8;
             __msa_st_w((v4i32)_sumfp32_0, outptr, 0);
             __msa_st_w((v4i32)_sumfp32_1, outptr + 4, 0);
         }
     }
-#endif // __mips_msa
+#endif  // __mips_msa
 
-    if (out_elempack == 1)
-    {
+    if (out_elempack == 1) {
         #pragma omp parallel for num_threads(opt.num_threads)
-        for (int p = 0; p < num_output / out_elempack; p++)
-        {
+        for (int p = 0; p < num_output / out_elempack; p++) {
             int sum = 0;
 
-            const signed char* kptr = weight_data_tm.row<const signed char>(p);
-            const signed char* sptr = bottom_blob_int8_flattened;
+            const signed char *kptr = weight_data_tm.row<const signed char>(p);
+            const signed char *sptr = bottom_blob_int8_flattened;
 
             int i = 0;
-            for (; i < num_input; i++)
-            {
+            for (; i < num_input; i++) {
                 signed char val = sptr[0];
 
                 signed char w = kptr[0];
@@ -1621,8 +1530,7 @@ int InnerProduct_mips::forward_int8_mips(const Mat& bottom_blob, Mat& top_blob, 
             // dequantize and relu
             float sumfp32 = sum * scale_in_data[p];
 
-            if (bias_term)
-                sumfp32 += bias_data[p];
+            if (bias_term) sumfp32 += bias_data[p];
 
             sumfp32 = activation_ss(sumfp32, activation_type, activation_params);
 
@@ -1632,6 +1540,6 @@ int InnerProduct_mips::forward_int8_mips(const Mat& bottom_blob, Mat& top_blob, 
 
     return 0;
 }
-#endif // NCNN_INT8
+#endif  // NCNN_INT8
 
-} // namespace ncnn
+}  // namespace ncnn

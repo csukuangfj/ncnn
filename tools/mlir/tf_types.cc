@@ -16,16 +16,15 @@ limitations under the License.
 #include "tf_types.h"
 
 #include "llvm/Support/ErrorHandling.h"
-#include "mlir/Dialect/Traits.h"   // from @llvm-project
-#include "mlir/IR/BuiltinTypes.h"  // from @llvm-project
-#include "mlir/IR/Dialect.h"       // from @llvm-project
-#include "mlir/IR/TypeUtilities.h" // from @llvm-project
+#include "mlir/Dialect/Traits.h"    // from @llvm-project
+#include "mlir/IR/BuiltinTypes.h"   // from @llvm-project
+#include "mlir/IR/Dialect.h"        // from @llvm-project
+#include "mlir/IR/TypeUtilities.h"  // from @llvm-project
 
 namespace {
 // Returns the shape of the given value if it's ranked; returns llvm::None
 // otherwise.
-llvm::Optional<llvm::ArrayRef<int64_t> > GetShape(mlir::Value value)
-{
+llvm::Optional<llvm::ArrayRef<int64_t>> GetShape(mlir::Value value) {
     auto shaped_type = value.getType().cast<mlir::ShapedType>();
     if (shaped_type.hasRank()) return shaped_type.getShape();
     return llvm::None;
@@ -38,28 +37,23 @@ llvm::Optional<llvm::ArrayRef<int64_t> > GetShape(mlir::Value value)
 // precise than the two input shapes.
 bool GetCastCompatibleShape(llvm::ArrayRef<int64_t> a_shape,
                             llvm::ArrayRef<int64_t> b_shape,
-                            llvm::SmallVectorImpl<int64_t>* refined_shape)
-{
+                            llvm::SmallVectorImpl<int64_t> *refined_shape) {
     if (a_shape.size() != b_shape.size()) return false;
     int64_t rank = a_shape.size();
     refined_shape->reserve(rank);
-    for (auto dims : llvm::zip(a_shape, b_shape))
-    {
+    for (auto dims : llvm::zip(a_shape, b_shape)) {
         int64_t dim1 = std::get<0>(dims);
         int64_t dim2 = std::get<1>(dims);
 
-        if (mlir::ShapedType::isDynamic(dim1))
-        {
+        if (mlir::ShapedType::isDynamic(dim1)) {
             refined_shape->push_back(dim2);
             continue;
         }
-        if (mlir::ShapedType::isDynamic(dim2))
-        {
+        if (mlir::ShapedType::isDynamic(dim2)) {
             refined_shape->push_back(dim1);
             continue;
         }
-        if (dim1 == dim2)
-        {
+        if (dim1 == dim2) {
             refined_shape->push_back(dim1);
             continue;
         }
@@ -68,7 +62,7 @@ bool GetCastCompatibleShape(llvm::ArrayRef<int64_t> a_shape,
     return true;
 }
 
-} // namespace
+}  // namespace
 
 namespace mlir {
 namespace TF {
@@ -78,78 +72,55 @@ namespace TF {
 
 OperandShapeIterator::OperandShapeIterator(Operation::operand_iterator it)
     : llvm::mapped_iterator<Operation::operand_iterator,
-      llvm::Optional<ArrayRef<int64_t> > (*)(Value)>(
-          it, &GetShape)
-{
-}
+      llvm::Optional<ArrayRef<int64_t>> (*)(Value)>(
+          it, &GetShape) {}
 
 ResultShapeIterator::ResultShapeIterator(Operation::result_iterator it)
     : llvm::mapped_iterator<Operation::result_iterator,
-      llvm::Optional<ArrayRef<int64_t> > (*)(Value)>(
-          it, &GetShape)
-{
-}
+      llvm::Optional<ArrayRef<int64_t>> (*)(Value)>(
+          it, &GetShape) {}
 
 //===----------------------------------------------------------------------===//
 // TF types helper functions
 //===----------------------------------------------------------------------===//
 
-bool TensorFlowType::classof(Type type)
-{
+bool TensorFlowType::classof(Type type) {
     return type.getDialect().getNamespace() == "tf";
 }
-bool TensorFlowRefType::classof(Type type)
-{
+bool TensorFlowRefType::classof(Type type) {
     return type.isa<
 #define HANDLE_TF_TYPE(tftype, enumerant, name)
-#define HANDLE_TF_REF_TYPE(tftype, enumerant, name)  tftype##Type,
+#define HANDLE_TF_REF_TYPE(tftype, enumerant, name) tftype##Type,
 #define HANDLE_LAST_TF_TYPE(tftype, enumerant, name) tftype##Type
 // NOLINTNEXTLINE
 #include "tf_types.def"
            >();
 }
-bool TensorFlowTypeWithSubtype::classof(Type type)
-{
+bool TensorFlowTypeWithSubtype::classof(Type type) {
     return type.isa<ResourceType, VariantType>();
 }
 
-TensorFlowType TensorFlowRefType::get(Type type)
-{
-    MLIRContext* ctx = type.getContext();
+TensorFlowType TensorFlowRefType::get(Type type) {
+    MLIRContext *ctx = type.getContext();
     type = getElementTypeOrSelf(type);
-    if (type.isF16())
-    {
+    if (type.isF16()) {
         return HalfRefType::get(ctx);
-    }
-    else if (type.isF32())
-    {
+    } else if (type.isF32()) {
         return FloatRefType::get(ctx);
-    }
-    else if (type.isF64())
-    {
+    } else if (type.isF64()) {
         return DoubleRefType::get(ctx);
-    }
-    else if (type.isBF16())
-    {
+    } else if (type.isBF16()) {
         return Bfloat16RefType::get(ctx);
-    }
-    else if (auto complex_type = type.dyn_cast<ComplexType>())
-    {
+    } else if (auto complex_type = type.dyn_cast<ComplexType>()) {
         Type etype = complex_type.getElementType();
-        if (etype.isF32())
-        {
+        if (etype.isF32()) {
             return Complex64RefType::get(ctx);
-        }
-        else if (etype.isF64())
-        {
+        } else if (etype.isF64()) {
             return Complex128RefType::get(ctx);
         }
         llvm_unreachable("unexpected complex type");
-    }
-    else if (auto itype = type.dyn_cast<IntegerType>())
-    {
-        switch (itype.getWidth())
-        {
+    } else if (auto itype = type.dyn_cast<IntegerType>()) {
+        switch (itype.getWidth()) {
         case 1:
             return BoolRefType::get(ctx);
         case 8:
@@ -168,9 +139,9 @@ TensorFlowType TensorFlowRefType::get(Type type)
             llvm_unreachable("unexpected integer type");
         }
     }
-#define HANDLE_TF_TYPE(tftype, enumerant, name)          \
-    if (auto derived_ty = type.dyn_cast<tftype##Type>()) \
-        return tftype##RefType::get(ctx);
+#define HANDLE_TF_TYPE(tftype, enumerant, name)        \
+  if (auto derived_ty = type.dyn_cast<tftype##Type>()) \
+    return tftype##RefType::get(ctx);
 
 #define HANDLE_TF_REF_TYPE(tftype, enumerant, name)
 // NOLINTNEXTLINE
@@ -178,9 +149,8 @@ TensorFlowType TensorFlowRefType::get(Type type)
     llvm_unreachable("unexpected type kind");
 }
 
-Type TensorFlowRefType::RemoveRef()
-{
-    MLIRContext* ctx = getContext();
+Type TensorFlowRefType::RemoveRef() {
+    MLIRContext *ctx = getContext();
     if (isa<HalfRefType>()) return mlir::FloatType::getF16(ctx);
     if (isa<FloatRefType>()) return mlir::FloatType::getF32(ctx);
     if (isa<DoubleRefType>()) return mlir::FloatType::getF64(ctx);
@@ -203,7 +173,7 @@ Type TensorFlowRefType::RemoveRef()
     if (isa<Complex128RefType>())
         return mlir::ComplexType::get(mlir::FloatType::getF64(ctx));
 #define HANDLE_TF_TYPE(tftype, enumerant, name) \
-    if (isa<tftype##RefType>()) return tftype##Type::get(ctx);
+  if (isa<tftype##RefType>()) return tftype##Type::get(ctx);
 
 #define HANDLE_TF_REF_TYPE(tftype, enumerant, name)
 // NOLINTNEXTLINE
@@ -211,16 +181,14 @@ Type TensorFlowRefType::RemoveRef()
     llvm_unreachable("unexpected tensorflow ref type kind");
 }
 
-Type TensorFlowTypeWithSubtype::RemoveSubtypes()
-{
-    MLIRContext* ctx = getContext();
+Type TensorFlowTypeWithSubtype::RemoveSubtypes() {
+    MLIRContext *ctx = getContext();
     if (isa<VariantType>()) return VariantType::get(ctx);
     if (isa<ResourceType>()) return ResourceType::get(ctx);
     llvm_unreachable("unexpected tensorflow type with subtypes kind");
 }
 
-ArrayRef<TensorType> TensorFlowTypeWithSubtype::GetSubtypes()
-{
+ArrayRef<TensorType> TensorFlowTypeWithSubtype::GetSubtypes() {
     if (auto variant_type = dyn_cast<VariantType>())
         return variant_type.getSubtypes();
     if (auto resource_type = dyn_cast<ResourceType>())
@@ -230,11 +198,9 @@ ArrayRef<TensorType> TensorFlowTypeWithSubtype::GetSubtypes()
 
 // TODO(jpienaar): BroadcastCompatible and HasCompatibleElementTypes have
 // similar structure that could be extracted into helper method.
-bool BroadcastCompatible(TypeRange lhs, TypeRange rhs)
-{
+bool BroadcastCompatible(TypeRange lhs, TypeRange rhs) {
     if (lhs.size() != rhs.size()) return false;
-    for (auto types : llvm::zip(lhs, rhs))
-    {
+    for (auto types : llvm::zip(lhs, rhs)) {
         // Drop ref types because they don't affect broadcast compatibility. E.g.,
         // `tensor<!tf.f32ref>` and `tensor<f32>` should be considered broadcast
         // compatible.
@@ -244,8 +210,7 @@ bool BroadcastCompatible(TypeRange lhs, TypeRange rhs)
         // This should be true for all TF ops:
         auto lhs_tt = lhs_type.dyn_cast<TensorType>();
         auto rhs_tt = rhs_type.dyn_cast<TensorType>();
-        if (!lhs_tt || !rhs_tt)
-        {
+        if (!lhs_tt || !rhs_tt) {
             if (lhs_type != rhs_type) return false;
             continue;
         }
@@ -255,8 +220,7 @@ bool BroadcastCompatible(TypeRange lhs, TypeRange rhs)
         // subtypes.
         auto lhs_et = lhs_tt.getElementType();
         auto rhs_et = rhs_tt.getElementType();
-        if (lhs_et != rhs_et)
-        {
+        if (lhs_et != rhs_et) {
             // If either does not have subtypes, then the element types don't match.
             auto lhs_wst = lhs_et.dyn_cast<TF::TensorFlowTypeWithSubtype>();
             auto rhs_wst = rhs_et.dyn_cast<TF::TensorFlowTypeWithSubtype>();
@@ -265,10 +229,8 @@ bool BroadcastCompatible(TypeRange lhs, TypeRange rhs)
             // Consider the subtype of variant types.
             auto lhs_wst_st = lhs_wst.GetSubtypes();
             auto rhs_wst_st = rhs_wst.GetSubtypes();
-            if (!lhs_wst_st.empty() && !rhs_wst_st.empty())
-            {
-                for (auto subtypes : llvm::zip(lhs_wst_st, rhs_wst_st))
-                {
+            if (!lhs_wst_st.empty() && !rhs_wst_st.empty()) {
+                for (auto subtypes : llvm::zip(lhs_wst_st, rhs_wst_st)) {
                     if (!BroadcastCompatible(std::get<0>(subtypes),
                                              std::get<1>(subtypes)))
                         return false;
@@ -305,8 +267,7 @@ bool BroadcastCompatible(TypeRange lhs, TypeRange rhs)
 // might allow operands to either be same as result type or be a ref type
 // corresponding to it.
 mlir::Type GetCastCompatibleType(mlir::Type a, mlir::Type b,
-                                 bool may_ignore_ref_type_a)
-{
+                                 bool may_ignore_ref_type_a) {
     // Fast path if everything is equal.
     if (a == b) return b;
 
@@ -318,13 +279,10 @@ mlir::Type GetCastCompatibleType(mlir::Type a, mlir::Type b,
 
     // For non-tensor types, we do not need to worry about shape and can return
     // early.
-    if (!a_tt && !b_tt)
-    {
+    if (!a_tt && !b_tt) {
         // Remove ref types.
-        if (may_ignore_ref_type_a)
-        {
-            if (auto ref_type = a.dyn_cast<mlir::TF::TensorFlowRefType>())
-            {
+        if (may_ignore_ref_type_a) {
+            if (auto ref_type = a.dyn_cast<mlir::TF::TensorFlowRefType>()) {
                 a = ref_type.RemoveRef();
                 if (a == b) return a;
             }
@@ -353,10 +311,10 @@ mlir::Type GetCastCompatibleType(mlir::Type a, mlir::Type b,
         if (a_wst_st.empty() || b_wst_st.empty()) return a;
         if (a_wst_st.size() != b_wst_st.size()) return nullptr;
         llvm::SmallVector<mlir::TensorType, 4> refined_subtypes;
-        for (auto subtypes : llvm::zip(a_wst_st, b_wst_st))
-        {
-            mlir::Type refined_st = GetCastCompatibleType(std::get<0>(subtypes), std::get<1>(subtypes),
-                                    /*may_ignore_ref_type_a=*/false);
+        for (auto subtypes : llvm::zip(a_wst_st, b_wst_st)) {
+            mlir::Type refined_st =
+                GetCastCompatibleType(std::get<0>(subtypes), std::get<1>(subtypes),
+                                      /*may_ignore_ref_type_a=*/false);
             if (!refined_st) return nullptr;
             refined_subtypes.push_back(refined_st.cast<mlir::TensorType>());
         }
@@ -369,16 +327,13 @@ mlir::Type GetCastCompatibleType(mlir::Type a, mlir::Type b,
                                         a_tt.getElementType(), b_tt.getElementType(), may_ignore_ref_type_a);
     if (!refined_element_ty) return nullptr;
 
-    if (!a_tt.hasRank() && !b_tt.hasRank())
-    {
+    if (!a_tt.hasRank() && !b_tt.hasRank()) {
         return mlir::UnrankedTensorType::get(refined_element_ty);
     }
-    if (!a_tt.hasRank())
-    {
+    if (!a_tt.hasRank()) {
         return mlir::RankedTensorType::get(b_tt.getShape(), refined_element_ty);
     }
-    if (!b_tt.hasRank())
-    {
+    if (!b_tt.hasRank()) {
         return mlir::RankedTensorType::get(a_tt.getShape(), refined_element_ty);
     }
 
@@ -390,28 +345,24 @@ mlir::Type GetCastCompatibleType(mlir::Type a, mlir::Type b,
 }
 
 bool HasCompatibleElementTypes(Type lhs, Type rhs,
-                               bool may_ignore_ref_type_lhs)
-{
+                               bool may_ignore_ref_type_lhs) {
     return GetCastCompatibleType(lhs, rhs, may_ignore_ref_type_lhs) != nullptr;
 }
 
-bool AreCastCompatible(TypeRange types)
-{
+bool AreCastCompatible(TypeRange types) {
     Type common = types.front();
-    for (auto type : types.drop_front())
-    {
-        Type refined_type = GetCastCompatibleType(common, type, /*may_ignore_ref_type_a=*/false);
+    for (auto type : types.drop_front()) {
+        Type refined_type =
+            GetCastCompatibleType(common, type, /*may_ignore_ref_type_a=*/false);
         if (!refined_type) return false;
         common = refined_type;
     }
     return true;
 }
 
-bool ArraysAreCastCompatible(TypeRange lhs, TypeRange rhs)
-{
+bool ArraysAreCastCompatible(TypeRange lhs, TypeRange rhs) {
     if (lhs.size() != rhs.size()) return false;
-    for (auto pair : llvm::zip(lhs, rhs))
-    {
+    for (auto pair : llvm::zip(lhs, rhs)) {
         auto lhs_i = std::get<0>(pair);
         auto rhs_i = std::get<1>(pair);
         if (!AreCastCompatible({lhs_i, rhs_i})) return false;
@@ -421,42 +372,33 @@ bool ArraysAreCastCompatible(TypeRange lhs, TypeRange rhs)
 
 // Assumes a function `GetDefaultTypeOf(ComposedType)` that returns the default
 // type for a composed type (such as a ref type or a type with subtypes).
-template<typename ComposedType>
-Type DropTypeHelper(Type ty)
-{
+template <typename ComposedType>
+Type DropTypeHelper(Type ty) {
     Type element_ty = getElementTypeOrSelf(ty);
     auto composed_type = element_ty.dyn_cast<ComposedType>();
     if (!composed_type) return ty;
 
     Type default_ty = GetDefaultTypeOf(composed_type);
-    if (auto ranked_ty = ty.dyn_cast<RankedTensorType>())
-    {
+    if (auto ranked_ty = ty.dyn_cast<RankedTensorType>()) {
         return RankedTensorType::get(ranked_ty.getShape(), default_ty);
-    }
-    else if (ty.dyn_cast<UnrankedTensorType>())
-    {
+    } else if (ty.dyn_cast<UnrankedTensorType>()) {
         return UnrankedTensorType::get(default_ty);
-    }
-    else
-    {
+    } else {
         return default_ty;
     }
 }
 
-Type DropSubTypes(Type ty)
-{
+Type DropSubTypes(Type ty) {
     return DropTypeHelper<TF::TensorFlowTypeWithSubtype>(ty);
 }
 
-Type DropRefType(Type ty)
-{
+Type DropRefType(Type ty) {
     return DropTypeHelper<TF::TensorFlowRefType>(ty);
 }
 
-Type DropRefAndSubTypes(Type ty)
-{
+Type DropRefAndSubTypes(Type ty) {
     return DropRefType(DropSubTypes(ty));
 }
 
-} // namespace TF
-} // namespace mlir
+}  // namespace TF
+}  // namespace mlir

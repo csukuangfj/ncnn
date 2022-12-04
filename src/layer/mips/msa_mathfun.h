@@ -28,9 +28,9 @@
 #ifndef MSA_MATHFUN_H
 #define MSA_MATHFUN_H
 
-#include "mips_usability.h"
-
 #include <msa.h>
+
+#include "mips_usability.h"
 
 _MIPS_FLOAT_CONST(c_1, 1.0f);
 _MIPS_FLOAT_CONST(c_2, 2.0f);
@@ -54,11 +54,11 @@ _MIPS_FLOAT_CONST(c_cephes_log_q2, 0.693359375);
 /* natural logarithm computed for 4 simultaneous float
  *   return NaN for x <= 0
  */
-static inline v4f32 log_ps(v4f32 x)
-{
+static inline v4f32 log_ps(v4f32 x) {
     v4f32 one = (v4f32)__msa_fill_w(c_1.i);
 
-    x = __msa_fmax_w(x, (v4f32)__msa_fill_w(0)); /* force flush to zero on denormal values */
+    x = __msa_fmax_w(
+            x, (v4f32)__msa_fill_w(0)); /* force flush to zero on denormal values */
     v4i32 invalid_mask = __msa_fcle_w(x, (v4f32)__msa_fill_w(0));
 
     v4i32 ux = (v4i32)(x);
@@ -112,7 +112,8 @@ static inline v4f32 log_ps(v4f32 x)
     tmp = __msa_fmul_w(e, (v4f32)__msa_fill_w(c_cephes_log_q2.i));
     x = __msa_fadd_w(x, y);
     x = __msa_fadd_w(x, tmp);
-    x = (v4f32)(__msa_or_v((v16u8)(x), (v16u8)invalid_mask)); // negative arg will be NAN
+    x = (v4f32)(
+            __msa_or_v((v16u8)(x), (v16u8)invalid_mask));  // negative arg will be NAN
     return x;
 }
 
@@ -131,8 +132,7 @@ _MIPS_FLOAT_CONST(c_cephes_exp_p4, 1.6666665459E-1);
 _MIPS_FLOAT_CONST(c_cephes_exp_p5, 5.0000001201E-1);
 
 /* exp() computed for 4 float at once */
-static inline v4f32 exp_ps(v4f32 x)
-{
+static inline v4f32 exp_ps(v4f32 x) {
     v4f32 tmp, fx;
 
     v4f32 one = (v4f32)__msa_fill_w(c_1.i);
@@ -198,14 +198,15 @@ _MIPS_FLOAT_CONST(c_tanh_beta_4, 1.18534705686654e-4f);
 _MIPS_FLOAT_CONST(c_tanh_beta_6, 1.19825839466702e-6f);
 
 /* tanh() computed for 4 float at once */
-static inline v4f32 tanh_ps(v4f32 x)
-{
+static inline v4f32 tanh_ps(v4f32 x) {
     v4f32 x2 = (v4f32)__msa_bclri_w((v4u32)x, 31);
     v4i32 tiny_mask = __msa_fclt_w(x2, (v4f32)__msa_fill_w(c_tanh_tiny.i));
 
     // clamp the inputs to the range [-9, 9] since anything outside
     // this range is -/+1.0f in single-precision.
-    x2 = (v4f32)__msa_bsel_v((v16u8)__msa_fclt_w((v4f32)__msa_fill_w(c_tanh_hi.i), x2), (v16u8)x2, (v16u8)__msa_fill_w(c_tanh_hi.i));
+    x2 = (v4f32)__msa_bsel_v(
+             (v16u8)__msa_fclt_w((v4f32)__msa_fill_w(c_tanh_hi.i), x2), (v16u8)x2,
+             (v16u8)__msa_fill_w(c_tanh_hi.i));
 
     // since the polynomials are odd/even, we need x**2.
     v4f32 z = __msa_fmul_w(x2, x2);
@@ -232,20 +233,19 @@ static inline v4f32 tanh_ps(v4f32 x)
     // reinstate the sign.
     y = (v4f32)__msa_binsli_w((v4u32)y, (v4u32)x, 0);
 
-    // when the argument is very small in magnitude it's more accurate to just return it.
+    // when the argument is very small in magnitude it's more accurate to just
+    // return it.
     y = (v4f32)__msa_bsel_v((v16u8)tiny_mask, (v16u8)y, (v16u8)x);
 
     return y;
 }
 
-static inline v4f32 pow_ps(v4f32 a, v4f32 b)
-{
+static inline v4f32 pow_ps(v4f32 a, v4f32 b) {
     // pow(x, m) = exp(m * log(x))
     return exp_ps(__msa_fmul_w(b, log_ps(a)));
 }
 
-static inline v4f32 sigmoid_ps(v4f32 _v)
-{
+static inline v4f32 sigmoid_ps(v4f32 _v) {
     v4f32 _one = __msa_fill_w_f32(1.f);
     _v = (v4f32)__msa_bnegi_w((v4u32)_v, 31);
     _v = exp_ps(_v);
@@ -253,4 +253,4 @@ static inline v4f32 sigmoid_ps(v4f32 _v)
     return __msa_fdiv_w(_one, _v);
 }
 
-#endif // MSA_MATHFUN_H
+#endif  // MSA_MATHFUN_H

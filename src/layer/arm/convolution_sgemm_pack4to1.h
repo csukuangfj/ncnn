@@ -1,19 +1,23 @@
-// Tencent is pleased to support the open source community by making ncnn available.
+// Tencent is pleased to support the open source community by making ncnn
+// available.
 //
 // Copyright (C) 2021 THL A29 Limited, a Tencent company. All rights reserved.
 //
-// Licensed under the BSD 3-Clause License (the "License"); you may not use this file except
-// in compliance with the License. You may obtain a copy of the License at
+// Licensed under the BSD 3-Clause License (the "License"); you may not use this
+// file except in compliance with the License. You may obtain a copy of the
+// License at
 //
 // https://opensource.org/licenses/BSD-3-Clause
 //
-// Unless required by applicable law or agreed to in writing, software distributed
-// under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
-// CONDITIONS OF ANY KIND, either express or implied. See the License for the
-// specific language governing permissions and limitations under the License.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+// WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+// License for the specific language governing permissions and limitations under
+// the License.
 
-static void im2col_sgemm_pack4to1_neon(const Mat& bottom_im2col, Mat& top_blob, const Mat& kernel, const Mat& _bias, const Option& opt)
-{
+static void im2col_sgemm_pack4to1_neon(const Mat &bottom_im2col, Mat &top_blob,
+                                       const Mat &kernel, const Mat &_bias,
+                                       const Option &opt) {
     // Mat bottom_im2col(size, maxk, inch, 16u, 4, opt.workspace_allocator);
 
     const int size = bottom_im2col.w;
@@ -22,24 +26,31 @@ static void im2col_sgemm_pack4to1_neon(const Mat& bottom_im2col, Mat& top_blob, 
 
     const int outch = top_blob.c;
 
-    const float* bias = _bias;
+    const float *bias = _bias;
 
     // permute
     Mat tmp;
 #if __aarch64__
     if (size >= 12)
-        tmp.create(12 * maxk, inch, size / 12 + (size % 12) / 8 + (size % 12 % 8) / 4 + size % 12 % 4, 16u, 4, opt.workspace_allocator);
+        tmp.create(
+            12 * maxk, inch,
+            size / 12 + (size % 12) / 8 + (size % 12 % 8) / 4 + size % 12 % 4, 16u,
+            4, opt.workspace_allocator);
     else if (size >= 8)
-        tmp.create(8 * maxk, inch, size / 8 + (size % 8) / 4 + size % 4, 16u, 4, opt.workspace_allocator);
+        tmp.create(8 * maxk, inch, size / 8 + (size % 8) / 4 + size % 4, 16u, 4,
+                   opt.workspace_allocator);
     else if (size >= 4)
-        tmp.create(4 * maxk, inch, size / 4 + size % 4, 16u, 4, opt.workspace_allocator);
+        tmp.create(4 * maxk, inch, size / 4 + size % 4, 16u, 4,
+                   opt.workspace_allocator);
     else
         tmp.create(maxk, inch, size, 16u, 4, opt.workspace_allocator);
 #else
     if (size >= 8)
-        tmp.create(8 * maxk, inch, size / 8 + (size % 8) / 4 + size % 4, 16u, 4, opt.workspace_allocator);
+        tmp.create(8 * maxk, inch, size / 8 + (size % 8) / 4 + size % 4, 16u, 4,
+                   opt.workspace_allocator);
     else if (size >= 4)
-        tmp.create(4 * maxk, inch, size / 4 + size % 4, 16u, 4, opt.workspace_allocator);
+        tmp.create(4 * maxk, inch, size / 4 + size % 4, 16u, 4,
+                   opt.workspace_allocator);
     else
         tmp.create(maxk, inch, size, 16u, 4, opt.workspace_allocator);
 #endif
@@ -49,18 +60,15 @@ static void im2col_sgemm_pack4to1_neon(const Mat& bottom_im2col, Mat& top_blob, 
         int remain_size_start = 0;
 
         #pragma omp parallel for num_threads(opt.num_threads)
-        for (int ii = 0; ii < nn_size; ii++)
-        {
+        for (int ii = 0; ii < nn_size; ii++) {
             int i = remain_size_start + ii * 12;
 
-            float* tmpptr = tmp.channel(i / 12);
+            float *tmpptr = tmp.channel(i / 12);
 
-            for (int q = 0; q < inch; q++)
-            {
-                const float* img0 = (const float*)bottom_im2col.channel(q) + i * 4;
+            for (int q = 0; q < inch; q++) {
+                const float *img0 = (const float *)bottom_im2col.channel(q) + i * 4;
 
-                for (int k = 0; k < maxk; k++)
-                {
+                for (int k = 0; k < maxk; k++) {
                     // transpose 4x12
                     asm volatile(
                         "prfm   pldl1keep, [%0, #512]       \n"
@@ -82,11 +90,11 @@ static void im2col_sgemm_pack4to1_neon(const Mat& bottom_im2col, Mat& top_blob, 
                         "st1    {v3.4s}, [%1], #16          \n"
                         "st1    {v7.4s}, [%1], #16          \n"
                         "st1    {v11.4s}, [%1], #16         \n"
-                        : "=r"(img0),  // %0
-                        "=r"(tmpptr) // %1
-                        : "0"(img0),
-                        "1"(tmpptr)
-                        : "memory", "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", "v9", "v10", "v11");
+                        : "=r"(img0),   // %0
+                        "=r"(tmpptr)  // %1
+                        : "0"(img0), "1"(tmpptr)
+                        : "memory", "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8",
+                        "v9", "v10", "v11");
                     img0 += size * 4;
                 }
             }
@@ -100,22 +108,19 @@ static void im2col_sgemm_pack4to1_neon(const Mat& bottom_im2col, Mat& top_blob, 
 #endif
 
         #pragma omp parallel for num_threads(opt.num_threads)
-        for (int ii = 0; ii < nn_size; ii++)
-        {
+        for (int ii = 0; ii < nn_size; ii++) {
             int i = remain_size_start + ii * 8;
 
 #if __aarch64__
-            float* tmpptr = tmp.channel(i / 12 + (i % 12) / 8);
+            float *tmpptr = tmp.channel(i / 12 + (i % 12) / 8);
 #else
-            float* tmpptr = tmp.channel(i / 8);
+            float *tmpptr = tmp.channel(i / 8);
 #endif
 
-            for (int q = 0; q < inch; q++)
-            {
-                const float* img0 = (const float*)bottom_im2col.channel(q) + i * 4;
+            for (int q = 0; q < inch; q++) {
+                const float *img0 = (const float *)bottom_im2col.channel(q) + i * 4;
 
-                for (int k = 0; k < maxk; k++)
-                {
+                for (int k = 0; k < maxk; k++) {
                     // transpose 4x8
 #if __aarch64__
                     asm volatile(
@@ -132,10 +137,9 @@ static void im2col_sgemm_pack4to1_neon(const Mat& bottom_im2col, Mat& top_blob, 
                         "st1    {v6.4s}, [%1], #16          \n"
                         "st1    {v3.4s}, [%1], #16          \n"
                         "st1    {v7.4s}, [%1], #16          \n"
-                        : "=r"(img0),  // %0
-                        "=r"(tmpptr) // %1
-                        : "0"(img0),
-                        "1"(tmpptr)
+                        : "=r"(img0),   // %0
+                        "=r"(tmpptr)  // %1
+                        : "0"(img0), "1"(tmpptr)
                         : "memory", "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7");
 #else
                     asm volatile(
@@ -161,12 +165,11 @@ static void im2col_sgemm_pack4to1_neon(const Mat& bottom_im2col, Mat& top_blob, 
                         "sub        %0, %0, #64         \n"
                         "vst1.f32   {d4-d7}, [%1 :128]! \n"
                         "vst1.f32   {d20-d23}, [%1 :128]! \n"
-                        : "=r"(img0),  // %0
-                        "=r"(tmpptr) // %1
-                        : "0"(img0),
-                        "1"(tmpptr)
+                        : "=r"(img0),   // %0
+                        "=r"(tmpptr)  // %1
+                        : "0"(img0), "1"(tmpptr)
                         : "memory", "q0", "q1", "q2", "q3", "q8", "q9", "q10", "q11");
-#endif // __aarch64__
+#endif  // __aarch64__
                     img0 += size * 4;
                 }
             }
@@ -176,32 +179,28 @@ static void im2col_sgemm_pack4to1_neon(const Mat& bottom_im2col, Mat& top_blob, 
         nn_size = (size - remain_size_start) >> 2;
 
         #pragma omp parallel for num_threads(opt.num_threads)
-        for (int ii = 0; ii < nn_size; ii++)
-        {
+        for (int ii = 0; ii < nn_size; ii++) {
             int i = remain_size_start + ii * 4;
 
 #if __aarch64__
-            float* tmpptr = tmp.channel(i / 12 + (i % 12) / 8 + (i % 12 % 8) / 4);
+            float *tmpptr = tmp.channel(i / 12 + (i % 12) / 8 + (i % 12 % 8) / 4);
 #else
-            float* tmpptr = tmp.channel(i / 8 + (i % 8) / 4);
+            float *tmpptr = tmp.channel(i / 8 + (i % 8) / 4);
 #endif
 
-            for (int q = 0; q < inch; q++)
-            {
-                const float* img0 = (const float*)bottom_im2col.channel(q) + i * 4;
+            for (int q = 0; q < inch; q++) {
+                const float *img0 = (const float *)bottom_im2col.channel(q) + i * 4;
 
-                for (int k = 0; k < maxk; k++)
-                {
+                for (int k = 0; k < maxk; k++) {
                     // transpose 4x4
 #if __aarch64__
                     asm volatile(
                         "prfm   pldl1keep, [%0, #512]       \n"
                         "ld4    {v0.4s, v1.4s, v2.4s, v3.4s}, [%0] \n"
                         "st1    {v0.4s, v1.4s, v2.4s, v3.4s}, [%1], #64 \n"
-                        : "=r"(img0),  // %0
-                        "=r"(tmpptr) // %1
-                        : "0"(img0),
-                        "1"(tmpptr)
+                        : "=r"(img0),   // %0
+                        "=r"(tmpptr)  // %1
+                        : "0"(img0), "1"(tmpptr)
                         : "memory", "v0", "v1", "v2", "v3");
 #else
                     asm volatile(
@@ -216,10 +215,9 @@ static void im2col_sgemm_pack4to1_neon(const Mat& bottom_im2col, Mat& top_blob, 
                         "vst1.f32   {d4-d5}, [%1 :128]! \n"
                         "vst1.f32   {d2-d3}, [%1 :128]! \n"
                         "vst1.f32   {d6-d7}, [%1 :128]! \n"
-                        : "=r"(img0),  // %0
-                        "=r"(tmpptr) // %1
-                        : "0"(img0),
-                        "1"(tmpptr)
+                        : "=r"(img0),   // %0
+                        "=r"(tmpptr)  // %1
+                        : "0"(img0), "1"(tmpptr)
                         : "memory", "q0", "q1", "q2", "q3");
 #endif
                     img0 += size * 4;
@@ -230,41 +228,37 @@ static void im2col_sgemm_pack4to1_neon(const Mat& bottom_im2col, Mat& top_blob, 
         remain_size_start += nn_size << 2;
 
         #pragma omp parallel for num_threads(opt.num_threads)
-        for (int i = remain_size_start; i < size; i++)
-        {
+        for (int i = remain_size_start; i < size; i++) {
 #if __aarch64__
-            float* tmpptr = tmp.channel(i / 12 + (i % 12) / 8 + (i % 12 % 8) / 4 + i % 12 % 4);
+            float *tmpptr =
+                tmp.channel(i / 12 + (i % 12) / 8 + (i % 12 % 8) / 4 + i % 12 % 4);
 #else
-            float* tmpptr = tmp.channel(i / 8 + (i % 8) / 4 + i % 4);
+            float *tmpptr = tmp.channel(i / 8 + (i % 8) / 4 + i % 4);
 #endif
 
-            for (int q = 0; q < inch; q++)
-            {
-                const float* img0 = (const float*)bottom_im2col.channel(q) + i * 4;
+            for (int q = 0; q < inch; q++) {
+                const float *img0 = (const float *)bottom_im2col.channel(q) + i * 4;
 
-                for (int k = 0; k < maxk; k++)
-                {
+                for (int k = 0; k < maxk; k++) {
 #if __aarch64__
                     asm volatile(
                         "prfm   pldl1keep, [%0, #128]       \n"
                         "ld1    {v0.4s}, [%0]               \n"
                         "st1    {v0.4s}, [%1], #16          \n"
-                        : "=r"(img0),  // %0
-                        "=r"(tmpptr) // %1
-                        : "0"(img0),
-                        "1"(tmpptr)
+                        : "=r"(img0),   // %0
+                        "=r"(tmpptr)  // %1
+                        : "0"(img0), "1"(tmpptr)
                         : "memory", "v0");
 #else
                     asm volatile(
                         "pld        [%0, #128]          \n"
                         "vld1.f32   {d0-d1}, [%0 :128]  \n"
                         "vst1.f32   {d0-d1}, [%1 :128]! \n"
-                        : "=r"(img0),  // %0
-                        "=r"(tmpptr) // %1
-                        : "0"(img0),
-                        "1"(tmpptr)
+                        : "=r"(img0),   // %0
+                        "=r"(tmpptr)  // %1
+                        : "0"(img0), "1"(tmpptr)
                         : "memory", "q0");
-#endif // __aarch64__
+#endif  // __aarch64__
                     img0 += size * 4;
                 }
             }
@@ -278,29 +272,27 @@ static void im2col_sgemm_pack4to1_neon(const Mat& bottom_im2col, Mat& top_blob, 
     nn_outch = outch >> 3;
 
     #pragma omp parallel for num_threads(opt.num_threads)
-    for (int pp = 0; pp < nn_outch; pp++)
-    {
+    for (int pp = 0; pp < nn_outch; pp++) {
         int p = pp * 8;
 
-        float* outptr0 = top_blob.channel(p);
-        float* outptr1 = top_blob.channel(p + 1);
-        float* outptr2 = top_blob.channel(p + 2);
-        float* outptr3 = top_blob.channel(p + 3);
-        float* outptr4 = top_blob.channel(p + 4);
-        float* outptr5 = top_blob.channel(p + 5);
-        float* outptr6 = top_blob.channel(p + 6);
-        float* outptr7 = top_blob.channel(p + 7);
+        float *outptr0 = top_blob.channel(p);
+        float *outptr1 = top_blob.channel(p + 1);
+        float *outptr2 = top_blob.channel(p + 2);
+        float *outptr3 = top_blob.channel(p + 3);
+        float *outptr4 = top_blob.channel(p + 4);
+        float *outptr5 = top_blob.channel(p + 5);
+        float *outptr6 = top_blob.channel(p + 6);
+        float *outptr7 = top_blob.channel(p + 7);
 
         const float zeros[8] = {0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f};
-        const float* biasptr = bias ? bias + p : zeros;
+        const float *biasptr = bias ? bias + p : zeros;
 
         int i = 0;
-        for (; i + 11 < size; i += 12)
-        {
-            float* tmpptr = tmp.channel(i / 12);
-            const float* kptr = (const float*)kernel.channel(p / 8);
+        for (; i + 11 < size; i += 12) {
+            float *tmpptr = tmp.channel(i / 12);
+            const float *kptr = (const float *)kernel.channel(p / 8);
 
-            int nn = inch * maxk; // inch always > 0
+            int nn = inch * maxk;  // inch always > 0
 
             asm volatile(
                 "ld1    {v30.4s, v31.4s}, [%22] \n"
@@ -467,37 +459,31 @@ static void im2col_sgemm_pack4to1_neon(const Mat& bottom_im2col, Mat& top_blob, 
                 "st1    {v26.4s, v27.4s, v28.4s}, [%7], #48 \n"
                 "st1    {v29.4s, v30.4s, v31.4s}, [%8], #48 \n"
 
-                : "=r"(nn),      // %0
-                "=r"(outptr0), // %1
-                "=r"(outptr1), // %2
-                "=r"(outptr2), // %3
-                "=r"(outptr3), // %4
-                "=r"(outptr4), // %5
-                "=r"(outptr5), // %6
-                "=r"(outptr6), // %7
-                "=r"(outptr7), // %8
-                "=r"(tmpptr),  // %9
-                "=r"(kptr)     // %10
-                : "0"(nn),
-                "1"(outptr0),
-                "2"(outptr1),
-                "3"(outptr2),
-                "4"(outptr3),
-                "5"(outptr4),
-                "6"(outptr5),
-                "7"(outptr6),
-                "8"(outptr7),
-                "9"(tmpptr),
+                : "=r"(nn),       // %0
+                "=r"(outptr0),  // %1
+                "=r"(outptr1),  // %2
+                "=r"(outptr2),  // %3
+                "=r"(outptr3),  // %4
+                "=r"(outptr4),  // %5
+                "=r"(outptr5),  // %6
+                "=r"(outptr6),  // %7
+                "=r"(outptr7),  // %8
+                "=r"(tmpptr),   // %9
+                "=r"(kptr)      // %10
+                : "0"(nn), "1"(outptr0), "2"(outptr1), "3"(outptr2), "4"(outptr3),
+                "5"(outptr4), "6"(outptr5), "7"(outptr6), "8"(outptr7), "9"(tmpptr),
                 "10"(kptr),
-                "r"(biasptr) // %22
-                : "cc", "memory", "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", "v9", "v10", "v11", "v12", "v13", "v14", "v15", "v16", "v17", "v18", "v19", "v20", "v21", "v22", "v23", "v24", "v25", "v26", "v27", "v28", "v29", "v30", "v31");
+                "r"(biasptr)  // %22
+                : "cc", "memory", "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7",
+                "v8", "v9", "v10", "v11", "v12", "v13", "v14", "v15", "v16", "v17",
+                "v18", "v19", "v20", "v21", "v22", "v23", "v24", "v25", "v26",
+                "v27", "v28", "v29", "v30", "v31");
         }
-        for (; i + 7 < size; i += 8)
-        {
-            float* tmpptr = tmp.channel(i / 12 + (i % 12) / 8);
-            const float* kptr = (const float*)kernel.channel(p / 8);
+        for (; i + 7 < size; i += 8) {
+            float *tmpptr = tmp.channel(i / 12 + (i % 12) / 8);
+            const float *kptr = (const float *)kernel.channel(p / 8);
 
-            int nn = inch * maxk; // inch always > 0
+            int nn = inch * maxk;  // inch always > 0
 
             asm volatile(
                 "ld1    {v30.4s, v31.4s}, [%22] \n"
@@ -613,37 +599,31 @@ static void im2col_sgemm_pack4to1_neon(const Mat& bottom_im2col, Mat& top_blob, 
                 "st1    {v28.4s, v29.4s}, [%7], #32 \n"
                 "st1    {v30.4s, v31.4s}, [%8], #32 \n"
 
-                : "=r"(nn),      // %0
-                "=r"(outptr0), // %1
-                "=r"(outptr1), // %2
-                "=r"(outptr2), // %3
-                "=r"(outptr3), // %4
-                "=r"(outptr4), // %5
-                "=r"(outptr5), // %6
-                "=r"(outptr6), // %7
-                "=r"(outptr7), // %8
-                "=r"(tmpptr),  // %9
-                "=r"(kptr)     // %10
-                : "0"(nn),
-                "1"(outptr0),
-                "2"(outptr1),
-                "3"(outptr2),
-                "4"(outptr3),
-                "5"(outptr4),
-                "6"(outptr5),
-                "7"(outptr6),
-                "8"(outptr7),
-                "9"(tmpptr),
+                : "=r"(nn),       // %0
+                "=r"(outptr0),  // %1
+                "=r"(outptr1),  // %2
+                "=r"(outptr2),  // %3
+                "=r"(outptr3),  // %4
+                "=r"(outptr4),  // %5
+                "=r"(outptr5),  // %6
+                "=r"(outptr6),  // %7
+                "=r"(outptr7),  // %8
+                "=r"(tmpptr),   // %9
+                "=r"(kptr)      // %10
+                : "0"(nn), "1"(outptr0), "2"(outptr1), "3"(outptr2), "4"(outptr3),
+                "5"(outptr4), "6"(outptr5), "7"(outptr6), "8"(outptr7), "9"(tmpptr),
                 "10"(kptr),
-                "r"(biasptr) // %22
-                : "cc", "memory", "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", "v9", "v10", "v11", "v12", "v13", "v14", "v15", "v16", "v17", "v18", "v19", "v20", "v21", "v22", "v23", "v24", "v25", "v26", "v27", "v28", "v29", "v30", "v31");
+                "r"(biasptr)  // %22
+                : "cc", "memory", "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7",
+                "v8", "v9", "v10", "v11", "v12", "v13", "v14", "v15", "v16", "v17",
+                "v18", "v19", "v20", "v21", "v22", "v23", "v24", "v25", "v26",
+                "v27", "v28", "v29", "v30", "v31");
         }
-        for (; i + 3 < size; i += 4)
-        {
-            float* tmpptr = tmp.channel(i / 12 + (i % 12) / 8 + (i % 12 % 8) / 4);
-            const float* kptr = (const float*)kernel.channel(p / 8);
+        for (; i + 3 < size; i += 4) {
+            float *tmpptr = tmp.channel(i / 12 + (i % 12) / 8 + (i % 12 % 8) / 4);
+            const float *kptr = (const float *)kernel.channel(p / 8);
 
-            int nn = inch * maxk; // inch always > 0
+            int nn = inch * maxk;  // inch always > 0
 
             asm volatile(
                 "ld1    {v22.4s, v23.4s}, [%22] \n"
@@ -716,37 +696,31 @@ static void im2col_sgemm_pack4to1_neon(const Mat& bottom_im2col, Mat& top_blob, 
                 "st1    {v22.4s}, [%7], #16     \n"
                 "st1    {v23.4s}, [%8], #16     \n"
 
-                : "=r"(nn),      // %0
-                "=r"(outptr0), // %1
-                "=r"(outptr1), // %2
-                "=r"(outptr2), // %3
-                "=r"(outptr3), // %4
-                "=r"(outptr4), // %5
-                "=r"(outptr5), // %6
-                "=r"(outptr6), // %7
-                "=r"(outptr7), // %8
-                "=r"(tmpptr),  // %9
-                "=r"(kptr)     // %10
-                : "0"(nn),
-                "1"(outptr0),
-                "2"(outptr1),
-                "3"(outptr2),
-                "4"(outptr3),
-                "5"(outptr4),
-                "6"(outptr5),
-                "7"(outptr6),
-                "8"(outptr7),
-                "9"(tmpptr),
+                : "=r"(nn),       // %0
+                "=r"(outptr0),  // %1
+                "=r"(outptr1),  // %2
+                "=r"(outptr2),  // %3
+                "=r"(outptr3),  // %4
+                "=r"(outptr4),  // %5
+                "=r"(outptr5),  // %6
+                "=r"(outptr6),  // %7
+                "=r"(outptr7),  // %8
+                "=r"(tmpptr),   // %9
+                "=r"(kptr)      // %10
+                : "0"(nn), "1"(outptr0), "2"(outptr1), "3"(outptr2), "4"(outptr3),
+                "5"(outptr4), "6"(outptr5), "7"(outptr6), "8"(outptr7), "9"(tmpptr),
                 "10"(kptr),
-                "r"(biasptr) // %22
-                : "cc", "memory", "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", "v9", "v10", "v11", "v16", "v17", "v18", "v19", "v20", "v21", "v22", "v23");
+                "r"(biasptr)  // %22
+                : "cc", "memory", "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7",
+                "v8", "v9", "v10", "v11", "v16", "v17", "v18", "v19", "v20", "v21",
+                "v22", "v23");
         }
-        for (; i < size; i++)
-        {
-            float* tmpptr = tmp.channel(i / 12 + (i % 12) / 8 + (i % 12 % 8) / 4 + i % 12 % 4);
-            const float* kptr = (const float*)kernel.channel(p / 8);
+        for (; i < size; i++) {
+            float *tmpptr =
+                tmp.channel(i / 12 + (i % 12) / 8 + (i % 12 % 8) / 4 + i % 12 % 4);
+            const float *kptr = (const float *)kernel.channel(p / 8);
 
-            int nn = inch * maxk; // inch always > 0
+            int nn = inch * maxk;  // inch always > 0
 
             asm volatile(
                 "ld1    {v16.4s, v17.4s}, [%22] \n"
@@ -790,60 +764,51 @@ static void im2col_sgemm_pack4to1_neon(const Mat& bottom_im2col, Mat& top_blob, 
                 "st1    {v17.s}[2], [%7], #4    \n"
                 "st1    {v17.s}[3], [%8], #4    \n"
 
-                : "=r"(nn),      // %0
-                "=r"(outptr0), // %1
-                "=r"(outptr1), // %2
-                "=r"(outptr2), // %3
-                "=r"(outptr3), // %4
-                "=r"(outptr4), // %5
-                "=r"(outptr5), // %6
-                "=r"(outptr6), // %7
-                "=r"(outptr7), // %8
-                "=r"(tmpptr),  // %9
-                "=r"(kptr)     // %10
-                : "0"(nn),
-                "1"(outptr0),
-                "2"(outptr1),
-                "3"(outptr2),
-                "4"(outptr3),
-                "5"(outptr4),
-                "6"(outptr5),
-                "7"(outptr6),
-                "8"(outptr7),
-                "9"(tmpptr),
+                : "=r"(nn),       // %0
+                "=r"(outptr0),  // %1
+                "=r"(outptr1),  // %2
+                "=r"(outptr2),  // %3
+                "=r"(outptr3),  // %4
+                "=r"(outptr4),  // %5
+                "=r"(outptr5),  // %6
+                "=r"(outptr6),  // %7
+                "=r"(outptr7),  // %8
+                "=r"(tmpptr),   // %9
+                "=r"(kptr)      // %10
+                : "0"(nn), "1"(outptr0), "2"(outptr1), "3"(outptr2), "4"(outptr3),
+                "5"(outptr4), "6"(outptr5), "7"(outptr6), "8"(outptr7), "9"(tmpptr),
                 "10"(kptr),
-                "r"(biasptr) // %22
-                : "cc", "memory", "v0", "v4", "v5", "v6", "v7", "v8", "v9", "v10", "v11", "v16", "v17", "v18", "v19");
+                "r"(biasptr)  // %22
+                : "cc", "memory", "v0", "v4", "v5", "v6", "v7", "v8", "v9", "v10",
+                "v11", "v16", "v17", "v18", "v19");
         }
     }
 
     remain_outch_start += nn_outch << 3;
     nn_outch = (outch - remain_outch_start) >> 2;
-#else  // __aarch64__
+#else   // __aarch64__
     nn_outch = outch >> 2;
-#endif // __aarch64__
+#endif  // __aarch64__
 
     #pragma omp parallel for num_threads(opt.num_threads)
-    for (int pp = 0; pp < nn_outch; pp++)
-    {
+    for (int pp = 0; pp < nn_outch; pp++) {
         int p = remain_outch_start + pp * 4;
 
-        float* outptr0 = top_blob.channel(p);
-        float* outptr1 = top_blob.channel(p + 1);
-        float* outptr2 = top_blob.channel(p + 2);
-        float* outptr3 = top_blob.channel(p + 3);
+        float *outptr0 = top_blob.channel(p);
+        float *outptr1 = top_blob.channel(p + 1);
+        float *outptr2 = top_blob.channel(p + 2);
+        float *outptr3 = top_blob.channel(p + 3);
 
         const float zeros[4] = {0.f, 0.f, 0.f, 0.f};
-        const float* biasptr = bias ? bias + p : zeros;
+        const float *biasptr = bias ? bias + p : zeros;
 
         int i = 0;
 #if __aarch64__
-        for (; i + 11 < size; i += 12)
-        {
-            float* tmpptr = tmp.channel(i / 12);
-            const float* kptr = (const float*)kernel.channel(p / 8 + (p % 8) / 4);
+        for (; i + 11 < size; i += 12) {
+            float *tmpptr = tmp.channel(i / 12);
+            const float *kptr = (const float *)kernel.channel(p / 8 + (p % 8) / 4);
 
-            int nn = inch * maxk; // inch always > 0
+            int nn = inch * maxk;  // inch always > 0
 
             asm volatile(
                 "ld1    {v19.4s}, [%14]         \n"
@@ -935,35 +900,32 @@ static void im2col_sgemm_pack4to1_neon(const Mat& bottom_im2col, Mat& top_blob, 
                 "st1    {v14.4s, v15.4s, v16.4s}, [%3], #48 \n"
                 "st1    {v17.4s, v18.4s, v19.4s}, [%4], #48 \n"
 
-                : "=r"(nn),      // %0
-                "=r"(outptr0), // %1
-                "=r"(outptr1), // %2
-                "=r"(outptr2), // %3
-                "=r"(outptr3), // %4
-                "=r"(tmpptr),  // %5
-                "=r"(kptr)     // %6
-                : "0"(nn),
-                "1"(outptr0),
-                "2"(outptr1),
-                "3"(outptr2),
-                "4"(outptr3),
-                "5"(tmpptr),
-                "6"(kptr),
-                "r"(biasptr) // %14
-                : "cc", "memory", "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", "v9", "v10", "v11", "v12", "v13", "v14", "v15", "v16", "v17", "v18", "v19", "v20", "v21", "v22", "v23", "v24", "v25", "v26", "v27");
+                : "=r"(nn),       // %0
+                "=r"(outptr0),  // %1
+                "=r"(outptr1),  // %2
+                "=r"(outptr2),  // %3
+                "=r"(outptr3),  // %4
+                "=r"(tmpptr),   // %5
+                "=r"(kptr)      // %6
+                : "0"(nn), "1"(outptr0), "2"(outptr1), "3"(outptr2), "4"(outptr3),
+                "5"(tmpptr), "6"(kptr),
+                "r"(biasptr)  // %14
+                : "cc", "memory", "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7",
+                "v8", "v9", "v10", "v11", "v12", "v13", "v14", "v15", "v16", "v17",
+                "v18", "v19", "v20", "v21", "v22", "v23", "v24", "v25", "v26",
+                "v27");
         }
-#endif // __aarch64__
-        for (; i + 7 < size; i += 8)
-        {
+#endif  // __aarch64__
+        for (; i + 7 < size; i += 8) {
 #if __aarch64__
-            float* tmpptr = tmp.channel(i / 12 + (i % 12) / 8);
-            const float* kptr = (const float*)kernel.channel(p / 8 + (p % 8) / 4);
+            float *tmpptr = tmp.channel(i / 12 + (i % 12) / 8);
+            const float *kptr = (const float *)kernel.channel(p / 8 + (p % 8) / 4);
 #else
-            float* tmpptr = tmp.channel(i / 8);
-            const float* kptr = (const float*)kernel.channel(p / 4);
+            float *tmpptr = tmp.channel(i / 8);
+            const float *kptr = (const float *)kernel.channel(p / 4);
 #endif
 
-            int nn = inch * maxk; // inch always > 0
+            int nn = inch * maxk;  // inch always > 0
 
 #if __aarch64__
             asm volatile(
@@ -1033,23 +995,20 @@ static void im2col_sgemm_pack4to1_neon(const Mat& bottom_im2col, Mat& top_blob, 
                 "st1    {v12.4s, v13.4s}, [%3], #32 \n"
                 "st1    {v14.4s, v15.4s}, [%4], #32 \n"
 
-                : "=r"(nn),      // %0
-                "=r"(outptr0), // %1
-                "=r"(outptr1), // %2
-                "=r"(outptr2), // %3
-                "=r"(outptr3), // %4
-                "=r"(tmpptr),  // %5
-                "=r"(kptr)     // %6
-                : "0"(nn),
-                "1"(outptr0),
-                "2"(outptr1),
-                "3"(outptr2),
-                "4"(outptr3),
-                "5"(tmpptr),
-                "6"(kptr),
-                "r"(biasptr) // %14
-                : "cc", "memory", "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", "v9", "v10", "v11", "v12", "v13", "v14", "v15", "v16", "v17", "v18", "v19");
-#else  // __aarch64__
+                : "=r"(nn),       // %0
+                "=r"(outptr0),  // %1
+                "=r"(outptr1),  // %2
+                "=r"(outptr2),  // %3
+                "=r"(outptr3),  // %4
+                "=r"(tmpptr),   // %5
+                "=r"(kptr)      // %6
+                : "0"(nn), "1"(outptr0), "2"(outptr1), "3"(outptr2), "4"(outptr3),
+                "5"(tmpptr), "6"(kptr),
+                "r"(biasptr)  // %14
+                : "cc", "memory", "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7",
+                "v8", "v9", "v10", "v11", "v12", "v13", "v14", "v15", "v16", "v17",
+                "v18", "v19");
+#else   // __aarch64__
             asm volatile(
                 "vld1.f32   {d30-d31}, [%14] \n"
                 "vdup.f32   q8, d30[0]      \n"
@@ -1117,35 +1076,30 @@ static void im2col_sgemm_pack4to1_neon(const Mat& bottom_im2col, Mat& top_blob, 
                 "vst1.f32   {d24-d27}, [%3 :128]! \n"
                 "vst1.f32   {d28-d31}, [%4 :128]! \n"
 
-                : "=r"(nn),      // %0
-                "=r"(outptr0), // %1
-                "=r"(outptr1), // %2
-                "=r"(outptr2), // %3
-                "=r"(outptr3), // %4
-                "=r"(tmpptr),  // %5
-                "=r"(kptr)     // %6
-                : "0"(nn),
-                "1"(outptr0),
-                "2"(outptr1),
-                "3"(outptr2),
-                "4"(outptr3),
-                "5"(tmpptr),
-                "6"(kptr),
-                "r"(biasptr) // %14
-                : "cc", "memory", "q0", "q1", "q2", "q3", "q4", "q5", "q6", "q7", "q8", "q9", "q10", "q11", "q12", "q13", "q14", "q15");
-#endif // __aarch64__
+                : "=r"(nn),       // %0
+                "=r"(outptr0),  // %1
+                "=r"(outptr1),  // %2
+                "=r"(outptr2),  // %3
+                "=r"(outptr3),  // %4
+                "=r"(tmpptr),   // %5
+                "=r"(kptr)      // %6
+                : "0"(nn), "1"(outptr0), "2"(outptr1), "3"(outptr2), "4"(outptr3),
+                "5"(tmpptr), "6"(kptr),
+                "r"(biasptr)  // %14
+                : "cc", "memory", "q0", "q1", "q2", "q3", "q4", "q5", "q6", "q7",
+                "q8", "q9", "q10", "q11", "q12", "q13", "q14", "q15");
+#endif  // __aarch64__
         }
-        for (; i + 3 < size; i += 4)
-        {
+        for (; i + 3 < size; i += 4) {
 #if __aarch64__
-            float* tmpptr = tmp.channel(i / 12 + (i % 12) / 8 + (i % 12 % 8) / 4);
-            const float* kptr = (const float*)kernel.channel(p / 8 + (p % 8) / 4);
+            float *tmpptr = tmp.channel(i / 12 + (i % 12) / 8 + (i % 12 % 8) / 4);
+            const float *kptr = (const float *)kernel.channel(p / 8 + (p % 8) / 4);
 #else
-            float* tmpptr = tmp.channel(i / 8 + (i % 8) / 4);
-            const float* kptr = (const float*)kernel.channel(p / 4);
+            float *tmpptr = tmp.channel(i / 8 + (i % 8) / 4);
+            const float *kptr = (const float *)kernel.channel(p / 4);
 #endif
 
-            int nn = inch * maxk; // inch always > 0
+            int nn = inch * maxk;  // inch always > 0
 
 #if __aarch64__
             asm volatile(
@@ -1192,23 +1146,19 @@ static void im2col_sgemm_pack4to1_neon(const Mat& bottom_im2col, Mat& top_blob, 
                 "st1    {v10.4s}, [%3], #16     \n"
                 "st1    {v11.4s}, [%4], #16     \n"
 
-                : "=r"(nn),      // %0
-                "=r"(outptr0), // %1
-                "=r"(outptr1), // %2
-                "=r"(outptr2), // %3
-                "=r"(outptr3), // %4
-                "=r"(tmpptr),  // %5
-                "=r"(kptr)     // %6
-                : "0"(nn),
-                "1"(outptr0),
-                "2"(outptr1),
-                "3"(outptr2),
-                "4"(outptr3),
-                "5"(tmpptr),
-                "6"(kptr),
-                "r"(biasptr) // %14
-                : "cc", "memory", "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", "v9", "v10", "v11");
-#else  // __aarch64__
+                : "=r"(nn),       // %0
+                "=r"(outptr0),  // %1
+                "=r"(outptr1),  // %2
+                "=r"(outptr2),  // %3
+                "=r"(outptr3),  // %4
+                "=r"(tmpptr),   // %5
+                "=r"(kptr)      // %6
+                : "0"(nn), "1"(outptr0), "2"(outptr1), "3"(outptr2), "4"(outptr3),
+                "5"(tmpptr), "6"(kptr),
+                "r"(biasptr)  // %14
+                : "cc", "memory", "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7",
+                "v8", "v9", "v10", "v11");
+#else   // __aarch64__
             asm volatile(
                 "vld1.f32   {d22-d23}, [%14] \n"
                 "vdup.f32   q8, d22[0]      \n"
@@ -1253,35 +1203,31 @@ static void im2col_sgemm_pack4to1_neon(const Mat& bottom_im2col, Mat& top_blob, 
                 "vst1.f32   {d20-d21}, [%3 :128]! \n"
                 "vst1.f32   {d22-d23}, [%4 :128]! \n"
 
-                : "=r"(nn),      // %0
-                "=r"(outptr0), // %1
-                "=r"(outptr1), // %2
-                "=r"(outptr2), // %3
-                "=r"(outptr3), // %4
-                "=r"(tmpptr),  // %5
-                "=r"(kptr)     // %6
-                : "0"(nn),
-                "1"(outptr0),
-                "2"(outptr1),
-                "3"(outptr2),
-                "4"(outptr3),
-                "5"(tmpptr),
-                "6"(kptr),
-                "r"(biasptr) // %14
-                : "cc", "memory", "q0", "q1", "q2", "q3", "q4", "q5", "q6", "q7", "q8", "q9", "q10", "q11");
-#endif // __aarch64__
+                : "=r"(nn),       // %0
+                "=r"(outptr0),  // %1
+                "=r"(outptr1),  // %2
+                "=r"(outptr2),  // %3
+                "=r"(outptr3),  // %4
+                "=r"(tmpptr),   // %5
+                "=r"(kptr)      // %6
+                : "0"(nn), "1"(outptr0), "2"(outptr1), "3"(outptr2), "4"(outptr3),
+                "5"(tmpptr), "6"(kptr),
+                "r"(biasptr)  // %14
+                : "cc", "memory", "q0", "q1", "q2", "q3", "q4", "q5", "q6", "q7",
+                "q8", "q9", "q10", "q11");
+#endif  // __aarch64__
         }
-        for (; i < size; i++)
-        {
+        for (; i < size; i++) {
 #if __aarch64__
-            float* tmpptr = tmp.channel(i / 12 + (i % 12) / 8 + (i % 12 % 8) / 4 + i % 12 % 4);
-            const float* kptr = (const float*)kernel.channel(p / 8 + (p % 8) / 4);
+            float *tmpptr =
+                tmp.channel(i / 12 + (i % 12) / 8 + (i % 12 % 8) / 4 + i % 12 % 4);
+            const float *kptr = (const float *)kernel.channel(p / 8 + (p % 8) / 4);
 #else
-            float* tmpptr = tmp.channel(i / 8 + (i % 8) / 4 + i % 4);
-            const float* kptr = (const float*)kernel.channel(p / 4);
+            float *tmpptr = tmp.channel(i / 8 + (i % 8) / 4 + i % 4);
+            const float *kptr = (const float *)kernel.channel(p / 4);
 #endif
 
-            int nn = inch * maxk; // inch always > 0
+            int nn = inch * maxk;  // inch always > 0
 
 #if __aarch64__
             asm volatile(
@@ -1316,23 +1262,19 @@ static void im2col_sgemm_pack4to1_neon(const Mat& bottom_im2col, Mat& top_blob, 
                 "st1    {v8.s}[2], [%3], #4     \n"
                 "st1    {v8.s}[3], [%4], #4     \n"
 
-                : "=r"(nn),      // %0
-                "=r"(outptr0), // %1
-                "=r"(outptr1), // %2
-                "=r"(outptr2), // %3
-                "=r"(outptr3), // %4
-                "=r"(tmpptr),  // %5
-                "=r"(kptr)     // %6
-                : "0"(nn),
-                "1"(outptr0),
-                "2"(outptr1),
-                "3"(outptr2),
-                "4"(outptr3),
-                "5"(tmpptr),
-                "6"(kptr),
-                "r"(biasptr) // %14
-                : "cc", "memory", "v0", "v4", "v5", "v6", "v7", "v8", "v9", "v10", "v11");
-#else  // __aarch64__
+                : "=r"(nn),       // %0
+                "=r"(outptr0),  // %1
+                "=r"(outptr1),  // %2
+                "=r"(outptr2),  // %3
+                "=r"(outptr3),  // %4
+                "=r"(tmpptr),   // %5
+                "=r"(kptr)      // %6
+                : "0"(nn), "1"(outptr0), "2"(outptr1), "3"(outptr2), "4"(outptr3),
+                "5"(tmpptr), "6"(kptr),
+                "r"(biasptr)  // %14
+                : "cc", "memory", "v0", "v4", "v5", "v6", "v7", "v8", "v9", "v10",
+                "v11");
+#else   // __aarch64__
             asm volatile(
                 "vld1.f32   {d16-d17}, [%14] \n"
                 "veor       q9, q9          \n"
@@ -1365,43 +1307,38 @@ static void im2col_sgemm_pack4to1_neon(const Mat& bottom_im2col, Mat& top_blob, 
                 "vst1.f32   {d17[0]}, [%3]! \n"
                 "vst1.f32   {d17[1]}, [%4]! \n"
 
-                : "=r"(nn),      // %0
-                "=r"(outptr0), // %1
-                "=r"(outptr1), // %2
-                "=r"(outptr2), // %3
-                "=r"(outptr3), // %4
-                "=r"(tmpptr),  // %5
-                "=r"(kptr)     // %6
-                : "0"(nn),
-                "1"(outptr0),
-                "2"(outptr1),
-                "3"(outptr2),
-                "4"(outptr3),
-                "5"(tmpptr),
-                "6"(kptr),
-                "r"(biasptr) // %14
-                : "cc", "memory", "q0", "q4", "q5", "q6", "q7", "q8", "q9", "q10", "q11");
-#endif // __aarch64__
+                : "=r"(nn),       // %0
+                "=r"(outptr0),  // %1
+                "=r"(outptr1),  // %2
+                "=r"(outptr2),  // %3
+                "=r"(outptr3),  // %4
+                "=r"(tmpptr),   // %5
+                "=r"(kptr)      // %6
+                : "0"(nn), "1"(outptr0), "2"(outptr1), "3"(outptr2), "4"(outptr3),
+                "5"(tmpptr), "6"(kptr),
+                "r"(biasptr)  // %14
+                : "cc", "memory", "q0", "q4", "q5", "q6", "q7", "q8", "q9", "q10",
+                "q11");
+#endif  // __aarch64__
         }
     }
 
     remain_outch_start += nn_outch << 2;
 
     #pragma omp parallel for num_threads(opt.num_threads)
-    for (int p = remain_outch_start; p < outch; p++)
-    {
-        float* outptr0 = top_blob.channel(p);
+    for (int p = remain_outch_start; p < outch; p++) {
+        float *outptr0 = top_blob.channel(p);
 
         const float bias0 = bias ? bias[p] : 0.f;
 
         int i = 0;
 #if __aarch64__
-        for (; i + 11 < size; i += 12)
-        {
-            float* tmpptr = tmp.channel(i / 12);
-            const float* kptr = (const float*)kernel.channel(p / 8 + (p % 8) / 4 + p % 4);
+        for (; i + 11 < size; i += 12) {
+            float *tmpptr = tmp.channel(i / 12);
+            const float *kptr =
+                (const float *)kernel.channel(p / 8 + (p % 8) / 4 + p % 4);
 
-            int nn = inch * maxk; // inch always > 0
+            int nn = inch * maxk;  // inch always > 0
 
             asm volatile(
                 "dup    v8.4s, %w8              \n"
@@ -1451,29 +1388,28 @@ static void im2col_sgemm_pack4to1_neon(const Mat& bottom_im2col, Mat& top_blob, 
 
                 "st1    {v8.4s, v9.4s, v10.4s}, [%1], #48 \n"
 
-                : "=r"(nn),      // %0
-                "=r"(outptr0), // %1
-                "=r"(tmpptr),  // %2
-                "=r"(kptr)     // %3
-                : "0"(nn),
-                "1"(outptr0),
-                "2"(tmpptr),
-                "3"(kptr),
-                "r"(bias0) // %8
-                : "cc", "memory", "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", "v9", "v10", "v12", "v13", "v14", "v15", "v16", "v17", "v18", "v19");
+                : "=r"(nn),       // %0
+                "=r"(outptr0),  // %1
+                "=r"(tmpptr),   // %2
+                "=r"(kptr)      // %3
+                : "0"(nn), "1"(outptr0), "2"(tmpptr), "3"(kptr),
+                "r"(bias0)  // %8
+                : "cc", "memory", "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7",
+                "v8", "v9", "v10", "v12", "v13", "v14", "v15", "v16", "v17", "v18",
+                "v19");
         }
-#endif // __aarch64__
-        for (; i + 7 < size; i += 8)
-        {
+#endif  // __aarch64__
+        for (; i + 7 < size; i += 8) {
 #if __aarch64__
-            float* tmpptr = tmp.channel(i / 12 + (i % 12) / 8);
-            const float* kptr = (const float*)kernel.channel(p / 8 + (p % 8) / 4 + p % 4);
+            float *tmpptr = tmp.channel(i / 12 + (i % 12) / 8);
+            const float *kptr =
+                (const float *)kernel.channel(p / 8 + (p % 8) / 4 + p % 4);
 #else
-            float* tmpptr = tmp.channel(i / 8);
-            const float* kptr = (const float*)kernel.channel(p / 4 + p % 4);
+            float *tmpptr = tmp.channel(i / 8);
+            const float *kptr = (const float *)kernel.channel(p / 4 + p % 4);
 #endif
 
-            int nn = inch * maxk; // inch always > 0
+            int nn = inch * maxk;  // inch always > 0
 
 #if __aarch64__
             asm volatile(
@@ -1512,17 +1448,15 @@ static void im2col_sgemm_pack4to1_neon(const Mat& bottom_im2col, Mat& top_blob, 
 
                 "st1    {v8.4s, v9.4s}, [%1], #32 \n"
 
-                : "=r"(nn),      // %0
-                "=r"(outptr0), // %1
-                "=r"(tmpptr),  // %2
-                "=r"(kptr)     // %3
-                : "0"(nn),
-                "1"(outptr0),
-                "2"(tmpptr),
-                "3"(kptr),
-                "r"(bias0) // %8
-                : "cc", "memory", "v0", "v1", "v2", "v3", "v4", "v8", "v9", "v10", "v11", "v12", "v13", "v14", "v15");
-#else  // __aarch64__
+                : "=r"(nn),       // %0
+                "=r"(outptr0),  // %1
+                "=r"(tmpptr),   // %2
+                "=r"(kptr)      // %3
+                : "0"(nn), "1"(outptr0), "2"(tmpptr), "3"(kptr),
+                "r"(bias0)  // %8
+                : "cc", "memory", "v0", "v1", "v2", "v3", "v4", "v8", "v9", "v10",
+                "v11", "v12", "v13", "v14", "v15");
+#else   // __aarch64__
             asm volatile(
                 "vdup.f32   q8, %8          \n"
                 "vdup.f32   q9, %8          \n"
@@ -1559,29 +1493,27 @@ static void im2col_sgemm_pack4to1_neon(const Mat& bottom_im2col, Mat& top_blob, 
 
                 "vst1.f32   {d16-d19}, [%1 :128]! \n"
 
-                : "=r"(nn),      // %0
-                "=r"(outptr0), // %1
-                "=r"(tmpptr),  // %2
-                "=r"(kptr)     // %3
-                : "0"(nn),
-                "1"(outptr0),
-                "2"(tmpptr),
-                "3"(kptr),
-                "r"(bias0) // %8
-                : "cc", "memory", "q0", "q1", "q2", "q3", "q4", "q8", "q9", "q10", "q11", "q12", "q13", "q14", "q15");
-#endif // __aarch64__
+                : "=r"(nn),       // %0
+                "=r"(outptr0),  // %1
+                "=r"(tmpptr),   // %2
+                "=r"(kptr)      // %3
+                : "0"(nn), "1"(outptr0), "2"(tmpptr), "3"(kptr),
+                "r"(bias0)  // %8
+                : "cc", "memory", "q0", "q1", "q2", "q3", "q4", "q8", "q9", "q10",
+                "q11", "q12", "q13", "q14", "q15");
+#endif  // __aarch64__
         }
-        for (; i + 3 < size; i += 4)
-        {
+        for (; i + 3 < size; i += 4) {
 #if __aarch64__
-            float* tmpptr = tmp.channel(i / 12 + (i % 12) / 8 + (i % 12 % 8) / 4);
-            const float* kptr = (const float*)kernel.channel(p / 8 + (p % 8) / 4 + p % 4);
+            float *tmpptr = tmp.channel(i / 12 + (i % 12) / 8 + (i % 12 % 8) / 4);
+            const float *kptr =
+                (const float *)kernel.channel(p / 8 + (p % 8) / 4 + p % 4);
 #else
-            float* tmpptr = tmp.channel(i / 8 + (i % 8) / 4);
-            const float* kptr = (const float*)kernel.channel(p / 4 + p % 4);
+            float *tmpptr = tmp.channel(i / 8 + (i % 8) / 4);
+            const float *kptr = (const float *)kernel.channel(p / 4 + p % 4);
 #endif
 
-            int nn = inch * maxk; // inch always > 0
+            int nn = inch * maxk;  // inch always > 0
 
 #if __aarch64__
             asm volatile(
@@ -1613,17 +1545,15 @@ static void im2col_sgemm_pack4to1_neon(const Mat& bottom_im2col, Mat& top_blob, 
 
                 "st1    {v8.4s}, [%1], #16      \n"
 
-                : "=r"(nn),      // %0
-                "=r"(outptr0), // %1
-                "=r"(tmpptr),  // %2
-                "=r"(kptr)     // %3
-                : "0"(nn),
-                "1"(outptr0),
-                "2"(tmpptr),
-                "3"(kptr),
-                "r"(bias0) // %8
-                : "cc", "memory", "v0", "v1", "v2", "v3", "v4", "v8", "v9", "v10", "v11");
-#else  // __aarch64__
+                : "=r"(nn),       // %0
+                "=r"(outptr0),  // %1
+                "=r"(tmpptr),   // %2
+                "=r"(kptr)      // %3
+                : "0"(nn), "1"(outptr0), "2"(tmpptr), "3"(kptr),
+                "r"(bias0)  // %8
+                : "cc", "memory", "v0", "v1", "v2", "v3", "v4", "v8", "v9", "v10",
+                "v11");
+#else   // __aarch64__
             asm volatile(
                 "vdup.f32   q8, %8          \n"
                 "veor       q9, q9          \n"
@@ -1653,34 +1583,32 @@ static void im2col_sgemm_pack4to1_neon(const Mat& bottom_im2col, Mat& top_blob, 
 
                 "vst1.f32   {d16-d17}, [%1]! \n"
 
-                : "=r"(nn),      // %0
-                "=r"(outptr0), // %1
-                "=r"(tmpptr),  // %2
-                "=r"(kptr)     // %3
-                : "0"(nn),
-                "1"(outptr0),
-                "2"(tmpptr),
-                "3"(kptr),
-                "r"(bias0) // %8
-                : "cc", "memory", "q0", "q1", "q2", "q3", "q4", "q8", "q9", "q10", "q11");
-#endif // __aarch64__
+                : "=r"(nn),       // %0
+                "=r"(outptr0),  // %1
+                "=r"(tmpptr),   // %2
+                "=r"(kptr)      // %3
+                : "0"(nn), "1"(outptr0), "2"(tmpptr), "3"(kptr),
+                "r"(bias0)  // %8
+                : "cc", "memory", "q0", "q1", "q2", "q3", "q4", "q8", "q9", "q10",
+                "q11");
+#endif  // __aarch64__
         }
-        for (; i < size; i++)
-        {
+        for (; i < size; i++) {
 #if __aarch64__
-            float* tmpptr = tmp.channel(i / 12 + (i % 12) / 8 + (i % 12 % 8) / 4 + i % 12 % 4);
-            const float* kptr = (const float*)kernel.channel(p / 8 + (p % 8) / 4 + p % 4);
+            float *tmpptr =
+                tmp.channel(i / 12 + (i % 12) / 8 + (i % 12 % 8) / 4 + i % 12 % 4);
+            const float *kptr =
+                (const float *)kernel.channel(p / 8 + (p % 8) / 4 + p % 4);
 #else
-            float* tmpptr = tmp.channel(i / 8 + (i % 8) / 4 + i % 4);
-            const float* kptr = (const float*)kernel.channel(p / 4 + p % 4);
+            float *tmpptr = tmp.channel(i / 8 + (i % 8) / 4 + i % 4);
+            const float *kptr = (const float *)kernel.channel(p / 4 + p % 4);
 #endif
 
-            int nn = inch * maxk; // inch always > 0
+            int nn = inch * maxk;  // inch always > 0
 
             float32x4_t _sum0 = vdupq_n_f32(0.f);
 
-            for (int q = 0; q < nn; q++)
-            {
+            for (int q = 0; q < nn; q++) {
                 float32x4_t _r0 = vld1q_f32(tmpptr);
 
                 float32x4_t _k0 = vld1q_f32(kptr);
@@ -1706,8 +1634,9 @@ static void im2col_sgemm_pack4to1_neon(const Mat& bottom_im2col, Mat& top_blob, 
     }
 }
 
-static void convolution_im2col_sgemm_transform_kernel_pack4to1_neon(const Mat& _kernel, Mat& kernel_tm, int inch, int outch, int kernel_w, int kernel_h)
-{
+static void convolution_im2col_sgemm_transform_kernel_pack4to1_neon(
+    const Mat &_kernel, Mat &kernel_tm, int inch, int outch, int kernel_w,
+    int kernel_h) {
     const int maxk = kernel_w * kernel_h;
 
     // interleave
@@ -1715,26 +1644,22 @@ static void convolution_im2col_sgemm_transform_kernel_pack4to1_neon(const Mat& _
     // dst = pb-pa-maxk-inch/pa-outch/pb
     Mat kernel = _kernel.reshape(maxk, inch, outch);
 #if __aarch64__
-    kernel_tm.create(32 * maxk, inch / 4, outch / 8 + (outch % 8) / 4 + outch % 4);
+    kernel_tm.create(32 * maxk, inch / 4,
+                     outch / 8 + (outch % 8) / 4 + outch % 4);
 #else
     kernel_tm.create(16 * maxk, inch / 4, outch / 4 + outch % 4);
 #endif
 
     int q = 0;
 #if __aarch64__
-    for (; q + 7 < outch; q += 8)
-    {
-        float* g00 = kernel_tm.channel(q / 8);
+    for (; q + 7 < outch; q += 8) {
+        float *g00 = kernel_tm.channel(q / 8);
 
-        for (int p = 0; p + 3 < inch; p += 4)
-        {
-            for (int k = 0; k < maxk; k++)
-            {
-                for (int i = 0; i < 4; i++)
-                {
-                    for (int j = 0; j < 8; j++)
-                    {
-                        const float* k00 = kernel.channel(q + j).row(p + i);
+        for (int p = 0; p + 3 < inch; p += 4) {
+            for (int k = 0; k < maxk; k++) {
+                for (int i = 0; i < 4; i++) {
+                    for (int j = 0; j < 8; j++) {
+                        const float *k00 = kernel.channel(q + j).row(p + i);
 
                         g00[0] = k00[k];
 
@@ -1744,24 +1669,19 @@ static void convolution_im2col_sgemm_transform_kernel_pack4to1_neon(const Mat& _
             }
         }
     }
-#endif // __aarch64__
-    for (; q + 3 < outch; q += 4)
-    {
+#endif  // __aarch64__
+    for (; q + 3 < outch; q += 4) {
 #if __aarch64__
-        float* g00 = kernel_tm.channel(q / 8 + (q % 8) / 4);
+        float *g00 = kernel_tm.channel(q / 8 + (q % 8) / 4);
 #else
-        float* g00 = kernel_tm.channel(q / 4);
+        float *g00 = kernel_tm.channel(q / 4);
 #endif
 
-        for (int p = 0; p + 3 < inch; p += 4)
-        {
-            for (int k = 0; k < maxk; k++)
-            {
-                for (int i = 0; i < 4; i++)
-                {
-                    for (int j = 0; j < 4; j++)
-                    {
-                        const float* k00 = kernel.channel(q + j).row(p + i);
+        for (int p = 0; p + 3 < inch; p += 4) {
+            for (int k = 0; k < maxk; k++) {
+                for (int i = 0; i < 4; i++) {
+                    for (int j = 0; j < 4; j++) {
+                        const float *k00 = kernel.channel(q + j).row(p + i);
 
                         g00[0] = k00[k];
 
@@ -1771,23 +1691,19 @@ static void convolution_im2col_sgemm_transform_kernel_pack4to1_neon(const Mat& _
             }
         }
     }
-    for (; q < outch; q++)
-    {
+    for (; q < outch; q++) {
         const Mat k0 = kernel.channel(q);
 
 #if __aarch64__
-        float* g00 = kernel_tm.channel(q / 8 + (q % 8) / 4 + q % 4);
+        float *g00 = kernel_tm.channel(q / 8 + (q % 8) / 4 + q % 4);
 #else
-        float* g00 = kernel_tm.channel(q / 4 + q % 4);
+        float *g00 = kernel_tm.channel(q / 4 + q % 4);
 #endif
 
-        for (int p = 0; p + 3 < inch; p += 4)
-        {
-            for (int k = 0; k < maxk; k++)
-            {
-                for (int j = 0; j < 4; j++)
-                {
-                    const float* k00 = k0.row(p + j);
+        for (int p = 0; p + 3 < inch; p += 4) {
+            for (int k = 0; k < maxk; k++) {
+                for (int j = 0; j < 4; j++) {
+                    const float *k00 = k0.row(p + j);
 
                     g00[0] = k00[k];
 
@@ -1798,8 +1714,10 @@ static void convolution_im2col_sgemm_transform_kernel_pack4to1_neon(const Mat& _
     }
 }
 
-static void convolution_im2col_sgemm_pack4to1_neon(const Mat& bottom_blob, Mat& top_blob, const Mat& kernel, const Mat& _bias, int kernel_w, int kernel_h, int dilation_w, int dilation_h, int stride_w, int stride_h, const Option& opt)
-{
+static void convolution_im2col_sgemm_pack4to1_neon(
+    const Mat &bottom_blob, Mat &top_blob, const Mat &kernel, const Mat &_bias,
+    int kernel_w, int kernel_h, int dilation_w, int dilation_h, int stride_w,
+    int stride_h, const Option &opt) {
     int w = bottom_blob.w;
     int inch = bottom_blob.c;
 
@@ -1815,22 +1733,18 @@ static void convolution_im2col_sgemm_pack4to1_neon(const Mat& bottom_blob, Mat& 
         const int gap = (w * stride_h - outw * stride_w) * 4;
 
         #pragma omp parallel for num_threads(opt.num_threads)
-        for (int p = 0; p < inch; p++)
-        {
+        for (int p = 0; p < inch; p++) {
             const Mat img = bottom_blob.channel(p);
-            float* ptr = bottom_im2col.channel(p);
+            float *ptr = bottom_im2col.channel(p);
 
-            for (int u = 0; u < kernel_h; u++)
-            {
-                for (int v = 0; v < kernel_w; v++)
-                {
-                    const float* sptr = img.row<const float>(dilation_h * u) + dilation_w * v * 4;
+            for (int u = 0; u < kernel_h; u++) {
+                for (int v = 0; v < kernel_w; v++) {
+                    const float *sptr =
+                        img.row<const float>(dilation_h * u) + dilation_w * v * 4;
 
-                    for (int i = 0; i < outh; i++)
-                    {
+                    for (int i = 0; i < outh; i++) {
                         int j = 0;
-                        for (; j + 3 < outw; j += 4)
-                        {
+                        for (; j + 3 < outw; j += 4) {
                             float32x4_t _val0 = vld1q_f32(sptr);
                             float32x4_t _val1 = vld1q_f32(sptr + stride_w * 4);
                             float32x4_t _val2 = vld1q_f32(sptr + stride_w * 8);
@@ -1843,8 +1757,7 @@ static void convolution_im2col_sgemm_pack4to1_neon(const Mat& bottom_blob, Mat& 
                             sptr += stride_w * 16;
                             ptr += 16;
                         }
-                        for (; j + 1 < outw; j += 2)
-                        {
+                        for (; j + 1 < outw; j += 2) {
                             float32x4_t _val0 = vld1q_f32(sptr);
                             float32x4_t _val1 = vld1q_f32(sptr + stride_w * 4);
                             vst1q_f32(ptr, _val0);
@@ -1853,8 +1766,7 @@ static void convolution_im2col_sgemm_pack4to1_neon(const Mat& bottom_blob, Mat& 
                             sptr += stride_w * 8;
                             ptr += 8;
                         }
-                        for (; j < outw; j++)
-                        {
+                        for (; j < outw; j++) {
                             float32x4_t _val = vld1q_f32(sptr);
                             vst1q_f32(ptr, _val);
 

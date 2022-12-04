@@ -2,7 +2,8 @@
  *
  *   Inspired by Intel Approximate Math library, and based on the
  *   corresponding algorithms of the cephes math library
- *   Copyright (C) 2022 yala <zhaojunchao@loongson.cn>;<junchao82@qq.com>. All rights reserved.
+ *   Copyright (C) 2022 yala <zhaojunchao@loongson.cn>;<junchao82@qq.com>. All
+ * rights reserved.
  */
 
 /*
@@ -28,9 +29,9 @@
 #ifndef LSX_MATHFUN_H
 #define LSX_MATHFUN_H
 
-#include "loongarch_usability.h"
-
 #include <lsxintrin.h>
+
+#include "loongarch_usability.h"
 
 _LOONGARCH_FLOAT_CONST(c_1, 1.0f);
 _LOONGARCH_FLOAT_CONST(c_2, 2.0f);
@@ -54,11 +55,11 @@ _LOONGARCH_FLOAT_CONST(c_cephes_log_q2, 0.693359375);
 /* natural logarithm computed for 4 simultaneous float
  *   return NaN for x <= 0
  */
-static inline __m128 log_ps(__m128 x)
-{
+static inline __m128 log_ps(__m128 x) {
     __m128 one = (__m128)__lsx_vreplgr2vr_w(c_1.i);
 
-    x = __lsx_vfmax_s(x, (__m128)__lsx_vreplgr2vr_w(0)); /* force flush to zero on denormal values */
+    x = __lsx_vfmax_s(x, (__m128)__lsx_vreplgr2vr_w(
+                          0)); /* force flush to zero on denormal values */
     __m128i invalid_mask = __lsx_vfcmp_cle_s(x, (__m128)__lsx_vreplgr2vr_w(0));
 
     __m128i ux = (__m128i)(x);
@@ -81,7 +82,8 @@ static inline __m128 log_ps(__m128 x)
      *       x = x + x - 1.0;
      *     } else { x = x - 1.0; }
      */
-    __m128i mask = __lsx_vfcmp_clt_s((__m128)x, (__m128)__lsx_vreplgr2vr_w(c_cephes_SQRTHF.i));
+    __m128i mask = __lsx_vfcmp_clt_s(
+                       (__m128)x, (__m128)__lsx_vreplgr2vr_w(c_cephes_SQRTHF.i));
     __m128 tmp = (__m128)(__lsx_vand_v((__m128i)(x), (__m128i)mask));
     x = __lsx_vfsub_s(x, one);
     e = __lsx_vfsub_s(e, (__m128)(__lsx_vand_v((__m128i)(one), (__m128i)mask)));
@@ -112,7 +114,8 @@ static inline __m128 log_ps(__m128 x)
     tmp = __lsx_vfmul_s(e, (__m128)__lsx_vreplgr2vr_w(c_cephes_log_q2.i));
     x = __lsx_vfadd_s(x, y);
     x = __lsx_vfadd_s(x, tmp);
-    x = (__m128)(__lsx_vor_v((__m128i)(x), (__m128i)invalid_mask)); // negative arg will be NAN
+    x = (__m128)(__lsx_vor_v((__m128i)(x),
+                             (__m128i)invalid_mask));  // negative arg will be NAN
     return x;
 }
 
@@ -131,8 +134,7 @@ _LOONGARCH_FLOAT_CONST(c_cephes_exp_p4, 1.6666665459E-1);
 _LOONGARCH_FLOAT_CONST(c_cephes_exp_p5, 5.0000001201E-1);
 
 /* exp() computed for 4 float at once */
-static inline __m128 exp_ps(__m128 x)
-{
+static inline __m128 exp_ps(__m128 x) {
     __m128 tmp, fx;
 
     __m128 one = (__m128)__lsx_vreplgr2vr_w(c_1.i);
@@ -198,16 +200,19 @@ _LOONGARCH_FLOAT_CONST(c_tanh_beta_4, 1.18534705686654e-4f);
 _LOONGARCH_FLOAT_CONST(c_tanh_beta_6, 1.19825839466702e-6f);
 
 /* tanh() computed for 4 float at once */
-static inline __m128 tanh_ps(__m128 x)
-{
+static inline __m128 tanh_ps(__m128 x) {
     __m128 x2 = (__m128)__lsx_vbitclri_w((__m128i)x, 31);
-    __m128i tiny_mask = __lsx_vfcmp_clt_s((__m128)x2, (__m128)(__m128)__lsx_vreplgr2vr_w(c_tanh_tiny.i));
+    __m128i tiny_mask = __lsx_vfcmp_clt_s(
+                            (__m128)x2, (__m128)(__m128)__lsx_vreplgr2vr_w(c_tanh_tiny.i));
     __m128i sig_mask = __lsx_vreplgr2vr_w(1 << 31);
     __m128i sig_save = __lsx_vand_v((__m128i)x, sig_mask);
 
     // clamp the inputs to the range [-9, 9] since anything outside
     // this range is -/+1.0f in single-precision.
-    x2 = (__m128)__lsx_vbitsel_v((__m128i)x2, (__m128i)__lsx_vreplgr2vr_w(c_tanh_hi.i), (__m128i)__lsx_vfcmp_clt_s((__m128)__lsx_vreplgr2vr_w(c_tanh_hi.i), (__m128)x2));
+    x2 = (__m128)__lsx_vbitsel_v(
+             (__m128i)x2, (__m128i)__lsx_vreplgr2vr_w(c_tanh_hi.i),
+             (__m128i)__lsx_vfcmp_clt_s((__m128)__lsx_vreplgr2vr_w(c_tanh_hi.i),
+                                        (__m128)x2));
 
     // since the polynomials are odd/even, we need x**2.
     __m128 z = __lsx_vfmul_s(x2, x2);
@@ -234,20 +239,19 @@ static inline __m128 tanh_ps(__m128 x)
     // reinstate the sign.
     y = (__m128)__lsx_vor_v((__m128i)y, sig_save);
 
-    // when the argument is very small in magnitude it's more accurate to just return it.
+    // when the argument is very small in magnitude it's more accurate to just
+    // return it.
     y = (__m128)__lsx_vbitsel_v((__m128i)y, (__m128i)x, (__m128i)tiny_mask);
 
     return y;
 }
 
-static inline __m128 pow_ps(__m128 a, __m128 b)
-{
+static inline __m128 pow_ps(__m128 a, __m128 b) {
     // pow(x, m) = exp(m * log(x))
     return exp_ps(__lsx_vfmul_s(b, log_ps(a)));
 }
 
-static inline __m128 sigmoid_ps(__m128 _v)
-{
+static inline __m128 sigmoid_ps(__m128 _v) {
     __m128 _one = __lsx_vreplfr2vr_s(1.f);
     _v = (__m128)__lsx_vbitrevi_w((__m128i)_v, 31);
     _v = exp_ps(_v);
@@ -255,4 +259,4 @@ static inline __m128 sigmoid_ps(__m128 _v)
     return __lsx_vfdiv_s(_one, _v);
 }
 
-#endif // LSX_MATHFUN_H
+#endif  // LSX_MATHFUN_H

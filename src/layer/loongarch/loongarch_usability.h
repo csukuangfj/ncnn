@@ -1,67 +1,65 @@
-// yala is pleased to support the open source community by making ncnn available.
+// yala is pleased to support the open source community by making ncnn
+// available.
 //
 //
-// Copyright (C) 2022 yala <zhaojunchao@loongson.cn>;<junchao82@qq.com>. All rights reserved.
-// Licensed under the BSD 3-Clause License (the "License"); you may not use this file except
-// in compliance with the License. You may obtain a copy of the License at
+// Copyright (C) 2022 yala <zhaojunchao@loongson.cn>;<junchao82@qq.com>. All
+// rights reserved. Licensed under the BSD 3-Clause License (the "License"); you
+// may not use this file except in compliance with the License. You may obtain a
+// copy of the License at
 //
 // https://opensource.org/licenses/BSD-3-Clause
 //
-// Unless required by applicable law or agreed to in writing, software distributed
-// under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
-// CONDITIONS OF ANY KIND, either express or implied. See the License for the
-// specific language governing permissions and limitations under the License.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+// WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+// License for the specific language governing permissions and limitations under
+// the License.
 
 #ifndef LOONGARCH_USABILITY_H
 #define LOONGARCH_USABILITY_H
 
 #if __loongarch_sx
 #include <lsxintrin.h>
-#endif // __loongarch_sx
+#endif  // __loongarch_sx
 
 #include <math.h>
 #include <stdint.h>
 
 namespace ncnn {
 
-typedef union
-{
+typedef union {
     int32_t i;
     float f;
 } FloatInt;
 
-} // namespace ncnn
+}  // namespace ncnn
 
 #if __loongarch_sx
 /* declare some loongarch constants with union */
 #define _LOONGARCH_FLOAT_CONST(Name, Val) \
-    static const ncnn::FloatInt Name = {.f = Val}
+  static const ncnn::FloatInt Name = {.f = Val}
 
 /* float type data load instructions */
-static NCNN_FORCEINLINE __m128 __lsx_vreplfr2vr_s(float val)
-{
+static NCNN_FORCEINLINE __m128 __lsx_vreplfr2vr_s(float val) {
     ncnn::FloatInt fi_tmpval = {.f = val};
     return (__m128)__lsx_vreplgr2vr_w(fi_tmpval.i);
 }
 
-static NCNN_FORCEINLINE float __lsx_reduce_fadd_s(__m128 _v)
-{
+static NCNN_FORCEINLINE float __lsx_reduce_fadd_s(__m128 _v) {
     // TODO find a more efficient way
-    float* _v_p = (float*)&_v;
+    float *_v_p = (float *)&_v;
     return _v_p[0] + _v_p[1] + _v_p[2] + _v_p[3];
 }
 
-static NCNN_FORCEINLINE int __lsx_reduce_add_w(__m128i _v)
-{
+static NCNN_FORCEINLINE int __lsx_reduce_add_w(__m128i _v) {
     // TODO find a more efficient way
-    int* _v_p = (int*)&_v;
+    int *_v_p = (int *)&_v;
     return _v_p[0] + _v_p[1] + _v_p[2] + _v_p[3];
 }
 
-#endif // __loongarch_sx
+#endif  // __loongarch_sx
 
-static NCNN_FORCEINLINE signed char float2int8(float v)
-{
+static NCNN_FORCEINLINE signed char float2int8(float v) {
     int int32 = round(v);
     if (int32 > 127) return 127;
     if (int32 < -127) return -127;
@@ -69,8 +67,7 @@ static NCNN_FORCEINLINE signed char float2int8(float v)
 }
 
 #if __loongarch_sx
-static NCNN_FORCEINLINE __m128i float2int8(__m128 _v)
-{
+static NCNN_FORCEINLINE __m128i float2int8(__m128 _v) {
     // simulate round to nearest via +/-0.5
     __m128 _p5 = (__m128)__lsx_vreplfr2vr_s(0.5f);
     __m128i _signmask = __lsx_vreplgr2vr_w(1 << 31);
@@ -89,8 +86,7 @@ static NCNN_FORCEINLINE __m128i float2int8(__m128 _v)
     return _v8;
 }
 
-static NCNN_FORCEINLINE int64_t float2int8(__m128 _vlow, __m128 _vhigh)
-{
+static NCNN_FORCEINLINE int64_t float2int8(__m128 _vlow, __m128 _vhigh) {
     // simulate round to nearest via +/-0.5
     __m128 _p5 = (__m128)__lsx_vreplfr2vr_s(0.5f);
     __m128i _signmask = __lsx_vreplgr2vr_w(1 << 31);
@@ -114,8 +110,7 @@ static NCNN_FORCEINLINE int64_t float2int8(__m128 _vlow, __m128 _vhigh)
     return _v8[0];
 }
 
-static NCNN_FORCEINLINE __m128i float2int8relu(__m128 _v)
-{
+static NCNN_FORCEINLINE __m128i float2int8relu(__m128 _v) {
     // simulate round to nearest via +/-0.5
     __m128 _p5 = (__m128)__lsx_vreplfr2vr_s(0.5f);
     __m128i _signmask = __lsx_vreplgr2vr_w(1 << 31);
@@ -134,8 +129,7 @@ static NCNN_FORCEINLINE __m128i float2int8relu(__m128 _v)
     return _v8;
 }
 
-static NCNN_FORCEINLINE int64_t float2int8relu(__m128 _vlow, __m128 _vhigh)
-{
+static NCNN_FORCEINLINE int64_t float2int8relu(__m128 _vlow, __m128 _vhigh) {
     // simulate round to nearest via +/-0.5
     __m128 _p5 = (__m128)__lsx_vreplfr2vr_s(0.5f);
     __m128i _signmask = __lsx_vreplgr2vr_w(1 << 31);
@@ -159,8 +153,7 @@ static NCNN_FORCEINLINE int64_t float2int8relu(__m128 _vlow, __m128 _vhigh)
     return _v8[0];
 }
 
-static NCNN_FORCEINLINE __m128i float2int8leakyrelu(__m128 _v, __m128 _slope)
-{
+static NCNN_FORCEINLINE __m128i float2int8leakyrelu(__m128 _v, __m128 _slope) {
     __m128 _v_leaky = __lsx_vfmul_s(_v, _slope);
 
     // simulate round to nearest via +/-0.5
@@ -190,8 +183,8 @@ static NCNN_FORCEINLINE __m128i float2int8leakyrelu(__m128 _v, __m128 _slope)
     return _v8;
 }
 
-static NCNN_FORCEINLINE int64_t float2int8leakyrelu(__m128 _vlow, __m128 _vhigh, __m128 _slope)
-{
+static NCNN_FORCEINLINE int64_t float2int8leakyrelu(__m128 _vlow, __m128 _vhigh,
+        __m128 _slope) {
     __m128 _vlow_leaky = __lsx_vfmul_s(_vlow, _slope);
     __m128 _vhigh_leaky = __lsx_vfmul_s(_vhigh, _slope);
 
@@ -231,6 +224,6 @@ static NCNN_FORCEINLINE int64_t float2int8leakyrelu(__m128 _vlow, __m128 _vhigh,
 
     return _v8[0];
 }
-#endif // __loongarch_sx
+#endif  // __loongarch_sx
 
-#endif // LOONGARCH_USABILITY_H
+#endif  // LOONGARCH_USABILITY_H

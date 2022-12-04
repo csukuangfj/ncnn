@@ -20,23 +20,23 @@
 namespace ncnn {
 
 class RelPositionalEncoding : public Layer {
- public:
-  RelPositionalEncoding();
+public:
+    RelPositionalEncoding();
 
-  virtual int load_param(const ParamDict &pd);
+    virtual int load_param(const ParamDict &pd);
 
-  virtual int load_model(const ModelBin &mb);
+    virtual int load_model(const ModelBin &mb);
 
-  virtual int forward(const Mat &bottom_blob, Mat &top_blob,
-                      const Option &opt) const;
+    virtual int forward(const Mat &bottom_blob, Mat &top_blob,
+                        const Option &opt) const;
 
- public:
-  // param
-  int w;
-  int h;
+public:
+    // param
+    int w;
+    int h;
 
-  // model
-  Mat pe;
+    // model
+    Mat pe;
 };
 
 }  // namespace ncnn

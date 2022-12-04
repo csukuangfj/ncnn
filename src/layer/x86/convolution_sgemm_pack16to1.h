@@ -1,19 +1,23 @@
-// Tencent is pleased to support the open source community by making ncnn available.
+// Tencent is pleased to support the open source community by making ncnn
+// available.
 //
 // Copyright (C) 2022 THL A29 Limited, a Tencent company. All rights reserved.
 //
-// Licensed under the BSD 3-Clause License (the "License"); you may not use this file except
-// in compliance with the License. You may obtain a copy of the License at
+// Licensed under the BSD 3-Clause License (the "License"); you may not use this
+// file except in compliance with the License. You may obtain a copy of the
+// License at
 //
 // https://opensource.org/licenses/BSD-3-Clause
 //
-// Unless required by applicable law or agreed to in writing, software distributed
-// under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
-// CONDITIONS OF ANY KIND, either express or implied. See the License for the
-// specific language governing permissions and limitations under the License.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+// WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+// License for the specific language governing permissions and limitations under
+// the License.
 
-static void im2col_sgemm_pack16to1_avx512(const Mat& bottom_im2col, Mat& top_blob, const Mat& kernel, const Mat& _bias, const Option& opt)
-{
+static void im2col_sgemm_pack16to1_avx512(const Mat &bottom_im2col,
+        Mat &top_blob, const Mat &kernel,
+        const Mat &_bias, const Option &opt) {
     // Mat bottom_im2col(size, maxk, inch, 64u, 16, opt.workspace_allocator);
 
     const int size = bottom_im2col.w;
@@ -22,13 +26,15 @@ static void im2col_sgemm_pack16to1_avx512(const Mat& bottom_im2col, Mat& top_blo
 
     const int outch = top_blob.c;
 
-    const float* bias = _bias;
+    const float *bias = _bias;
 
     Mat tmp;
     if (size >= 16)
-        tmp.create(16 * maxk, inch, size / 16 + (size % 16) / 8 + size % 8, 64u, 16, opt.workspace_allocator);
+        tmp.create(16 * maxk, inch, size / 16 + (size % 16) / 8 + size % 8, 64u, 16,
+                   opt.workspace_allocator);
     else if (size >= 8)
-        tmp.create(8 * maxk, inch, size / 8 + size % 8, 64u, 16, opt.workspace_allocator);
+        tmp.create(8 * maxk, inch, size / 8 + size % 8, 64u, 16,
+                   opt.workspace_allocator);
     else
         tmp.create(maxk, inch, size, 64u, 16, opt.workspace_allocator);
     {
@@ -36,18 +42,15 @@ static void im2col_sgemm_pack16to1_avx512(const Mat& bottom_im2col, Mat& top_blo
         int nn_size = size >> 4;
 
         #pragma omp parallel for num_threads(opt.num_threads)
-        for (int ii = 0; ii < nn_size; ii++)
-        {
+        for (int ii = 0; ii < nn_size; ii++) {
             int i = ii * 16;
 
-            float* tmpptr = tmp.channel(i / 16);
+            float *tmpptr = tmp.channel(i / 16);
 
-            for (int q = 0; q < inch; q++)
-            {
-                const float* img0 = (const float*)bottom_im2col.channel(q) + i * 16;
+            for (int q = 0; q < inch; q++) {
+                const float *img0 = (const float *)bottom_im2col.channel(q) + i * 16;
 
-                for (int k = 0; k < maxk; k++)
-                {
+                for (int k = 0; k < maxk; k++) {
                     // transpose 16x16
                     __m512 _r0 = _mm512_loadu_ps(img0);
                     __m512 _r1 = _mm512_loadu_ps(img0 + 16);
@@ -66,7 +69,8 @@ static void im2col_sgemm_pack16to1_avx512(const Mat& bottom_im2col, Mat& top_blo
                     __m512 _re = _mm512_loadu_ps(img0 + 16 * 14);
                     __m512 _rf = _mm512_loadu_ps(img0 + 16 * 15);
 
-                    transpose16x16_ps(_r0, _r1, _r2, _r3, _r4, _r5, _r6, _r7, _r8, _r9, _ra, _rb, _rc, _rd, _re, _rf);
+                    transpose16x16_ps(_r0, _r1, _r2, _r3, _r4, _r5, _r6, _r7, _r8, _r9,
+                                      _ra, _rb, _rc, _rd, _re, _rf);
 
                     _mm512_storeu_ps(tmpptr, _r0);
                     _mm512_storeu_ps(tmpptr + 16, _r1);
@@ -95,18 +99,15 @@ static void im2col_sgemm_pack16to1_avx512(const Mat& bottom_im2col, Mat& top_blo
         nn_size = (size - remain_size_start) >> 3;
 
         #pragma omp parallel for num_threads(opt.num_threads)
-        for (int ii = 0; ii < nn_size; ii++)
-        {
+        for (int ii = 0; ii < nn_size; ii++) {
             int i = remain_size_start + ii * 8;
 
-            float* tmpptr = tmp.channel(i / 16 + (i % 16) / 8);
+            float *tmpptr = tmp.channel(i / 16 + (i % 16) / 8);
 
-            for (int q = 0; q < inch; q++)
-            {
-                const float* img0 = (const float*)bottom_im2col.channel(q) + i * 16;
+            for (int q = 0; q < inch; q++) {
+                const float *img0 = (const float *)bottom_im2col.channel(q) + i * 16;
 
-                for (int k = 0; k < maxk; k++)
-                {
+                for (int k = 0; k < maxk; k++) {
                     // transpose 16x8
                     __m512 _r0 = _mm512_loadu_ps(img0);
                     __m512 _r1 = _mm512_loadu_ps(img0 + 16);
@@ -137,16 +138,13 @@ static void im2col_sgemm_pack16to1_avx512(const Mat& bottom_im2col, Mat& top_blo
         remain_size_start += nn_size << 3;
 
         #pragma omp parallel for num_threads(opt.num_threads)
-        for (int i = remain_size_start; i < size; i++)
-        {
-            float* tmpptr = tmp.channel(i / 16 + (i % 16) / 8 + i % 8);
+        for (int i = remain_size_start; i < size; i++) {
+            float *tmpptr = tmp.channel(i / 16 + (i % 16) / 8 + i % 8);
 
-            for (int q = 0; q < inch; q++)
-            {
-                const float* img0 = (const float*)bottom_im2col.channel(q) + i * 16;
+            for (int q = 0; q < inch; q++) {
+                const float *img0 = (const float *)bottom_im2col.channel(q) + i * 16;
 
-                for (int k = 0; k < maxk; k++)
-                {
+                for (int k = 0; k < maxk; k++) {
                     __m512 _val = _mm512_load_ps(img0);
                     _mm512_store_ps(tmpptr, _val);
 
@@ -161,29 +159,27 @@ static void im2col_sgemm_pack16to1_avx512(const Mat& bottom_im2col, Mat& top_blo
     int remain_outch_start = nn_outch * 8;
 
     #pragma omp parallel for num_threads(opt.num_threads)
-    for (int pp = 0; pp < nn_outch; pp++)
-    {
+    for (int pp = 0; pp < nn_outch; pp++) {
         int p = pp * 8;
 
-        float* outptr0 = top_blob.channel(p);
-        float* outptr1 = top_blob.channel(p + 1);
-        float* outptr2 = top_blob.channel(p + 2);
-        float* outptr3 = top_blob.channel(p + 3);
-        float* outptr4 = top_blob.channel(p + 4);
-        float* outptr5 = top_blob.channel(p + 5);
-        float* outptr6 = top_blob.channel(p + 6);
-        float* outptr7 = top_blob.channel(p + 7);
+        float *outptr0 = top_blob.channel(p);
+        float *outptr1 = top_blob.channel(p + 1);
+        float *outptr2 = top_blob.channel(p + 2);
+        float *outptr3 = top_blob.channel(p + 3);
+        float *outptr4 = top_blob.channel(p + 4);
+        float *outptr5 = top_blob.channel(p + 5);
+        float *outptr6 = top_blob.channel(p + 6);
+        float *outptr7 = top_blob.channel(p + 7);
 
         const float zeros[8] = {0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f};
-        const float* biasptr = bias ? bias + p : zeros;
+        const float *biasptr = bias ? bias + p : zeros;
 
         int i = 0;
-        for (; i + 15 < size; i += 16)
-        {
-            const float* tmpptr = tmp.channel(i / 16);
-            const float* kptr = kernel.channel(p / 8);
+        for (; i + 15 < size; i += 16) {
+            const float *tmpptr = tmp.channel(i / 16);
+            const float *kptr = kernel.channel(p / 8);
 
-            int nn = inch * maxk * 16; // inch always > 0
+            int nn = inch * maxk * 16;  // inch always > 0
 
             __m512 _sum0 = _mm512_set1_ps(biasptr[0]);
             __m512 _sum1 = _mm512_set1_ps(biasptr[1]);
@@ -194,8 +190,7 @@ static void im2col_sgemm_pack16to1_avx512(const Mat& bottom_im2col, Mat& top_blo
             __m512 _sum6 = _mm512_set1_ps(biasptr[6]);
             __m512 _sum7 = _mm512_set1_ps(biasptr[7]);
 
-            for (int j = 0; j < nn; j++)
-            {
+            for (int j = 0; j < nn; j++) {
                 __m512 _val0 = _mm512_load_ps(tmpptr);
 
                 __m512 _w0 = _mm512_set1_ps(kptr[0]);
@@ -237,12 +232,11 @@ static void im2col_sgemm_pack16to1_avx512(const Mat& bottom_im2col, Mat& top_blo
             outptr6 += 16;
             outptr7 += 16;
         }
-        for (; i + 7 < size; i += 8)
-        {
-            const float* tmpptr = tmp.channel(i / 16 + (i % 16) / 8);
-            const float* kptr = kernel.channel(p / 8);
+        for (; i + 7 < size; i += 8) {
+            const float *tmpptr = tmp.channel(i / 16 + (i % 16) / 8);
+            const float *kptr = kernel.channel(p / 8);
 
-            int nn = inch * maxk * 16; // inch always > 0
+            int nn = inch * maxk * 16;  // inch always > 0
 
             __m256 _sum0 = _mm256_broadcast_ss(biasptr);
             __m256 _sum1 = _mm256_broadcast_ss(biasptr + 1);
@@ -253,8 +247,7 @@ static void im2col_sgemm_pack16to1_avx512(const Mat& bottom_im2col, Mat& top_blo
             __m256 _sum6 = _mm256_broadcast_ss(biasptr + 6);
             __m256 _sum7 = _mm256_broadcast_ss(biasptr + 7);
 
-            for (int j = 0; j < nn; j++)
-            {
+            for (int j = 0; j < nn; j++) {
                 __m256 _val0 = _mm256_load_ps(tmpptr);
 
                 __m256 _w0 = _mm256_broadcast_ss(kptr);
@@ -296,17 +289,15 @@ static void im2col_sgemm_pack16to1_avx512(const Mat& bottom_im2col, Mat& top_blo
             outptr6 += 8;
             outptr7 += 8;
         }
-        for (; i < size; i++)
-        {
-            const float* tmpptr = tmp.channel(i / 16 + (i % 16) / 8 + i % 8);
-            const float* kptr = kernel.channel(p / 8);
+        for (; i < size; i++) {
+            const float *tmpptr = tmp.channel(i / 16 + (i % 16) / 8 + i % 8);
+            const float *kptr = kernel.channel(p / 8);
 
-            int nn = inch * maxk * 16; // inch always > 0
+            int nn = inch * maxk * 16;  // inch always > 0
 
             __m256 _sum = _mm256_loadu_ps(biasptr);
 
-            for (int j = 0; j < nn; j++)
-            {
+            for (int j = 0; j < nn; j++) {
                 __m256 _val0 = _mm256_broadcast_ss(tmpptr);
                 __m256 _w0 = _mm256_load_ps(kptr);
                 _sum = _mm256_fmadd_ps(_val0, _w0, _sum);
@@ -339,24 +330,21 @@ static void im2col_sgemm_pack16to1_avx512(const Mat& bottom_im2col, Mat& top_blo
     }
 
     #pragma omp parallel for num_threads(opt.num_threads)
-    for (int p = remain_outch_start; p < outch; p++)
-    {
-        float* outptr0 = top_blob.channel(p);
+    for (int p = remain_outch_start; p < outch; p++) {
+        float *outptr0 = top_blob.channel(p);
 
         const float bias0 = bias ? bias[p] : 0.f;
 
         int i = 0;
-        for (; i + 15 < size; i += 16)
-        {
-            const float* tmpptr = tmp.channel(i / 16);
-            const float* kptr = kernel.channel(p / 8 + p % 8);
+        for (; i + 15 < size; i += 16) {
+            const float *tmpptr = tmp.channel(i / 16);
+            const float *kptr = kernel.channel(p / 8 + p % 8);
 
-            int nn = inch * maxk * 16; // inch always > 0
+            int nn = inch * maxk * 16;  // inch always > 0
 
             __m512 _sum0 = _mm512_set1_ps(bias0);
 
-            for (int j = 0; j < nn; j++)
-            {
+            for (int j = 0; j < nn; j++) {
                 __m512 _val0 = _mm512_load_ps(tmpptr);
                 __m512 _w0 = _mm512_set1_ps(kptr[0]);
                 _sum0 = _mm512_fmadd_ps(_w0, _val0, _sum0);
@@ -368,17 +356,15 @@ static void im2col_sgemm_pack16to1_avx512(const Mat& bottom_im2col, Mat& top_blo
             _mm512_storeu_ps(outptr0, _sum0);
             outptr0 += 16;
         }
-        for (; i + 7 < size; i += 8)
-        {
-            const float* tmpptr = tmp.channel(i / 16 + (i % 16) / 8);
-            const float* kptr = kernel.channel(p / 8 + p % 8);
+        for (; i + 7 < size; i += 8) {
+            const float *tmpptr = tmp.channel(i / 16 + (i % 16) / 8);
+            const float *kptr = kernel.channel(p / 8 + p % 8);
 
-            int nn = inch * maxk * 16; // inch always > 0
+            int nn = inch * maxk * 16;  // inch always > 0
 
             __m256 _sum0 = _mm256_set1_ps(bias0);
 
-            for (int j = 0; j < nn; j++)
-            {
+            for (int j = 0; j < nn; j++) {
                 __m256 _val0 = _mm256_load_ps(tmpptr);
                 __m256 _w0 = _mm256_broadcast_ss(kptr);
                 _sum0 = _mm256_fmadd_ps(_w0, _val0, _sum0);
@@ -390,19 +376,17 @@ static void im2col_sgemm_pack16to1_avx512(const Mat& bottom_im2col, Mat& top_blo
             _mm256_storeu_ps(outptr0, _sum0);
             outptr0 += 8;
         }
-        for (; i < size; i++)
-        {
-            const float* tmpptr = tmp.channel(i / 16 + (i % 16) / 8 + i % 8);
-            const float* kptr = kernel.channel(p / 8 + p % 8);
+        for (; i < size; i++) {
+            const float *tmpptr = tmp.channel(i / 16 + (i % 16) / 8 + i % 8);
+            const float *kptr = kernel.channel(p / 8 + p % 8);
 
-            int nn = inch * maxk; // inch always > 0
+            int nn = inch * maxk;  // inch always > 0
 
             float sum0 = bias0;
 
             __m512 _sum0 = _mm512_setzero_ps();
 
-            for (int j = 0; j < nn; j++)
-            {
+            for (int j = 0; j < nn; j++) {
                 __m512 _val0 = _mm512_load_ps(tmpptr);
                 __m512 _w0 = _mm512_load_ps(kptr);
                 _sum0 = _mm512_fmadd_ps(_val0, _w0, _sum0);
@@ -419,8 +403,9 @@ static void im2col_sgemm_pack16to1_avx512(const Mat& bottom_im2col, Mat& top_blo
     }
 }
 
-static void convolution_im2col_sgemm_transform_kernel_pack16to1_avx512(const Mat& _kernel, Mat& kernel_tm, int inch, int outch, int kernel_w, int kernel_h)
-{
+static void convolution_im2col_sgemm_transform_kernel_pack16to1_avx512(
+    const Mat &_kernel, Mat &kernel_tm, int inch, int outch, int kernel_w,
+    int kernel_h) {
     const int maxk = kernel_w * kernel_h;
 
     // interleave
@@ -430,19 +415,14 @@ static void convolution_im2col_sgemm_transform_kernel_pack16to1_avx512(const Mat
     kernel_tm.create(8 * 16 * maxk, inch / 16, outch / 8 + outch % 8);
 
     int q = 0;
-    for (; q + 7 < outch; q += 8)
-    {
-        float* g00 = kernel_tm.channel(q / 8);
+    for (; q + 7 < outch; q += 8) {
+        float *g00 = kernel_tm.channel(q / 8);
 
-        for (int p = 0; p + 15 < inch; p += 16)
-        {
-            for (int k = 0; k < maxk; k++)
-            {
-                for (int i = 0; i < 16; i++)
-                {
-                    for (int j = 0; j < 8; j++)
-                    {
-                        const float* k00 = kernel.channel(q + j).row(p + i);
+        for (int p = 0; p + 15 < inch; p += 16) {
+            for (int k = 0; k < maxk; k++) {
+                for (int i = 0; i < 16; i++) {
+                    for (int j = 0; j < 8; j++) {
+                        const float *k00 = kernel.channel(q + j).row(p + i);
                         g00[0] = k00[k];
                         g00++;
                     }
@@ -450,19 +430,15 @@ static void convolution_im2col_sgemm_transform_kernel_pack16to1_avx512(const Mat
             }
         }
     }
-    for (; q < outch; q++)
-    {
+    for (; q < outch; q++) {
         const Mat k0 = kernel.channel(q);
 
-        float* g00 = kernel_tm.channel(q / 8 + q % 8);
+        float *g00 = kernel_tm.channel(q / 8 + q % 8);
 
-        for (int p = 0; p + 15 < inch; p += 16)
-        {
-            for (int k = 0; k < maxk; k++)
-            {
-                for (int i = 0; i < 16; i++)
-                {
-                    const float* k00 = k0.row(p + i);
+        for (int p = 0; p + 15 < inch; p += 16) {
+            for (int k = 0; k < maxk; k++) {
+                for (int i = 0; i < 16; i++) {
+                    const float *k00 = k0.row(p + i);
                     g00[0] = k00[k];
                     g00++;
                 }
@@ -471,8 +447,10 @@ static void convolution_im2col_sgemm_transform_kernel_pack16to1_avx512(const Mat
     }
 }
 
-static void convolution_im2col_sgemm_pack16to1_avx512(const Mat& bottom_blob, Mat& top_blob, const Mat& kernel, const Mat& _bias, int kernel_w, int kernel_h, int dilation_w, int dilation_h, int stride_w, int stride_h, const Option& opt)
-{
+static void convolution_im2col_sgemm_pack16to1_avx512(
+    const Mat &bottom_blob, Mat &top_blob, const Mat &kernel, const Mat &_bias,
+    int kernel_w, int kernel_h, int dilation_w, int dilation_h, int stride_w,
+    int stride_h, const Option &opt) {
     int w = bottom_blob.w;
     int inch = bottom_blob.c;
 
@@ -488,22 +466,17 @@ static void convolution_im2col_sgemm_pack16to1_avx512(const Mat& bottom_blob, Ma
         const int gap = (w * stride_h - outw * stride_w) * 16;
 
         #pragma omp parallel for num_threads(opt.num_threads)
-        for (int p = 0; p < inch; p++)
-        {
+        for (int p = 0; p < inch; p++) {
             const Mat img = bottom_blob.channel(p);
-            float* ptr = bottom_im2col.channel(p);
+            float *ptr = bottom_im2col.channel(p);
 
-            for (int u = 0; u < kernel_h; u++)
-            {
-                for (int v = 0; v < kernel_w; v++)
-                {
-                    const float* sptr = img.row(dilation_h * u) + dilation_w * v * 16;
+            for (int u = 0; u < kernel_h; u++) {
+                for (int v = 0; v < kernel_w; v++) {
+                    const float *sptr = img.row(dilation_h * u) + dilation_w * v * 16;
 
-                    for (int i = 0; i < outh; i++)
-                    {
+                    for (int i = 0; i < outh; i++) {
                         int j = 0;
-                        for (; j < outw; j++)
-                        {
+                        for (; j < outw; j++) {
                             __m512 _val = _mm512_load_ps(sptr);
                             _mm512_store_ps(ptr, _val);
 

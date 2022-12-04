@@ -1,16 +1,19 @@
-// Tencent is pleased to support the open source community by making ncnn available.
+// Tencent is pleased to support the open source community by making ncnn
+// available.
 //
 // Copyright (C) 2020 THL A29 Limited, a Tencent company. All rights reserved.
 //
-// Licensed under the BSD 3-Clause License (the "License"); you may not use this file except
-// in compliance with the License. You may obtain a copy of the License at
+// Licensed under the BSD 3-Clause License (the "License"); you may not use this
+// file except in compliance with the License. You may obtain a copy of the
+// License at
 //
 // https://opensource.org/licenses/BSD-3-Clause
 //
-// Unless required by applicable law or agreed to in writing, software distributed
-// under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
-// CONDITIONS OF ANY KIND, either express or implied. See the License for the
-// specific language governing permissions and limitations under the License.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+// WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+// License for the specific language governing permissions and limitations under
+// the License.
 
 #include "tf_dialect.h"
 
@@ -20,8 +23,8 @@
 #include <mlir/IR/Dialect.h>
 #include <mlir/IR/DialectImplementation.h>
 #include <mlir/IR/Location.h>
-#include <mlir/IR/Matchers.h>
 #include <mlir/IR/MLIRContext.h>
+#include <mlir/IR/Matchers.h>
 #include <mlir/IR/OpDefinition.h>
 #include <mlir/IR/OpImplementation.h>
 #include <mlir/IR/Operation.h>
@@ -46,34 +49,29 @@
 
 namespace mlir {
 
-static LogicalResult Verify(...)
-{
+static LogicalResult Verify(...) {
     return success();
 }
-static LogicalResult VerifyPartitionedCall(...)
-{
+static LogicalResult VerifyPartitionedCall(...) {
     return success();
 }
-static LogicalResult VerifyStridedSliceBase(...)
-{
+static LogicalResult VerifyStridedSliceBase(...) {
     return success();
 }
-static LogicalResult VerifyUnsortedSegmentReduction(...)
-{
+static LogicalResult VerifyUnsortedSegmentReduction(...) {
     return success();
 }
 
 namespace TF {
 
-TensorFlowDialect::TensorFlowDialect(MLIRContext* context)
-    : Dialect(/*name=*/"tf", context, TypeID::get<TensorFlowDialect>())
-{
+TensorFlowDialect::TensorFlowDialect(MLIRContext *context)
+    : Dialect(/*name=*/"tf", context, TypeID::get<TensorFlowDialect>()) {
     addOperations<
 #define GET_OP_LIST
 #include "tf_all_ops.cc.inc"
     >();
     addTypes<
-#define HANDLE_TF_TYPE(tftype, enumerant, name)      tftype##Type,
+#define HANDLE_TF_TYPE(tftype, enumerant, name) tftype##Type,
 #define HANDLE_LAST_TF_TYPE(tftype, enumerant, name) tftype##Type
 #include "tf_types.def"
     >();
@@ -85,15 +83,15 @@ TensorFlowDialect::TensorFlowDialect(MLIRContext* context)
     // registered.
     allowUnknownOperations();
 
-    //   for (const auto &hook : *TensorFlowDialect::additional_operation_hooks_) {
+    //   for (const auto &hook : *TensorFlowDialect::additional_operation_hooks_)
+    //   {
     //     hook(*this);
     //   }
 }
 
 namespace {
 
-ShapeAttr ParseShapeAttr(MLIRContext* context, StringRef spec, Location loc)
-{
+ShapeAttr ParseShapeAttr(MLIRContext *context, StringRef spec, Location loc) {
     auto emit_error = [&, spec]() {
         emitError(loc, "invalid TensorFlow shape attribute: ") << spec;
         return nullptr;
@@ -105,8 +103,7 @@ ShapeAttr ParseShapeAttr(MLIRContext* context, StringRef spec, Location loc)
         return mlir::TF::ShapeAttr::get(context, llvm::None);
 
     SmallVector<int64_t, 4> shape;
-    while (!spec.consume_front(">"))
-    {
+    while (!spec.consume_front(">")) {
         int64_t dim;
 
         if (spec.consume_front("?"))
@@ -128,8 +125,7 @@ ShapeAttr ParseShapeAttr(MLIRContext* context, StringRef spec, Location loc)
 //
 // where the first element is a SymbolRefAttr and the second element is a
 // DictionaryAttr.
-FuncAttr ParseFuncAttr(MLIRContext* context, StringRef spec, Location loc)
-{
+FuncAttr ParseFuncAttr(MLIRContext *context, StringRef spec, Location loc) {
     auto emit_error = [&, spec]() {
         emitError(loc, "invalid TensorFlow func attribute: ") << spec;
         return nullptr;
@@ -138,7 +134,8 @@ FuncAttr ParseFuncAttr(MLIRContext* context, StringRef spec, Location loc)
     if (!spec.consume_front("func<")) return emit_error();
 
     size_t func_name_num_read = 0;
-    Attribute func_name_attr = mlir::parseAttribute(spec, context, func_name_num_read);
+    Attribute func_name_attr =
+        mlir::parseAttribute(spec, context, func_name_num_read);
     if (!func_name_attr || !func_name_attr.isa<SymbolRefAttr>())
         return emit_error();
     spec = spec.drop_front(func_name_num_read);
@@ -146,7 +143,8 @@ FuncAttr ParseFuncAttr(MLIRContext* context, StringRef spec, Location loc)
     if (!spec.consume_front(", ")) return emit_error();
 
     size_t func_attrs_num_read = 0;
-    Attribute func_attrs_attr = mlir::parseAttribute(spec, context, func_attrs_num_read);
+    Attribute func_attrs_attr =
+        mlir::parseAttribute(spec, context, func_attrs_num_read);
     if (!func_attrs_attr || !func_attrs_attr.isa<DictionaryAttr>())
         return emit_error();
     spec = spec.drop_front(func_attrs_num_read);
@@ -157,11 +155,10 @@ FuncAttr ParseFuncAttr(MLIRContext* context, StringRef spec, Location loc)
                                    func_attrs_attr.cast<DictionaryAttr>());
 }
 
-} // namespace
+}  // namespace
 
-Attribute TensorFlowDialect::parseAttribute(DialectAsmParser& parser,
-        Type type) const
-{
+Attribute TensorFlowDialect::parseAttribute(DialectAsmParser &parser,
+        Type type) const {
     auto spec = parser.getFullSymbolSpec();
     Location loc = parser.getEncodedSourceLoc(parser.getNameLoc());
 
@@ -173,13 +170,12 @@ Attribute TensorFlowDialect::parseAttribute(DialectAsmParser& parser,
 }
 
 // Parses a type registered to this dialect.
-Type TensorFlowDialect::parseType(DialectAsmParser& parser) const
-{
+Type TensorFlowDialect::parseType(DialectAsmParser &parser) const {
     StringRef data;
     if (parser.parseKeyword(&data)) return Type();
 
 #define HANDLE_TF_TYPE(tftype, enumerant, name) \
-    if (data == name) return tftype##Type::get(getContext());
+  if (data == name) return tftype##Type::get(getContext());
 // Custom TensorFlow types are handled separately at the end as they do partial
 // match.
 #define HANDLE_CUSTOM_TF_TYPE(tftype, enumerant, name)
@@ -187,14 +183,12 @@ Type TensorFlowDialect::parseType(DialectAsmParser& parser) const
 #include "tf_types.def"
 
     llvm::SMLoc loc = parser.getNameLoc();
-    if (data.startswith("resource"))
-    {
+    if (data.startswith("resource")) {
         Type ret = ParseResourceType(parser);
         if (!ret) parser.emitError(loc, "invalid resource type");
         return ret;
     }
-    if (data.startswith("variant"))
-    {
+    if (data.startswith("variant")) {
         Type ret = ParseVariantType(parser);
         if (!ret) parser.emitError(loc, "invalid variant type");
         return ret;
@@ -203,23 +197,20 @@ Type TensorFlowDialect::parseType(DialectAsmParser& parser) const
 }
 
 namespace {
-template<typename TypeWithSubtype>
-Type ParseTypeWithSubtype(MLIRContext* context, DialectAsmParser& parser)
-{
+template <typename TypeWithSubtype>
+Type ParseTypeWithSubtype(MLIRContext *context, DialectAsmParser &parser) {
     // Default type without inferred subtypes.
     if (failed(parser.parseOptionalLess())) return TypeWithSubtype::get(context);
 
     // Most types with subtypes have only one subtype.
     SmallVector<TensorType, 1> subtypes;
-    do
-    {
+    do {
         TensorType tensor_ty;
         if (parser.parseType(tensor_ty)) return Type();
 
         // Each of the subtypes should be a valid TensorFlow type.
         // TODO(jpienaar): Remove duplication.
-        if (!IsValidTFTensorType(tensor_ty))
-        {
+        if (!IsValidTFTensorType(tensor_ty)) {
             parser.emitError(parser.getNameLoc()) << "invalid subtype: " << tensor_ty;
             return Type();
         }
@@ -230,22 +221,19 @@ Type ParseTypeWithSubtype(MLIRContext* context, DialectAsmParser& parser)
 
     return TypeWithSubtype::get(subtypes, context);
 }
-} // anonymous namespace
+}  // anonymous namespace
 
-Type TensorFlowDialect::ParseResourceType(DialectAsmParser& parser) const
-{
+Type TensorFlowDialect::ParseResourceType(DialectAsmParser &parser) const {
     return ParseTypeWithSubtype<ResourceType>(getContext(), parser);
 }
 
-Type TensorFlowDialect::ParseVariantType(DialectAsmParser& parser) const
-{
+Type TensorFlowDialect::ParseVariantType(DialectAsmParser &parser) const {
     return ParseTypeWithSubtype<VariantType>(getContext(), parser);
 }
 
-Operation* TensorFlowDialect::materializeConstant(OpBuilder& builder,
+Operation *TensorFlowDialect::materializeConstant(OpBuilder &builder,
         Attribute value, Type type,
-        Location loc)
-{
+        Location loc) {
     return builder.create<ConstOp>(loc, type, value);
 }
 
@@ -254,16 +242,12 @@ Operation* TensorFlowDialect::materializeConstant(OpBuilder& builder,
 // wraps it up with a tensor type of empty shape.
 // TODO(jpienaar): This one differs from the autogenerated one as it takes an
 // attribute but always creates an ElementsAttr internally.
-void ConstOp::build(OpBuilder& builder, OperationState& result,
-                    Attribute value)
-{
+void ConstOp::build(OpBuilder &builder, OperationState &result,
+                    Attribute value) {
     ShapedType type;
-    if (auto elem_attr = value.dyn_cast<ElementsAttr>())
-    {
+    if (auto elem_attr = value.dyn_cast<ElementsAttr>()) {
         return ConstOp::build(builder, result, elem_attr);
-    }
-    else if (value.isa<BoolAttr, FloatAttr, IntegerAttr>())
-    {
+    } else if (value.isa<BoolAttr, FloatAttr, IntegerAttr>()) {
         // All TensorFlow types must be tensor types. In the build() method,
         // we want to provide more flexibility by allowing attributes of scalar
         // types. But we need to wrap it up with ElementsAttr to construct
@@ -275,12 +259,10 @@ void ConstOp::build(OpBuilder& builder, OperationState& result,
     llvm_unreachable("unsupported attribute type for building tf.Const");
 }
 
-void ConstOp::build(OpBuilder& builder, OperationState& result, Type type,
-                    Attribute value)
-{
+void ConstOp::build(OpBuilder &builder, OperationState &result, Type type,
+                    Attribute value) {
     // Handle the case where the type and value are already tensors.
-    if (type.isa<TensorType>() && value.isa<ElementsAttr>())
-    {
+    if (type.isa<TensorType>() && value.isa<ElementsAttr>()) {
         result.addTypes(type);
         result.addAttribute("value", value);
         return;
@@ -291,33 +273,30 @@ void ConstOp::build(OpBuilder& builder, OperationState& result, Type type,
     assert(type == result.types[0] && "type mismatch in construction");
 }
 
-Region& WhileRegionOp::getLoopBody()
-{
+Region &WhileRegionOp::getLoopBody() {
     return body();
 }
 
-bool WhileRegionOp::isDefinedOutsideOfLoop(Value value)
-{
+bool WhileRegionOp::isDefinedOutsideOfLoop(Value value) {
     // If the Op defining the value exists and the defining op is outside the
     // scope of this WhileRegion, then we can infer that its defined outside.
     // The defining Op is outside the scope of this WhileRegion if this
     // WhileRegionOp is not an ancestor of the defining op in the parent chain.
-    Operation* def_op = value.getDefiningOp();
+    Operation *def_op = value.getDefiningOp();
     return def_op && !getOperation()->isAncestor(def_op);
 }
 
 LogicalResult WhileRegionOp::moveOutOfLoop(
-    llvm::ArrayRef<mlir::Operation*> ops)
-{
+    llvm::ArrayRef<mlir::Operation *> ops) {
     // Move the hoisted value to just before the while.
-    Operation* while_op = this->getOperation();
+    Operation *while_op = this->getOperation();
     for (auto op : ops) op->moveBefore(while_op);
     return success();
 }
 
-} // namespace TF
+}  // namespace TF
 
-} // namespace mlir
+}  // namespace mlir
 
 #define GET_OP_CLASSES
 #include "tf_all_ops.cc.inc"

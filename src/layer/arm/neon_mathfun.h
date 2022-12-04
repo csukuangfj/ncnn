@@ -31,31 +31,30 @@
 #include <arm_neon.h>
 
 #if (__ARM_FP & 2)
-static inline float32x4_t loadfp16(const void* ptr)
-{
+static inline float32x4_t loadfp16(const void *ptr) {
 #if __ARM_FP16_FORMAT_IEEE
-    return vcvt_f32_f16(vld1_f16((const __fp16*)ptr));
-#else // __ARM_FP16_FORMAT_IEEE
+    return vcvt_f32_f16(vld1_f16((const __fp16 *)ptr));
+#else  // __ARM_FP16_FORMAT_IEEE
     float32x4_t v;
 #if __aarch64__
     asm volatile(
         "ld1    {v0.4h}, [%2]       \n"
         "fcvtl  %0.4s, v0.4h        \n"
-        : "=w"(v) // %0
+        : "=w"(v)  // %0
         : "0"(v),
-        "r"(ptr) // %2
+        "r"(ptr)  // %2
         : "memory", "v0");
 #else
     asm volatile(
         "vld1.s16       {d0}, [%2]  \n"
         "vcvt.f32.f16   %q0, d0     \n"
-        : "=w"(v) // %0
+        : "=w"(v)  // %0
         : "0"(v),
-        "r"(ptr) // %2
+        "r"(ptr)  // %2
         : "memory", "d0");
-#endif // __aarch64__
+#endif  // __aarch64__
     return v;
-#endif // __ARM_FP16_FORMAT_IEEE
+#endif  // __ARM_FP16_FORMAT_IEEE
 }
 #endif
 
@@ -76,8 +75,7 @@ static inline float32x4_t loadfp16(const void* ptr)
 /* natural logarithm computed for 4 simultaneous float
  *   return NaN for x <= 0
  */
-static inline float32x4_t log_ps(float32x4_t x)
-{
+static inline float32x4_t log_ps(float32x4_t x) {
     float32x4_t one = vdupq_n_f32(1);
 
     x = vmaxq_f32(x, vdupq_n_f32(0)); /* force flush to zero on denormal values */
@@ -104,9 +102,11 @@ static inline float32x4_t log_ps(float32x4_t x)
      *     } else { x = x - 1.0; }
      */
     uint32x4_t mask = vcltq_f32(x, vdupq_n_f32(c_cephes_SQRTHF));
-    float32x4_t tmp = vreinterpretq_f32_u32(vandq_u32(vreinterpretq_u32_f32(x), mask));
+    float32x4_t tmp =
+        vreinterpretq_f32_u32(vandq_u32(vreinterpretq_u32_f32(x), mask));
     x = vsubq_f32(x, one);
-    e = vsubq_f32(e, vreinterpretq_f32_u32(vandq_u32(vreinterpretq_u32_f32(one), mask)));
+    e = vsubq_f32(
+            e, vreinterpretq_f32_u32(vandq_u32(vreinterpretq_u32_f32(one), mask)));
     x = vaddq_f32(x, tmp);
 
     float32x4_t z = vmulq_f32(x, x);
@@ -130,7 +130,8 @@ static inline float32x4_t log_ps(float32x4_t x)
 
     x = vaddq_f32(x, y);
     x = vmlaq_f32(x, e, vdupq_n_f32(c_cephes_log_q2));
-    x = vreinterpretq_f32_u32(vorrq_u32(vreinterpretq_u32_f32(x), invalid_mask)); // negative arg will be NAN
+    x = vreinterpretq_f32_u32(vorrq_u32(
+                                  vreinterpretq_u32_f32(x), invalid_mask));  // negative arg will be NAN
     return x;
 }
 
@@ -149,8 +150,7 @@ static inline float32x4_t log_ps(float32x4_t x)
 #define c_cephes_exp_p5 5.0000001201E-1
 
 /* exp() computed for 4 float at once */
-static inline float32x4_t exp_ps(float32x4_t x)
-{
+static inline float32x4_t exp_ps(float32x4_t x) {
     float32x4_t tmp, fx;
 
     float32x4_t one = vdupq_n_f32(1);
@@ -200,13 +200,13 @@ static inline float32x4_t exp_ps(float32x4_t x)
 #define c_minus_cephes_DP1 -0.78515625
 #define c_minus_cephes_DP2 -2.4187564849853515625e-4
 #define c_minus_cephes_DP3 -3.77489497744594108e-8
-#define c_sincof_p0        -1.9515295891E-4
-#define c_sincof_p1        8.3321608736E-3
-#define c_sincof_p2        -1.6666654611E-1
-#define c_coscof_p0        2.443315711809948E-005
-#define c_coscof_p1        -1.388731625493765E-003
-#define c_coscof_p2        4.166664568298827E-002
-#define c_cephes_FOPI      1.27323954473516 // 4 / M_PI
+#define c_sincof_p0 -1.9515295891E-4
+#define c_sincof_p1 8.3321608736E-3
+#define c_sincof_p2 -1.6666654611E-1
+#define c_coscof_p0 2.443315711809948E-005
+#define c_coscof_p1 -1.388731625493765E-003
+#define c_coscof_p2 4.166664568298827E-002
+#define c_cephes_FOPI 1.27323954473516  // 4 / M_PI
 
 /* evaluation of 4 sines & cosines at once.
  *
@@ -223,8 +223,8 @@ static inline float32x4_t exp_ps(float32x4_t x)
  *   almost no extra price so both sin_ps and cos_ps make use of
  *   sincos_ps..
  */
-static inline void sincos_ps(float32x4_t x, float32x4_t* ysin, float32x4_t* ycos)
-{
+static inline void sincos_ps(float32x4_t x, float32x4_t *ysin,
+                             float32x4_t *ycos) {
     // any x
     float32x4_t y;
 
@@ -284,22 +284,19 @@ static inline void sincos_ps(float32x4_t x, float32x4_t* ysin, float32x4_t* ycos
     *ycos = vbslq_f32(sign_mask_cos, yc, vnegq_f32(yc));
 }
 
-static inline float32x4_t sin_ps(float32x4_t x)
-{
+static inline float32x4_t sin_ps(float32x4_t x) {
     float32x4_t ysin, ycos;
     sincos_ps(x, &ysin, &ycos);
     return ysin;
 }
 
-static inline float32x4_t cos_ps(float32x4_t x)
-{
+static inline float32x4_t cos_ps(float32x4_t x) {
     float32x4_t ysin, ycos;
     sincos_ps(x, &ysin, &ycos);
     return ycos;
 }
 
-static inline float32x4_t div_ps(float32x4_t a, float32x4_t b)
-{
+static inline float32x4_t div_ps(float32x4_t a, float32x4_t b) {
 #if __aarch64__
     return vdivq_f32(a, b);
 #else
@@ -310,22 +307,19 @@ static inline float32x4_t div_ps(float32x4_t a, float32x4_t b)
 #endif
 }
 
-static inline float32x4_t tan_ps(float32x4_t x)
-{
+static inline float32x4_t tan_ps(float32x4_t x) {
     float32x4_t ysin, ycos;
     sincos_ps(x, &ysin, &ycos);
     float32x4_t ytan = div_ps(ysin, ycos);
     return ytan;
 }
 
-static inline float32x4_t pow_ps(float32x4_t a, float32x4_t b)
-{
+static inline float32x4_t pow_ps(float32x4_t a, float32x4_t b) {
     // pow(x, m) = exp(m * log(x))
     return exp_ps(vmulq_f32(b, log_ps(a)));
 }
 
-static inline float32x4_t sigmoid_ps(float32x4_t _v)
-{
+static inline float32x4_t sigmoid_ps(float32x4_t _v) {
     float32x4_t _one = vdupq_n_f32(1.f);
     _v = vnegq_f32(_v);
     _v = exp_ps(_v);
@@ -335,18 +329,13 @@ static inline float32x4_t sigmoid_ps(float32x4_t _v)
     return vmulq_f32(vrecpsq_f32(_v, _outp), _outp);
 }
 
-static const float asinf_lut[7] = {
-    1.5707961728,
-    -0.2145852647,
-    0.0887556286,
-    -0.0488025043,
-    0.0268999482,
-    -0.0111462294,
-    0.0022959648
-};
+static const float asinf_lut[7] = {1.5707961728,  -0.2145852647, 0.0887556286,
+                                   -0.0488025043, 0.0268999482,  -0.0111462294,
+                                   0.0022959648
+                                   };
 
-static inline void asincos_ps(float32x4_t x, float32x4_t* yasin, float32x4_t* yacos)
-{
+static inline void asincos_ps(float32x4_t x, float32x4_t *yasin,
+                              float32x4_t *yacos) {
     int i = 0;
     float32x4_t one = vdupq_n_f32(1);
     float32x4_t negone = vdupq_n_f32(-1);
@@ -357,8 +346,7 @@ static inline void asincos_ps(float32x4_t x, float32x4_t* yasin, float32x4_t* ya
     float32x4_t arcsinx, arcnsinx;
     float32x4_t sat = vdupq_n_f32(0.9999999f);
     float32x4_t m_pi_2 = vdupq_n_f32(1.570796326);
-    for (i = 0; i <= 6; i++)
-    {
+    for (i = 0; i <= 6; i++) {
         lut[i] = vdupq_n_f32(asinf_lut[i]);
     }
 
@@ -373,13 +361,13 @@ static inline void asincos_ps(float32x4_t x, float32x4_t* yasin, float32x4_t* ya
     y = vsqrtq_f32(y);
 #else
     float32x4_t _reciprocal = vrsqrteq_f32(y);
-    _reciprocal = vmulq_f32(vrsqrtsq_f32(vmulq_f32(y, _reciprocal), _reciprocal), _reciprocal);
+    _reciprocal = vmulq_f32(vrsqrtsq_f32(vmulq_f32(y, _reciprocal), _reciprocal),
+                            _reciprocal);
     y = vmulq_f32(y, _reciprocal);
 #endif
 
     xv[0] = vmulq_f32(x, x);
-    for (i = 1; i < 5; i++)
-    {
+    for (i = 1; i < 5; i++) {
         xv[i] = vmulq_f32(xv[i - 1], x);
     }
 
@@ -398,19 +386,17 @@ static inline void asincos_ps(float32x4_t x, float32x4_t* yasin, float32x4_t* ya
     *yacos = vsubq_f32(m_pi_2, arcsinx);
 }
 
-static inline float32x4_t asin_ps(float32x4_t x)
-{
+static inline float32x4_t asin_ps(float32x4_t x) {
     float32x4_t yasin, yacos;
     asincos_ps(x, &yasin, &yacos);
     return yasin;
 }
 
-static inline float32x4_t acos_ps(float32x4_t x)
-{
+static inline float32x4_t acos_ps(float32x4_t x) {
     float32x4_t yasin, yacos;
     asincos_ps(x, &yasin, &yacos);
     return yacos;
 }
 
 #include "neon_mathfun_tanh.h"
-#endif // NEON_MATHFUN_H
+#endif  // NEON_MATHFUN_H

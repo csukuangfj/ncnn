@@ -1,19 +1,23 @@
-// yala is pleased to support the open source community by making ncnn available.
+// yala is pleased to support the open source community by making ncnn
+// available.
 //
 //
-// Copyright (C) 2022 yala <zhaojunchao@loongson.cn>;<junchao82@qq.com>. All rights reserved.
-// Licensed under the BSD 3-Clause License (the "License"); you may not use this file except
-// in compliance with the License. You may obtain a copy of the License at
+// Copyright (C) 2022 yala <zhaojunchao@loongson.cn>;<junchao82@qq.com>. All
+// rights reserved. Licensed under the BSD 3-Clause License (the "License"); you
+// may not use this file except in compliance with the License. You may obtain a
+// copy of the License at
 //
 // https://opensource.org/licenses/BSD-3-Clause
 //
-// Unless required by applicable law or agreed to in writing, software distributed
-// under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
-// CONDITIONS OF ANY KIND, either express or implied. See the License for the
-// specific language governing permissions and limitations under the License.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+// WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+// License for the specific language governing permissions and limitations under
+// the License.
 
-static void conv7x7s2_pack1to4_lsx(const Mat& bottom_blob, Mat& top_blob, const Mat& kernel, const Mat& _bias, const Option& opt)
-{
+static void conv7x7s2_pack1to4_lsx(const Mat &bottom_blob, Mat &top_blob,
+                                   const Mat &kernel, const Mat &_bias,
+                                   const Option &opt) {
     int w = bottom_blob.w;
     int inch = bottom_blob.c;
 
@@ -23,39 +27,36 @@ static void conv7x7s2_pack1to4_lsx(const Mat& bottom_blob, Mat& top_blob, const 
 
     const int tailstep = w - 2 * outw + w;
 
-    const float* bias = _bias;
+    const float *bias = _bias;
 
     #pragma omp parallel for num_threads(opt.num_threads)
-    for (int p = 0; p < outch; p++)
-    {
+    for (int p = 0; p < outch; p++) {
         Mat out0 = top_blob.channel(p);
 
-        __m128 _bias0 = bias ? (__m128)__lsx_vld(bias + p * 4, 0) : (__m128)__lsx_vreplgr2vr_w(0);
+        __m128 _bias0 = bias ? (__m128)__lsx_vld(bias + p * 4, 0)
+                        : (__m128)__lsx_vreplgr2vr_w(0);
         out0.fill(_bias0);
 
-        for (int q = 0; q < inch; q++)
-        {
-            float* outptr0 = out0;
+        for (int q = 0; q < inch; q++) {
+            float *outptr0 = out0;
 
             const Mat img0 = bottom_blob.channel(q);
 
-            const float* r0 = img0.row(0);
-            const float* r1 = img0.row(1);
-            const float* r2 = img0.row(2);
-            const float* r3 = img0.row(3);
-            const float* r4 = img0.row(4);
-            const float* r5 = img0.row(5);
-            const float* r6 = img0.row(6);
+            const float *r0 = img0.row(0);
+            const float *r1 = img0.row(1);
+            const float *r2 = img0.row(2);
+            const float *r3 = img0.row(3);
+            const float *r4 = img0.row(4);
+            const float *r5 = img0.row(5);
+            const float *r6 = img0.row(6);
 
-            const float* kptr = kernel.channel(p).row(q);
+            const float *kptr = kernel.channel(p).row(q);
 
             int i = 0;
 
-            for (; i < outh; i++)
-            {
+            for (; i < outh; i++) {
                 int j = 0;
-                for (; j + 3 < outw; j += 4)
-                {
+                for (; j + 3 < outw; j += 4) {
                     __m128 _sum0 = (__m128)__lsx_vld(outptr0, 0);
                     __m128 _sum1 = (__m128)__lsx_vld(outptr0 + 4, 0);
                     __m128 _sum2 = (__m128)__lsx_vld(outptr0 + 4 * 2, 0);
@@ -475,8 +476,7 @@ static void conv7x7s2_pack1to4_lsx(const Mat& bottom_blob, Mat& top_blob, const 
                     r5 += 8;
                     r6 += 8;
                 }
-                for (; j < outw; j++)
-                {
+                for (; j < outw; j++) {
                     __m128 _sum0 = (__m128)__lsx_vld(outptr0, 0);
 
                     __m128 _k00 = (__m128)__lsx_vld(kptr, 0);
@@ -496,9 +496,12 @@ static void conv7x7s2_pack1to4_lsx(const Mat& bottom_blob, Mat& top_blob, const 
                     _sum0 = __lsx_vfmadd_s(_k01, (__m128)__lsx_vreplvei_w(_r0, 1), _sum0);
                     _sum0 = __lsx_vfmadd_s(_k02, (__m128)__lsx_vreplvei_w(_r0, 2), _sum0);
                     _sum0 = __lsx_vfmadd_s(_k03, (__m128)__lsx_vreplvei_w(_r0, 3), _sum0);
-                    _sum0 = __lsx_vfmadd_s(_k04, (__m128)__lsx_vreplvei_w(_r0n, 0), _sum0);
-                    _sum0 = __lsx_vfmadd_s(_k05, (__m128)__lsx_vreplvei_w(_r0n, 1), _sum0);
-                    _sum0 = __lsx_vfmadd_s(_k06, (__m128)__lsx_vreplvei_w(_r0n, 2), _sum0);
+                    _sum0 =
+                        __lsx_vfmadd_s(_k04, (__m128)__lsx_vreplvei_w(_r0n, 0), _sum0);
+                    _sum0 =
+                        __lsx_vfmadd_s(_k05, (__m128)__lsx_vreplvei_w(_r0n, 1), _sum0);
+                    _sum0 =
+                        __lsx_vfmadd_s(_k06, (__m128)__lsx_vreplvei_w(_r0n, 2), _sum0);
 
                     __m128 _k10 = (__m128)__lsx_vld(kptr, 0);
                     __m128 _k11 = (__m128)__lsx_vld(kptr + 4, 0);
@@ -517,9 +520,12 @@ static void conv7x7s2_pack1to4_lsx(const Mat& bottom_blob, Mat& top_blob, const 
                     _sum0 = __lsx_vfmadd_s(_k11, (__m128)__lsx_vreplvei_w(_r1, 1), _sum0);
                     _sum0 = __lsx_vfmadd_s(_k12, (__m128)__lsx_vreplvei_w(_r1, 2), _sum0);
                     _sum0 = __lsx_vfmadd_s(_k13, (__m128)__lsx_vreplvei_w(_r1, 3), _sum0);
-                    _sum0 = __lsx_vfmadd_s(_k14, (__m128)__lsx_vreplvei_w(_r1n, 0), _sum0);
-                    _sum0 = __lsx_vfmadd_s(_k15, (__m128)__lsx_vreplvei_w(_r1n, 1), _sum0);
-                    _sum0 = __lsx_vfmadd_s(_k16, (__m128)__lsx_vreplvei_w(_r1n, 2), _sum0);
+                    _sum0 =
+                        __lsx_vfmadd_s(_k14, (__m128)__lsx_vreplvei_w(_r1n, 0), _sum0);
+                    _sum0 =
+                        __lsx_vfmadd_s(_k15, (__m128)__lsx_vreplvei_w(_r1n, 1), _sum0);
+                    _sum0 =
+                        __lsx_vfmadd_s(_k16, (__m128)__lsx_vreplvei_w(_r1n, 2), _sum0);
 
                     __m128 _k20 = (__m128)__lsx_vld(kptr, 0);
                     __m128 _k21 = (__m128)__lsx_vld(kptr + 4, 0);
@@ -538,9 +544,12 @@ static void conv7x7s2_pack1to4_lsx(const Mat& bottom_blob, Mat& top_blob, const 
                     _sum0 = __lsx_vfmadd_s(_k21, (__m128)__lsx_vreplvei_w(_r2, 1), _sum0);
                     _sum0 = __lsx_vfmadd_s(_k22, (__m128)__lsx_vreplvei_w(_r2, 2), _sum0);
                     _sum0 = __lsx_vfmadd_s(_k23, (__m128)__lsx_vreplvei_w(_r2, 3), _sum0);
-                    _sum0 = __lsx_vfmadd_s(_k24, (__m128)__lsx_vreplvei_w(_r2n, 0), _sum0);
-                    _sum0 = __lsx_vfmadd_s(_k25, (__m128)__lsx_vreplvei_w(_r2n, 1), _sum0);
-                    _sum0 = __lsx_vfmadd_s(_k26, (__m128)__lsx_vreplvei_w(_r2n, 2), _sum0);
+                    _sum0 =
+                        __lsx_vfmadd_s(_k24, (__m128)__lsx_vreplvei_w(_r2n, 0), _sum0);
+                    _sum0 =
+                        __lsx_vfmadd_s(_k25, (__m128)__lsx_vreplvei_w(_r2n, 1), _sum0);
+                    _sum0 =
+                        __lsx_vfmadd_s(_k26, (__m128)__lsx_vreplvei_w(_r2n, 2), _sum0);
 
                     __m128 _k30 = (__m128)__lsx_vld(kptr, 0);
                     __m128 _k31 = (__m128)__lsx_vld(kptr + 4, 0);
@@ -559,9 +568,12 @@ static void conv7x7s2_pack1to4_lsx(const Mat& bottom_blob, Mat& top_blob, const 
                     _sum0 = __lsx_vfmadd_s(_k31, (__m128)__lsx_vreplvei_w(_r3, 1), _sum0);
                     _sum0 = __lsx_vfmadd_s(_k32, (__m128)__lsx_vreplvei_w(_r3, 2), _sum0);
                     _sum0 = __lsx_vfmadd_s(_k33, (__m128)__lsx_vreplvei_w(_r3, 3), _sum0);
-                    _sum0 = __lsx_vfmadd_s(_k34, (__m128)__lsx_vreplvei_w(_r3n, 0), _sum0);
-                    _sum0 = __lsx_vfmadd_s(_k35, (__m128)__lsx_vreplvei_w(_r3n, 1), _sum0);
-                    _sum0 = __lsx_vfmadd_s(_k36, (__m128)__lsx_vreplvei_w(_r3n, 2), _sum0);
+                    _sum0 =
+                        __lsx_vfmadd_s(_k34, (__m128)__lsx_vreplvei_w(_r3n, 0), _sum0);
+                    _sum0 =
+                        __lsx_vfmadd_s(_k35, (__m128)__lsx_vreplvei_w(_r3n, 1), _sum0);
+                    _sum0 =
+                        __lsx_vfmadd_s(_k36, (__m128)__lsx_vreplvei_w(_r3n, 2), _sum0);
 
                     __m128 _k40 = (__m128)__lsx_vld(kptr, 0);
                     __m128 _k41 = (__m128)__lsx_vld(kptr + 4, 0);
@@ -580,9 +592,12 @@ static void conv7x7s2_pack1to4_lsx(const Mat& bottom_blob, Mat& top_blob, const 
                     _sum0 = __lsx_vfmadd_s(_k41, (__m128)__lsx_vreplvei_w(_r4, 1), _sum0);
                     _sum0 = __lsx_vfmadd_s(_k42, (__m128)__lsx_vreplvei_w(_r4, 2), _sum0);
                     _sum0 = __lsx_vfmadd_s(_k43, (__m128)__lsx_vreplvei_w(_r4, 3), _sum0);
-                    _sum0 = __lsx_vfmadd_s(_k44, (__m128)__lsx_vreplvei_w(_r4n, 0), _sum0);
-                    _sum0 = __lsx_vfmadd_s(_k45, (__m128)__lsx_vreplvei_w(_r4n, 1), _sum0);
-                    _sum0 = __lsx_vfmadd_s(_k46, (__m128)__lsx_vreplvei_w(_r4n, 2), _sum0);
+                    _sum0 =
+                        __lsx_vfmadd_s(_k44, (__m128)__lsx_vreplvei_w(_r4n, 0), _sum0);
+                    _sum0 =
+                        __lsx_vfmadd_s(_k45, (__m128)__lsx_vreplvei_w(_r4n, 1), _sum0);
+                    _sum0 =
+                        __lsx_vfmadd_s(_k46, (__m128)__lsx_vreplvei_w(_r4n, 2), _sum0);
 
                     __m128 _k50 = (__m128)__lsx_vld(kptr, 0);
                     __m128 _k51 = (__m128)__lsx_vld(kptr + 4, 0);
@@ -601,9 +616,12 @@ static void conv7x7s2_pack1to4_lsx(const Mat& bottom_blob, Mat& top_blob, const 
                     _sum0 = __lsx_vfmadd_s(_k51, (__m128)__lsx_vreplvei_w(_r5, 1), _sum0);
                     _sum0 = __lsx_vfmadd_s(_k52, (__m128)__lsx_vreplvei_w(_r5, 2), _sum0);
                     _sum0 = __lsx_vfmadd_s(_k53, (__m128)__lsx_vreplvei_w(_r5, 3), _sum0);
-                    _sum0 = __lsx_vfmadd_s(_k54, (__m128)__lsx_vreplvei_w(_r5n, 0), _sum0);
-                    _sum0 = __lsx_vfmadd_s(_k55, (__m128)__lsx_vreplvei_w(_r5n, 1), _sum0);
-                    _sum0 = __lsx_vfmadd_s(_k56, (__m128)__lsx_vreplvei_w(_r5n, 2), _sum0);
+                    _sum0 =
+                        __lsx_vfmadd_s(_k54, (__m128)__lsx_vreplvei_w(_r5n, 0), _sum0);
+                    _sum0 =
+                        __lsx_vfmadd_s(_k55, (__m128)__lsx_vreplvei_w(_r5n, 1), _sum0);
+                    _sum0 =
+                        __lsx_vfmadd_s(_k56, (__m128)__lsx_vreplvei_w(_r5n, 2), _sum0);
 
                     __m128 _k60 = (__m128)__lsx_vld(kptr, 0);
                     __m128 _k61 = (__m128)__lsx_vld(kptr + 4, 0);
@@ -622,9 +640,12 @@ static void conv7x7s2_pack1to4_lsx(const Mat& bottom_blob, Mat& top_blob, const 
                     _sum0 = __lsx_vfmadd_s(_k61, (__m128)__lsx_vreplvei_w(_r6, 1), _sum0);
                     _sum0 = __lsx_vfmadd_s(_k62, (__m128)__lsx_vreplvei_w(_r6, 2), _sum0);
                     _sum0 = __lsx_vfmadd_s(_k63, (__m128)__lsx_vreplvei_w(_r6, 3), _sum0);
-                    _sum0 = __lsx_vfmadd_s(_k64, (__m128)__lsx_vreplvei_w(_r6n, 0), _sum0);
-                    _sum0 = __lsx_vfmadd_s(_k65, (__m128)__lsx_vreplvei_w(_r6n, 1), _sum0);
-                    _sum0 = __lsx_vfmadd_s(_k66, (__m128)__lsx_vreplvei_w(_r6n, 2), _sum0);
+                    _sum0 =
+                        __lsx_vfmadd_s(_k64, (__m128)__lsx_vreplvei_w(_r6n, 0), _sum0);
+                    _sum0 =
+                        __lsx_vfmadd_s(_k65, (__m128)__lsx_vreplvei_w(_r6n, 1), _sum0);
+                    _sum0 =
+                        __lsx_vfmadd_s(_k66, (__m128)__lsx_vreplvei_w(_r6n, 2), _sum0);
 
                     __lsx_vst(_sum0, outptr0, 0);
 

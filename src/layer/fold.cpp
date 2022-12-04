@@ -1,28 +1,29 @@
-// Tencent is pleased to support the open source community by making ncnn available.
+// Tencent is pleased to support the open source community by making ncnn
+// available.
 //
 // Copyright (C) 2022 THL A29 Limited, a Tencent company. All rights reserved.
 //
-// Licensed under the BSD 3-Clause License (the "License"); you may not use this file except
-// in compliance with the License. You may obtain a copy of the License at
+// Licensed under the BSD 3-Clause License (the "License"); you may not use this
+// file except in compliance with the License. You may obtain a copy of the
+// License at
 //
 // https://opensource.org/licenses/BSD-3-Clause
 //
-// Unless required by applicable law or agreed to in writing, software distributed
-// under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
-// CONDITIONS OF ANY KIND, either express or implied. See the License for the
-// specific language governing permissions and limitations under the License.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+// WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+// License for the specific language governing permissions and limitations under
+// the License.
 
 #include "fold.h"
 
 namespace ncnn {
 
-Fold::Fold()
-{
+Fold::Fold() {
     one_blob_only = true;
 }
 
-int Fold::load_param(const ParamDict& pd)
-{
+int Fold::load_param(const ParamDict &pd) {
     kernel_w = pd.get(1, 0);
     kernel_h = pd.get(11, kernel_w);
     dilation_w = pd.get(2, 1);
@@ -39,8 +40,8 @@ int Fold::load_param(const ParamDict& pd)
     return 0;
 }
 
-int Fold::forward(const Mat& bottom_blob, Mat& top_blob, const Option& opt) const
-{
+int Fold::forward(const Mat &bottom_blob, Mat &top_blob,
+                  const Option &opt) const {
     const int size = bottom_blob.w;
     const int max_channels = bottom_blob.h;
     size_t elemsize = bottom_blob.elemsize;
@@ -60,39 +61,32 @@ int Fold::forward(const Mat& bottom_blob, Mat& top_blob, const Option& opt) cons
     const int channels = max_channels / maxk;
 
     Mat top_blob_bordered;
-    if (pad_left > 0 || pad_right > 0 || pad_top > 0 || pad_bottom > 0)
-    {
-        top_blob_bordered.create(outw, outh, channels, elemsize, opt.workspace_allocator);
-    }
-    else
-    {
+    if (pad_left > 0 || pad_right > 0 || pad_top > 0 || pad_bottom > 0) {
+        top_blob_bordered.create(outw, outh, channels, elemsize,
+                                 opt.workspace_allocator);
+    } else {
         top_blob_bordered = top_blob;
-        top_blob_bordered.create(outw, outh, channels, elemsize, opt.blob_allocator);
+        top_blob_bordered.create(outw, outh, channels, elemsize,
+                                 opt.blob_allocator);
     }
-    if (top_blob_bordered.empty())
-        return -100;
+    if (top_blob_bordered.empty()) return -100;
 
     // col2im
     const int gap = outw * stride_h - inw * stride_w;
 
     #pragma omp parallel for num_threads(opt.num_threads)
-    for (int p = 0; p < channels; p++)
-    {
-        const float* sptr = bottom_blob.row(p * maxk);
+    for (int p = 0; p < channels; p++) {
+        const float *sptr = bottom_blob.row(p * maxk);
         Mat outm = top_blob_bordered.channel(p);
 
         outm.fill(0.f);
 
-        for (int u = 0; u < kernel_h; u++)
-        {
-            for (int v = 0; v < kernel_w; v++)
-            {
-                float* ptr = outm.row(dilation_h * u) + dilation_w * v;
+        for (int u = 0; u < kernel_h; u++) {
+            for (int v = 0; v < kernel_w; v++) {
+                float *ptr = outm.row(dilation_h * u) + dilation_w * v;
 
-                for (int i = 0; i < inh; i++)
-                {
-                    for (int j = 0; j < inw; j++)
-                    {
+                for (int i = 0; i < inh; i++) {
+                    for (int j = 0; j < inw; j++) {
                         ptr[0] += sptr[0];
 
                         ptr += stride_w;
@@ -105,20 +99,17 @@ int Fold::forward(const Mat& bottom_blob, Mat& top_blob, const Option& opt) cons
         }
     }
 
-    if (pad_left > 0 || pad_right > 0 || pad_top > 0 || pad_bottom > 0)
-    {
+    if (pad_left > 0 || pad_right > 0 || pad_top > 0 || pad_bottom > 0) {
         Option opt_b = opt;
         opt_b.use_packing_layout = false;
-        copy_cut_border(top_blob_bordered, top_blob, pad_top, pad_bottom, pad_left, pad_right, opt_b);
-        if (top_blob.empty())
-            return -100;
-    }
-    else
-    {
+        copy_cut_border(top_blob_bordered, top_blob, pad_top, pad_bottom, pad_left,
+                        pad_right, opt_b);
+        if (top_blob.empty()) return -100;
+    } else {
         top_blob = top_blob_bordered;
     }
 
     return 0;
 }
 
-} // namespace ncnn
+}  // namespace ncnn

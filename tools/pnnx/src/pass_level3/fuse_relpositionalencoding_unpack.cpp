@@ -20,68 +20,68 @@
 namespace pnnx {
 
 void fuse_relpositionalencoding_unpack(Graph &graph) {
-  while (1) {
-    bool matched = false;
+    while (1) {
+        bool matched = false;
 
-    for (size_t i = 0; i < graph.ops.size(); i++) {
-      Operator *op = graph.ops[i];
+        for (size_t i = 0; i < graph.ops.size(); i++) {
+            Operator *op = graph.ops[i];
 
-      if (op->type != "icefall.RelPositionalEncoding") {
-        continue;
-      }
+            if (op->type != "icefall.RelPositionalEncoding") {
+                continue;
+            }
 
-      if (op->outputs.size() != 1) {
-        continue;
-      }
+            if (op->outputs.size() != 1) {
+                continue;
+            }
 
-      if (op->outputs[0]->consumers.size() != 1) {
-        continue;
-      }
+            if (op->outputs[0]->consumers.size() != 1) {
+                continue;
+            }
 
-      Operator *op2 = op->outputs[0]->consumers[0];
-      if (op2->type != "prim::TupleUnpack") {
-        continue;
-      }
+            Operator *op2 = op->outputs[0]->consumers[0];
+            if (op2->type != "prim::TupleUnpack") {
+                continue;
+            }
 
-      matched = true;
+            matched = true;
 
-      op->outputs[0]->producer = 0;
-      op->outputs[0]->remove_consumer(op2);
+            op->outputs[0]->producer = 0;
+            op->outputs[0]->remove_consumer(op2);
 
-      for (auto &x : op2->outputs) {
-        x->producer = op;
-      }
+            for (auto &x : op2->outputs) {
+                x->producer = op;
+            }
 
-      op->outputs = op2->outputs;
+            op->outputs = op2->outputs;
 
-      op2->inputs.clear();
-      op2->outputs.clear();
+            op2->inputs.clear();
+            op2->outputs.clear();
 
-      graph.ops.erase(std::find(graph.ops.begin(), graph.ops.end(), op2));
+            graph.ops.erase(std::find(graph.ops.begin(), graph.ops.end(), op2));
 
-      delete op2;
+            delete op2;
 
-      // RelPositionalEncoding has two outputs. However, the
-      // first output is identical with the input. The following
-      // code block transforms the number of outputs from 2 to 1.
-      Operand *in = op->inputs[0];
-      Operand *out = op->outputs[0];
-      for (auto &op : graph.ops) {
-        for (auto &oi : op->inputs) {
-          if (oi == out) {
-            oi = in;
-            out->remove_consumer(op);
-            in->consumers.push_back(op);
-          }
+            // RelPositionalEncoding has two outputs. However, the
+            // first output is identical with the input. The following
+            // code block transforms the number of outputs from 2 to 1.
+            Operand *in = op->inputs[0];
+            Operand *out = op->outputs[0];
+            for (auto &op : graph.ops) {
+                for (auto &oi : op->inputs) {
+                    if (oi == out) {
+                        oi = in;
+                        out->remove_consumer(op);
+                        in->consumers.push_back(op);
+                    }
+                }
+            }
+            op->outputs.erase(op->outputs.begin());
+
+            break;
         }
-      }
-      op->outputs.erase(op->outputs.begin());
 
-      break;
+        if (!matched) break;
     }
-
-    if (!matched) break;
-  }
 }
 
 }  // namespace pnnx

@@ -1,16 +1,19 @@
-// yala is pleased to support the open source community by making ncnn available.
+// yala is pleased to support the open source community by making ncnn
+// available.
 //
 //
-// Copyright (C) 2022 yala <zhaojunchao@loongson.cn>;<junchao82@qq.com>. All rights reserved.
-// Licensed under the BSD 3-Clause License (the "License"); you may not use this file except
-// in compliance with the License. You may obtain a copy of the License at
+// Copyright (C) 2022 yala <zhaojunchao@loongson.cn>;<junchao82@qq.com>. All
+// rights reserved. Licensed under the BSD 3-Clause License (the "License"); you
+// may not use this file except in compliance with the License. You may obtain a
+// copy of the License at
 //
 // https://opensource.org/licenses/BSD-3-Clause
 //
-// Unless required by applicable law or agreed to in writing, software distributed
-// under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
-// CONDITIONS OF ANY KIND, either express or implied. See the License for the
-// specific language governing permissions and limitations under the License.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+// WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+// License for the specific language governing permissions and limitations under
+// the License.
 
 #include "unaryop_loongarch.h"
 
@@ -18,21 +21,20 @@
 
 #if __loongarch_sx
 #include <lsxintrin.h>
+
 #include "lsx_mathfun.h"
-#endif // __loongarch_sx
+#endif  // __loongarch_sx
 
 namespace ncnn {
 
-UnaryOp_loongarch::UnaryOp_loongarch()
-{
+UnaryOp_loongarch::UnaryOp_loongarch() {
 #if __loongarch_sx
     support_packing = true;
-#endif // __loongarch_sx
+#endif  // __loongarch_sx
 }
 
-template<typename Op>
-static int unary_op_inplace(Mat& a, const Option& opt)
-{
+template <typename Op>
+static int unary_op_inplace(Mat &a, const Option &opt) {
     Op op;
 
     int w = a.w;
@@ -43,23 +45,20 @@ static int unary_op_inplace(Mat& a, const Option& opt)
     int size = w * h * d * elempack;
 
     #pragma omp parallel for num_threads(opt.num_threads)
-    for (int q = 0; q < channels; q++)
-    {
-        float* ptr = a.channel(q);
+    for (int q = 0; q < channels; q++) {
+        float *ptr = a.channel(q);
 
         int i = 0;
 #if __loongarch_sx
-        for (; i + 3 < size; i += 4)
-        {
+        for (; i + 3 < size; i += 4) {
             __builtin_prefetch(ptr + 16);
             __m128 _p = (__m128)__lsx_vld(ptr, 0);
             _p = op.func_pack4(_p);
             __lsx_vst(_p, ptr, 0);
             ptr += 4;
         }
-#endif // __loongarch_sx
-        for (; i < size; i++)
-        {
+#endif  // __loongarch_sx
+        for (; i < size; i++) {
             *ptr = op.func(*ptr);
             ptr++;
         }
@@ -70,43 +69,34 @@ static int unary_op_inplace(Mat& a, const Option& opt)
 
 namespace UnaryOp_loongarch_functor {
 
-struct unary_op_abs
-{
-    float func(const float& x) const
-    {
+struct unary_op_abs {
+    float func(const float &x) const {
         return (float)fabs(x);
     }
 #if __loongarch_sx
-    __m128 func_pack4(const __m128& x) const
-    {
+    __m128 func_pack4(const __m128 &x) const {
         return (__m128)__lsx_vbitclri_w((__m128i)x, 31);
     }
-#endif // __loongarch_sx
+#endif  // __loongarch_sx
 };
 
-struct unary_op_neg
-{
-    float func(const float& x) const
-    {
+struct unary_op_neg {
+    float func(const float &x) const {
         return -x;
     }
 #if __loongarch_sx
-    __m128 func_pack4(const __m128& x) const
-    {
+    __m128 func_pack4(const __m128 &x) const {
         return (__m128)__lsx_vbitrevi_w((__m128i)x, 31);
     }
-#endif // __loongarch_sx
+#endif  // __loongarch_sx
 };
 
-struct unary_op_floor
-{
-    float func(const float& x) const
-    {
+struct unary_op_floor {
+    float func(const float &x) const {
         return (float)floor(x);
     }
 #if __loongarch_sx
-    __m128 func_pack4(const __m128& x) const
-    {
+    __m128 func_pack4(const __m128 &x) const {
         // TODO msa optimize
         float tmp[4];
         __lsx_vst(x, tmp, 0);
@@ -116,18 +106,15 @@ struct unary_op_floor
         tmp[3] = floor(tmp[3]);
         return (__m128)__lsx_vld(tmp, 0);
     }
-#endif // __loongarch_sx
+#endif  // __loongarch_sx
 };
 
-struct unary_op_ceil
-{
-    float func(const float& x) const
-    {
+struct unary_op_ceil {
+    float func(const float &x) const {
         return (float)ceil(x);
     }
 #if __loongarch_sx
-    __m128 func_pack4(const __m128& x) const
-    {
+    __m128 func_pack4(const __m128 &x) const {
         // TODO msa optimize
         float tmp[4];
         __lsx_vst(x, tmp, 0);
@@ -137,88 +124,70 @@ struct unary_op_ceil
         tmp[3] = ceil(tmp[3]);
         return (__m128)__lsx_vld(tmp, 0);
     }
-#endif // __loongarch_sx
+#endif  // __loongarch_sx
 };
 
-struct unary_op_square
-{
-    float func(const float& x) const
-    {
+struct unary_op_square {
+    float func(const float &x) const {
         return x * x;
     }
 #if __loongarch_sx
-    __m128 func_pack4(const __m128& x) const
-    {
+    __m128 func_pack4(const __m128 &x) const {
         return __lsx_vfmul_s(x, x);
     }
-#endif // __loongarch_sx
+#endif  // __loongarch_sx
 };
 
-struct unary_op_sqrt
-{
-    float func(const float& x) const
-    {
+struct unary_op_sqrt {
+    float func(const float &x) const {
         return (float)sqrt(x);
     }
 #if __loongarch_sx
-    __m128 func_pack4(const __m128& x) const
-    {
+    __m128 func_pack4(const __m128 &x) const {
         return __lsx_vfsqrt_s(x);
     }
-#endif // __loongarch_sx
+#endif  // __loongarch_sx
 };
 
-struct unary_op_rsqrt
-{
-    float func(const float& x) const
-    {
+struct unary_op_rsqrt {
+    float func(const float &x) const {
         return (float)(1.f / sqrt(x));
     }
 #if __loongarch_sx
-    __m128 func_pack4(const __m128& x) const
-    {
+    __m128 func_pack4(const __m128 &x) const {
         return __lsx_vfrsqrt_s(x);
     }
-#endif // __loongarch_sx
+#endif  // __loongarch_sx
 };
 
-struct unary_op_exp
-{
-    float func(const float& x) const
-    {
+struct unary_op_exp {
+    float func(const float &x) const {
         return (float)exp(x);
     }
 #if __loongarch_sx
-    __m128 func_pack4(const __m128& x) const
-    {
+    __m128 func_pack4(const __m128 &x) const {
         return exp_ps(x);
     }
-#endif // __loongarch_sx
+#endif  // __loongarch_sx
 };
 
-struct unary_op_log
-{
-    float func(const float& x) const
-    {
+struct unary_op_log {
+    float func(const float &x) const {
         return (float)log(x);
     }
 #if __loongarch_sx
-    __m128 func_pack4(const __m128& x) const
-    {
+    __m128 func_pack4(const __m128 &x) const {
         return log_ps(x);
     }
-#endif // __loongarch_sx
+#endif  // __loongarch_sx
 };
 
-struct unary_op_sin
-{
-    float func(const float& x) const
-    {
+struct unary_op_sin {
+    float func(const float &x) const {
         return (float)sin(x);
     }
 #if __loongarch_sx
-    __m128 func_pack4(const __m128& x) const
-    {
+    __m128 func_pack4(const __m128 &x) const {
         // TODO msa optimize
         float tmp[4];
         __lsx_vst(x, tmp, 0);
@@ -228,18 +197,15 @@ struct unary_op_sin
         tmp[3] = sin(tmp[3]);
         return (__m128)__lsx_vld(tmp, 0);
     }
-#endif // __loongarch_sx
+#endif  // __loongarch_sx
 };
 
-struct unary_op_cos
-{
-    float func(const float& x) const
-    {
+struct unary_op_cos {
+    float func(const float &x) const {
         return (float)cos(x);
     }
 #if __loongarch_sx
-    __m128 func_pack4(const __m128& x) const
-    {
+    __m128 func_pack4(const __m128 &x) const {
         // TODO msa optimize
         float tmp[4];
         __lsx_vst(x, tmp, 0);
@@ -249,18 +215,15 @@ struct unary_op_cos
         tmp[3] = cos(tmp[3]);
         return (__m128)__lsx_vld(tmp, 0);
     }
-#endif // __loongarch_sx
+#endif  // __loongarch_sx
 };
 
-struct unary_op_tan
-{
-    float func(const float& x) const
-    {
+struct unary_op_tan {
+    float func(const float &x) const {
         return (float)tan(x);
     }
 #if __loongarch_sx
-    __m128 func_pack4(const __m128& x) const
-    {
+    __m128 func_pack4(const __m128 &x) const {
         // TODO msa optimize
         float tmp[4];
         __lsx_vst(x, tmp, 0);
@@ -270,18 +233,15 @@ struct unary_op_tan
         tmp[3] = tan(tmp[3]);
         return (__m128)__lsx_vld(tmp, 0);
     }
-#endif // __loongarch_sx
+#endif  // __loongarch_sx
 };
 
-struct unary_op_asin
-{
-    float func(const float& x) const
-    {
+struct unary_op_asin {
+    float func(const float &x) const {
         return (float)asin(x);
     }
 #if __loongarch_sx
-    __m128 func_pack4(const __m128& x) const
-    {
+    __m128 func_pack4(const __m128 &x) const {
         // TODO msa optimize
         float tmp[4];
         __lsx_vst(x, tmp, 0);
@@ -291,18 +251,15 @@ struct unary_op_asin
         tmp[3] = asin(tmp[3]);
         return (__m128)__lsx_vld(tmp, 0);
     }
-#endif // __loongarch_sx
+#endif  // __loongarch_sx
 };
 
-struct unary_op_acos
-{
-    float func(const float& x) const
-    {
+struct unary_op_acos {
+    float func(const float &x) const {
         return (float)acos(x);
     }
 #if __loongarch_sx
-    __m128 func_pack4(const __m128& x) const
-    {
+    __m128 func_pack4(const __m128 &x) const {
         // TODO msa optimize
         float tmp[4];
         __lsx_vst(x, tmp, 0);
@@ -312,18 +269,15 @@ struct unary_op_acos
         tmp[3] = acos(tmp[3]);
         return (__m128)__lsx_vld(tmp, 0);
     }
-#endif // __loongarch_sx
+#endif  // __loongarch_sx
 };
 
-struct unary_op_atan
-{
-    float func(const float& x) const
-    {
+struct unary_op_atan {
+    float func(const float &x) const {
         return (float)atan(x);
     }
 #if __loongarch_sx
-    __m128 func_pack4(const __m128& x) const
-    {
+    __m128 func_pack4(const __m128 &x) const {
         // TODO msa optimize
         float tmp[4];
         __lsx_vst(x, tmp, 0);
@@ -333,41 +287,35 @@ struct unary_op_atan
         tmp[3] = atan(tmp[3]);
         return (__m128)__lsx_vld(tmp, 0);
     }
-#endif // __loongarch_sx
+#endif  // __loongarch_sx
 };
 
-struct unary_op_reciprocal
-{
-    float func(const float& x) const
-    {
+struct unary_op_reciprocal {
+    float func(const float &x) const {
         return 1.f / x;
     }
 #if __loongarch_sx
-    __m128 func_pack4(const __m128& x) const
-    {
+    __m128 func_pack4(const __m128 &x) const {
         return __lsx_vfrecip_s(x);
     }
-#endif // __loongarch_sx
+#endif  // __loongarch_sx
 };
 
-struct unary_op_tanh
-{
-    float func(const float& x) const
-    {
+struct unary_op_tanh {
+    float func(const float &x) const {
         return (float)tanh(x);
     }
 #if __loongarch_sx
-    __m128 func_pack4(const __m128& x) const
-    {
+    __m128 func_pack4(const __m128 &x) const {
         return tanh_ps(x);
     }
-#endif // __loongarch_sx
+#endif  // __loongarch_sx
 };
 
-} // namespace UnaryOp_loongarch_functor
+}  // namespace UnaryOp_loongarch_functor
 
-int UnaryOp_loongarch::forward_inplace(Mat& bottom_top_blob, const Option& opt) const
-{
+int UnaryOp_loongarch::forward_inplace(Mat &bottom_top_blob,
+                                       const Option &opt) const {
     using namespace UnaryOp_loongarch_functor;
 
     if (op_type == Operation_ABS)
@@ -424,4 +372,4 @@ int UnaryOp_loongarch::forward_inplace(Mat& bottom_top_blob, const Option& opt) 
     return 0;
 }
 
-} // namespace ncnn
+}  // namespace ncnn

@@ -1,16 +1,19 @@
-// Tencent is pleased to support the open source community by making ncnn available.
+// Tencent is pleased to support the open source community by making ncnn
+// available.
 //
 // Copyright (C) 2017 THL A29 Limited, a Tencent company. All rights reserved.
 //
-// Licensed under the BSD 3-Clause License (the "License"); you may not use this file except
-// in compliance with the License. You may obtain a copy of the License at
+// Licensed under the BSD 3-Clause License (the "License"); you may not use this
+// file except in compliance with the License. You may obtain a copy of the
+// License at
 //
 // https://opensource.org/licenses/BSD-3-Clause
 //
-// Unless required by applicable law or agreed to in writing, software distributed
-// under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
-// CONDITIONS OF ANY KIND, either express or implied. See the License for the
-// specific language governing permissions and limitations under the License.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+// WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+// License for the specific language governing permissions and limitations under
+// the License.
 
 #include "proposal.h"
 
@@ -18,8 +21,7 @@
 
 namespace ncnn {
 
-Proposal::Proposal()
-{
+Proposal::Proposal() {
     one_blob_only = false;
     support_inplace = false;
 
@@ -35,8 +37,8 @@ Proposal::Proposal()
     scales[2] = 32.f;
 }
 
-static Mat generate_anchors(int base_size, const Mat& ratios, const Mat& scales)
-{
+static Mat generate_anchors(int base_size, const Mat &ratios,
+                            const Mat &scales) {
     int num_ratio = ratios.w;
     int num_scale = scales.w;
 
@@ -46,21 +48,20 @@ static Mat generate_anchors(int base_size, const Mat& ratios, const Mat& scales)
     const float cx = base_size * 0.5f;
     const float cy = base_size * 0.5f;
 
-    for (int i = 0; i < num_ratio; i++)
-    {
+    for (int i = 0; i < num_ratio; i++) {
         float ar = ratios[i];
 
         int r_w = static_cast<int>(round(base_size / sqrt(ar)));
-        int r_h = static_cast<int>(round(r_w * ar)); //round(base_size * sqrt(ar));
+        int r_h = static_cast<int>(round(r_w * ar));  // round(base_size *
+        // sqrt(ar));
 
-        for (int j = 0; j < num_scale; j++)
-        {
+        for (int j = 0; j < num_scale; j++) {
             float scale = scales[j];
 
             float rs_w = r_w * scale;
             float rs_h = r_h * scale;
 
-            float* anchor = anchors.row(i * num_scale + j);
+            float *anchor = anchors.row(i * num_scale + j);
 
             anchor[0] = cx - rs_w * 0.5f;
             anchor[1] = cy - rs_h * 0.5f;
@@ -72,8 +73,7 @@ static Mat generate_anchors(int base_size, const Mat& ratios, const Mat& scales)
     return anchors;
 }
 
-int Proposal::load_param(const ParamDict& pd)
-{
+int Proposal::load_param(const ParamDict &pd) {
     feat_stride = pd.get(0, 16);
     base_size = pd.get(1, 16);
     pre_nms_topN = pd.get(2, 6000);
@@ -89,18 +89,15 @@ int Proposal::load_param(const ParamDict& pd)
     return 0;
 }
 
-struct Rect
-{
+struct Rect {
     float x1;
     float y1;
     float x2;
     float y2;
 };
 
-static inline float intersection_area(const Rect& a, const Rect& b)
-{
-    if (a.x1 > b.x2 || a.x2 < b.x1 || a.y1 > b.y2 || a.y2 < b.y1)
-    {
+static inline float intersection_area(const Rect &a, const Rect &b) {
+    if (a.x1 > b.x2 || a.x2 < b.x1 || a.y1 > b.y2 || a.y2 < b.y1) {
         // no intersection
         return 0.f;
     }
@@ -111,23 +108,20 @@ static inline float intersection_area(const Rect& a, const Rect& b)
     return inter_width * inter_height;
 }
 
-template<typename T>
-static void qsort_descent_inplace(std::vector<T>& datas, std::vector<float>& scores, int left, int right)
-{
+template <typename T>
+static void qsort_descent_inplace(std::vector<T> &datas,
+                                  std::vector<float> &scores, int left,
+                                  int right) {
     int i = left;
     int j = right;
     float p = scores[(left + right) / 2];
 
-    while (i <= j)
-    {
-        while (scores[i] > p)
-            i++;
+    while (i <= j) {
+        while (scores[i] > p) i++;
 
-        while (scores[j] < p)
-            j--;
+        while (scores[j] < p) j--;
 
-        if (i <= j)
-        {
+        if (i <= j) {
             // swap
             std::swap(datas[i], datas[j]);
             std::swap(scores[i], scores[j]);
@@ -137,32 +131,29 @@ static void qsort_descent_inplace(std::vector<T>& datas, std::vector<float>& sco
         }
     }
 
-    if (left < j)
-        qsort_descent_inplace(datas, scores, left, j);
+    if (left < j) qsort_descent_inplace(datas, scores, left, j);
 
-    if (i < right)
-        qsort_descent_inplace(datas, scores, i, right);
+    if (i < right) qsort_descent_inplace(datas, scores, i, right);
 }
 
-template<typename T>
-static void qsort_descent_inplace(std::vector<T>& datas, std::vector<float>& scores)
-{
-    if (datas.empty() || scores.empty())
-        return;
+template <typename T>
+static void qsort_descent_inplace(std::vector<T> &datas,
+                                  std::vector<float> &scores) {
+    if (datas.empty() || scores.empty()) return;
 
     qsort_descent_inplace(datas, scores, 0, static_cast<int>(scores.size() - 1));
 }
 
-static void nms_sorted_bboxes(const std::vector<Rect>& bboxes, std::vector<size_t>& picked, float nms_threshold)
-{
+static void nms_sorted_bboxes(const std::vector<Rect> &bboxes,
+                              std::vector<size_t> &picked,
+                              float nms_threshold) {
     picked.clear();
 
     const size_t n = bboxes.size();
 
     std::vector<float> areas(n);
-    for (size_t i = 0; i < n; i++)
-    {
-        const Rect& r = bboxes[i];
+    for (size_t i = 0; i < n; i++) {
+        const Rect &r = bboxes[i];
 
         float width = r.x2 - r.x1;
         float height = r.y2 - r.y1;
@@ -170,33 +161,29 @@ static void nms_sorted_bboxes(const std::vector<Rect>& bboxes, std::vector<size_
         areas[i] = width * height;
     }
 
-    for (size_t i = 0; i < n; i++)
-    {
-        const Rect& a = bboxes[i];
+    for (size_t i = 0; i < n; i++) {
+        const Rect &a = bboxes[i];
 
         int keep = 1;
-        for (size_t j = 0; j < picked.size(); j++)
-        {
-            const Rect& b = bboxes[picked[j]];
+        for (size_t j = 0; j < picked.size(); j++) {
+            const Rect &b = bboxes[picked[j]];
 
             // intersection over union
             float inter_area = intersection_area(a, b);
             float union_area = areas[i] + areas[picked[j]] - inter_area;
             //             float IoU = inter_area / union_area
-            if (inter_area / union_area > nms_threshold)
-                keep = 0;
+            if (inter_area / union_area > nms_threshold) keep = 0;
         }
 
-        if (keep)
-            picked.push_back(i);
+        if (keep) picked.push_back(i);
     }
 }
 
-int Proposal::forward(const std::vector<Mat>& bottom_blobs, std::vector<Mat>& top_blobs, const Option& opt) const
-{
-    const Mat& score_blob = bottom_blobs[0];
-    const Mat& bbox_blob = bottom_blobs[1];
-    const Mat& im_info_blob = bottom_blobs[2];
+int Proposal::forward(const std::vector<Mat> &bottom_blobs,
+                      std::vector<Mat> &top_blobs, const Option &opt) const {
+    const Mat &score_blob = bottom_blobs[0];
+    const Mat &bbox_blob = bottom_blobs[1];
+    const Mat &im_info_blob = bottom_blobs[2];
 
     int w = score_blob.w;
     int h = score_blob.h;
@@ -208,16 +195,15 @@ int Proposal::forward(const std::vector<Mat>& bottom_blobs, std::vector<Mat>& to
     proposals.create(4, w * h, num_anchors);
 
     #pragma omp parallel for num_threads(opt.num_threads)
-    for (int q = 0; q < num_anchors; q++)
-    {
-        const float* bbox_xptr = bbox_blob.channel(q * 4);
-        const float* bbox_yptr = bbox_blob.channel(q * 4 + 1);
-        const float* bbox_wptr = bbox_blob.channel(q * 4 + 2);
-        const float* bbox_hptr = bbox_blob.channel(q * 4 + 3);
+    for (int q = 0; q < num_anchors; q++) {
+        const float *bbox_xptr = bbox_blob.channel(q * 4);
+        const float *bbox_yptr = bbox_blob.channel(q * 4 + 1);
+        const float *bbox_wptr = bbox_blob.channel(q * 4 + 2);
+        const float *bbox_hptr = bbox_blob.channel(q * 4 + 3);
 
         Mat pbs = proposals.channel(q);
 
-        const float* anchor = anchors.row(q);
+        const float *anchor = anchors.row(q);
 
         // shifted anchor
         float anchor_y = anchor[1];
@@ -225,13 +211,11 @@ int Proposal::forward(const std::vector<Mat>& bottom_blobs, std::vector<Mat>& to
         float anchor_w = anchor[2] - anchor[0];
         float anchor_h = anchor[3] - anchor[1];
 
-        for (int i = 0; i < h; i++)
-        {
+        for (int i = 0; i < h; i++) {
             float anchor_x = anchor[0];
 
-            for (int j = 0; j < w; j++)
-            {
-                float* pb = pbs.row(i * w + j);
+            for (int j = 0; j < w; j++) {
+                float *pb = pbs.row(i * w + j);
 
                 // apply center size
                 float dx = bbox_xptr[j];
@@ -270,13 +254,11 @@ int Proposal::forward(const std::vector<Mat>& bottom_blobs, std::vector<Mat>& to
     float im_h = im_info_blob[0];
 
     #pragma omp parallel for num_threads(opt.num_threads)
-    for (int q = 0; q < num_anchors; q++)
-    {
+    for (int q = 0; q < num_anchors; q++) {
         Mat pbs = proposals.channel(q);
 
-        for (int i = 0; i < w * h; i++)
-        {
-            float* pb = pbs.row(i);
+        for (int i = 0; i < w * h; i++) {
+            float *pb = pbs.row(i);
 
             // clip box
             pb[0] = std::max(std::min(pb[0], im_w - 1), 0.f);
@@ -293,20 +275,17 @@ int Proposal::forward(const std::vector<Mat>& bottom_blobs, std::vector<Mat>& to
     float im_scale = im_info_blob[2];
     float min_boxsize = min_size * im_scale;
 
-    for (int q = 0; q < num_anchors; q++)
-    {
+    for (int q = 0; q < num_anchors; q++) {
         Mat pbs = proposals.channel(q);
-        const float* scoreptr = score_blob.channel(q + num_anchors);
+        const float *scoreptr = score_blob.channel(q + num_anchors);
 
-        for (int i = 0; i < w * h; i++)
-        {
-            float* pb = pbs.row(i);
+        for (int i = 0; i < w * h; i++) {
+            float *pb = pbs.row(i);
 
             float pb_w = pb[2] - pb[0] + 1;
             float pb_h = pb[3] - pb[1] + 1;
 
-            if (pb_w >= min_boxsize && pb_h >= min_boxsize)
-            {
+            if (pb_w >= min_boxsize && pb_h >= min_boxsize) {
                 Rect r = {pb[0], pb[1], pb[2], pb[3]};
                 proposal_boxes.push_back(r);
                 scores.push_back(scoreptr[i]);
@@ -318,8 +297,7 @@ int Proposal::forward(const std::vector<Mat>& bottom_blobs, std::vector<Mat>& to
     qsort_descent_inplace(proposal_boxes, scores);
 
     // take top pre_nms_topN
-    if (pre_nms_topN > 0 && pre_nms_topN < (int)proposal_boxes.size())
-    {
+    if (pre_nms_topN > 0 && pre_nms_topN < (int)proposal_boxes.size()) {
         proposal_boxes.resize(pre_nms_topN);
         scores.resize(pre_nms_topN);
     }
@@ -332,14 +310,12 @@ int Proposal::forward(const std::vector<Mat>& bottom_blobs, std::vector<Mat>& to
     int picked_count = std::min((int)picked.size(), after_nms_topN);
 
     // return the top proposals
-    Mat& roi_blob = top_blobs[0];
+    Mat &roi_blob = top_blobs[0];
     roi_blob.create(4, 1, picked_count);
-    if (roi_blob.empty())
-        return -100;
+    if (roi_blob.empty()) return -100;
 
-    for (int i = 0; i < picked_count; i++)
-    {
-        float* outptr = roi_blob.channel(i);
+    for (int i = 0; i < picked_count; i++) {
+        float *outptr = roi_blob.channel(i);
 
         outptr[0] = proposal_boxes[picked[i]].x1;
         outptr[1] = proposal_boxes[picked[i]].y1;
@@ -347,16 +323,13 @@ int Proposal::forward(const std::vector<Mat>& bottom_blobs, std::vector<Mat>& to
         outptr[3] = proposal_boxes[picked[i]].y2;
     }
 
-    if (top_blobs.size() > 1)
-    {
-        Mat& roi_score_blob = top_blobs[1];
+    if (top_blobs.size() > 1) {
+        Mat &roi_score_blob = top_blobs[1];
         roi_score_blob.create(1, 1, picked_count);
-        if (roi_score_blob.empty())
-            return -100;
+        if (roi_score_blob.empty()) return -100;
 
-        for (int i = 0; i < picked_count; i++)
-        {
-            float* outptr = roi_score_blob.channel(i);
+        for (int i = 0; i < picked_count; i++) {
+            float *outptr = roi_score_blob.channel(i);
             outptr[0] = scores[picked[i]];
         }
     }
@@ -364,4 +337,4 @@ int Proposal::forward(const std::vector<Mat>& bottom_blobs, std::vector<Mat>& to
     return 0;
 }
 
-} // namespace ncnn
+}  // namespace ncnn

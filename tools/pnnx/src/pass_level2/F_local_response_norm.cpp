@@ -1,26 +1,27 @@
-// Tencent is pleased to support the open source community by making ncnn available.
+// Tencent is pleased to support the open source community by making ncnn
+// available.
 //
 // Copyright (C) 2021 THL A29 Limited, a Tencent company. All rights reserved.
 //
-// Licensed under the BSD 3-Clause License (the "License"); you may not use this file except
-// in compliance with the License. You may obtain a copy of the License at
+// Licensed under the BSD 3-Clause License (the "License"); you may not use this
+// file except in compliance with the License. You may obtain a copy of the
+// License at
 //
 // https://opensource.org/licenses/BSD-3-Clause
 //
-// Unless required by applicable law or agreed to in writing, software distributed
-// under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
-// CONDITIONS OF ANY KIND, either express or implied. See the License for the
-// specific language governing permissions and limitations under the License.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+// WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+// License for the specific language governing permissions and limitations under
+// the License.
 
 #include "pass_level2.h"
 
 namespace pnnx {
 
-class F_local_response_norm : public GraphRewriterPass
-{
+class F_local_response_norm : public GraphRewriterPass {
 public:
-    const char* match_pattern_graph() const
-    {
+    const char *match_pattern_graph() const {
         return R"PNNXIR(7767517
 35 34
 pnnx.Input              input       0 1 input
@@ -59,41 +60,36 @@ aten::pow               op_31       2 1 33 beta div1.1
 aten::div               op_32       2 1 input div1.1 out
 pnnx.Output             output      1 0 out
 )PNNXIR";
-    }
+  }
 
-    const char* type_str() const
-    {
-        return "F.local_response_norm";
-    }
+  const char *type_str() const { return "F.local_response_norm"; }
 
-    bool match_captured_params(const std::map<std::string, Parameter>& captured_params) const
-    {
-        if (captured_params.at("padzero").type == 2)
-            return captured_params.at("padzero").i == 0;
+  bool match_captured_params(
+      const std::map<std::string, Parameter> &captured_params) const {
+    if (captured_params.at("padzero").type == 2)
+      return captured_params.at("padzero").i == 0;
 
-        if (captured_params.at("padzero").type == 3)
-            return captured_params.at("padzero").f == 0.f;
+    if (captured_params.at("padzero").type == 3)
+      return captured_params.at("padzero").f == 0.f;
 
-        return false;
-    }
+    return false;
+  }
 
-    void write(Operator* op, const std::map<std::string, Parameter>& captured_params) const
-    {
-        op->params["size"] = captured_params.at("size");
-        op->params["alpha"] = captured_params.at("alpha");
-        op->params["beta"] = captured_params.at("beta");
-        op->params["k"] = captured_params.at("k");
-    }
+  void write(Operator *op,
+             const std::map<std::string, Parameter> &captured_params) const {
+    op->params["size"] = captured_params.at("size");
+    op->params["alpha"] = captured_params.at("alpha");
+    op->params["beta"] = captured_params.at("beta");
+    op->params["k"] = captured_params.at("k");
+  }
 };
 
 REGISTER_GLOBAL_PNNX_GRAPH_REWRITER_PASS(F_local_response_norm, 8)
 
-class F_local_response_norm_1 : public GraphRewriterPass
-{
-public:
-    const char* match_pattern_graph() const
-    {
-        return R"PNNXIR(7767517
+class F_local_response_norm_1 : public GraphRewriterPass {
+ public:
+  const char *match_pattern_graph() const {
+    return R"PNNXIR(7767517
 65 64
 pnnx.Input              input       0 1 input
 prim::Constant          op_0        0 1 k value=%k
@@ -161,41 +157,36 @@ aten::pow               op_61       2 1 82 beta div3.1
 aten::div               op_62       2 1 input div3.1 out
 pnnx.Output             output      1 0 out
 )PNNXIR";
-    }
+  }
 
-    const char* type_str() const
-    {
-        return "F.local_response_norm";
-    }
+  const char *type_str() const { return "F.local_response_norm"; }
 
-    bool match_captured_params(const std::map<std::string, Parameter>& captured_params) const
-    {
-        if (captured_params.at("padzero").type == 2)
-            return captured_params.at("padzero").i == 0;
+  bool match_captured_params(
+      const std::map<std::string, Parameter> &captured_params) const {
+    if (captured_params.at("padzero").type == 2)
+      return captured_params.at("padzero").i == 0;
 
-        if (captured_params.at("padzero").type == 3)
-            return captured_params.at("padzero").f == 0.f;
+    if (captured_params.at("padzero").type == 3)
+      return captured_params.at("padzero").f == 0.f;
 
-        return false;
-    }
+    return false;
+  }
 
-    void write(Operator* op, const std::map<std::string, Parameter>& captured_params) const
-    {
-        op->params["size"] = captured_params.at("size");
-        op->params["alpha"] = captured_params.at("alpha");
-        op->params["beta"] = captured_params.at("beta");
-        op->params["k"] = captured_params.at("k");
-    }
+  void write(Operator *op,
+             const std::map<std::string, Parameter> &captured_params) const {
+    op->params["size"] = captured_params.at("size");
+    op->params["alpha"] = captured_params.at("alpha");
+    op->params["beta"] = captured_params.at("beta");
+    op->params["k"] = captured_params.at("k");
+  }
 };
 
 REGISTER_GLOBAL_PNNX_GRAPH_REWRITER_PASS(F_local_response_norm_1, 8)
 
-class F_local_response_norm_2 : public GraphRewriterPass
-{
-public:
-    const char* match_pattern_graph() const
-    {
-        return R"PNNXIR(7767517
+class F_local_response_norm_2 : public GraphRewriterPass {
+ public:
+  const char *match_pattern_graph() const {
+    return R"PNNXIR(7767517
 69 68
 pnnx.Input              input       0 1 input
 prim::Constant          op_0        0 1 k value=%k
@@ -267,41 +258,36 @@ aten::pow               op_65       2 1 90 beta div3.1
 aten::div               op_66       2 1 input div3.1 out
 pnnx.Output             output      1 0 out
 )PNNXIR";
-    }
+  }
 
-    const char* type_str() const
-    {
-        return "F.local_response_norm";
-    }
+  const char *type_str() const { return "F.local_response_norm"; }
 
-    bool match_captured_params(const std::map<std::string, Parameter>& captured_params) const
-    {
-        if (captured_params.at("padzero").type == 2)
-            return captured_params.at("padzero").i == 0;
+  bool match_captured_params(
+      const std::map<std::string, Parameter> &captured_params) const {
+    if (captured_params.at("padzero").type == 2)
+      return captured_params.at("padzero").i == 0;
 
-        if (captured_params.at("padzero").type == 3)
-            return captured_params.at("padzero").f == 0.f;
+    if (captured_params.at("padzero").type == 3)
+      return captured_params.at("padzero").f == 0.f;
 
-        return false;
-    }
+    return false;
+  }
 
-    void write(Operator* op, const std::map<std::string, Parameter>& captured_params) const
-    {
-        op->params["size"] = captured_params.at("size");
-        op->params["alpha"] = captured_params.at("alpha");
-        op->params["beta"] = captured_params.at("beta");
-        op->params["k"] = captured_params.at("k");
-    }
+  void write(Operator *op,
+             const std::map<std::string, Parameter> &captured_params) const {
+    op->params["size"] = captured_params.at("size");
+    op->params["alpha"] = captured_params.at("alpha");
+    op->params["beta"] = captured_params.at("beta");
+    op->params["k"] = captured_params.at("k");
+  }
 };
 
 REGISTER_GLOBAL_PNNX_GRAPH_REWRITER_PASS(F_local_response_norm_2, 8)
 
-class F_local_response_norm_3 : public GraphRewriterPass
-{
-public:
-    const char* match_pattern_graph() const
-    {
-        return R"PNNXIR(7767517
+class F_local_response_norm_3 : public GraphRewriterPass {
+ public:
+  const char *match_pattern_graph() const {
+    return R"PNNXIR(7767517
 36 35
 pnnx.Input              input       0 1 input
 prim::Constant          op_0        0 1 k value=%k
@@ -340,41 +326,36 @@ aten::pow               op_32       2 1 33 beta div1.1
 aten::div               op_33       2 1 input div1.1 out
 pnnx.Output             output      1 0 out
 )PNNXIR";
-    }
+  }
 
-    const char* type_str() const
-    {
-        return "F.local_response_norm";
-    }
+  const char *type_str() const { return "F.local_response_norm"; }
 
-    bool match_captured_params(const std::map<std::string, Parameter>& captured_params) const
-    {
-        if (captured_params.at("padzero").type == 2)
-            return captured_params.at("padzero").i == 0;
+  bool match_captured_params(
+      const std::map<std::string, Parameter> &captured_params) const {
+    if (captured_params.at("padzero").type == 2)
+      return captured_params.at("padzero").i == 0;
 
-        if (captured_params.at("padzero").type == 3)
-            return captured_params.at("padzero").f == 0.f;
+    if (captured_params.at("padzero").type == 3)
+      return captured_params.at("padzero").f == 0.f;
 
-        return false;
-    }
+    return false;
+  }
 
-    void write(Operator* op, const std::map<std::string, Parameter>& captured_params) const
-    {
-        op->params["size"] = captured_params.at("size");
-        op->params["alpha"] = captured_params.at("alpha");
-        op->params["beta"] = captured_params.at("beta");
-        op->params["k"] = captured_params.at("k");
-    }
+  void write(Operator *op,
+             const std::map<std::string, Parameter> &captured_params) const {
+    op->params["size"] = captured_params.at("size");
+    op->params["alpha"] = captured_params.at("alpha");
+    op->params["beta"] = captured_params.at("beta");
+    op->params["k"] = captured_params.at("k");
+  }
 };
 
 REGISTER_GLOBAL_PNNX_GRAPH_REWRITER_PASS(F_local_response_norm_3, 8)
 
-class F_local_response_norm_4 : public GraphRewriterPass
-{
-public:
-    const char* match_pattern_graph() const
-    {
-        return R"PNNXIR(7767517
+class F_local_response_norm_4 : public GraphRewriterPass {
+ public:
+  const char *match_pattern_graph() const {
+    return R"PNNXIR(7767517
 66 65
 pnnx.Input              input       0 1 input
 prim::Constant          op_0        0 1 k value=%k
@@ -443,41 +424,36 @@ aten::pow               op_62       2 1 82 beta div3.1
 aten::div               op_63       2 1 input div3.1 out
 pnnx.Output             output      1 0 out
 )PNNXIR";
-    }
+  }
 
-    const char* type_str() const
-    {
-        return "F.local_response_norm";
-    }
+  const char *type_str() const { return "F.local_response_norm"; }
 
-    bool match_captured_params(const std::map<std::string, Parameter>& captured_params) const
-    {
-        if (captured_params.at("padzero").type == 2)
-            return captured_params.at("padzero").i == 0;
+  bool match_captured_params(
+      const std::map<std::string, Parameter> &captured_params) const {
+    if (captured_params.at("padzero").type == 2)
+      return captured_params.at("padzero").i == 0;
 
-        if (captured_params.at("padzero").type == 3)
-            return captured_params.at("padzero").f == 0.f;
+    if (captured_params.at("padzero").type == 3)
+      return captured_params.at("padzero").f == 0.f;
 
-        return false;
-    }
+    return false;
+  }
 
-    void write(Operator* op, const std::map<std::string, Parameter>& captured_params) const
-    {
-        op->params["size"] = captured_params.at("size");
-        op->params["alpha"] = captured_params.at("alpha");
-        op->params["beta"] = captured_params.at("beta");
-        op->params["k"] = captured_params.at("k");
-    }
+  void write(Operator *op,
+             const std::map<std::string, Parameter> &captured_params) const {
+    op->params["size"] = captured_params.at("size");
+    op->params["alpha"] = captured_params.at("alpha");
+    op->params["beta"] = captured_params.at("beta");
+    op->params["k"] = captured_params.at("k");
+  }
 };
 
 REGISTER_GLOBAL_PNNX_GRAPH_REWRITER_PASS(F_local_response_norm_4, 8)
 
-class F_local_response_norm_5 : public GraphRewriterPass
-{
-public:
-    const char* match_pattern_graph() const
-    {
-        return R"PNNXIR(7767517
+class F_local_response_norm_5 : public GraphRewriterPass {
+ public:
+  const char *match_pattern_graph() const {
+    return R"PNNXIR(7767517
 70 69
 pnnx.Input              input       0 1 input
 prim::Constant          op_0        0 1 k value=%k
@@ -550,33 +526,30 @@ aten::pow               op_66       2 1 90 beta div3.1
 aten::div               op_67       2 1 input div3.1 out
 pnnx.Output             output      1 0 out
 )PNNXIR";
-    }
+  }
 
-    const char* type_str() const
-    {
-        return "F.local_response_norm";
-    }
+  const char *type_str() const { return "F.local_response_norm"; }
 
-    bool match_captured_params(const std::map<std::string, Parameter>& captured_params) const
-    {
-        if (captured_params.at("padzero").type == 2)
-            return captured_params.at("padzero").i == 0;
+  bool match_captured_params(
+      const std::map<std::string, Parameter> &captured_params) const {
+    if (captured_params.at("padzero").type == 2)
+      return captured_params.at("padzero").i == 0;
 
-        if (captured_params.at("padzero").type == 3)
-            return captured_params.at("padzero").f == 0.f;
+    if (captured_params.at("padzero").type == 3)
+      return captured_params.at("padzero").f == 0.f;
 
-        return false;
-    }
+    return false;
+  }
 
-    void write(Operator* op, const std::map<std::string, Parameter>& captured_params) const
-    {
-        op->params["size"] = captured_params.at("size");
-        op->params["alpha"] = captured_params.at("alpha");
-        op->params["beta"] = captured_params.at("beta");
-        op->params["k"] = captured_params.at("k");
-    }
+  void write(Operator *op,
+             const std::map<std::string, Parameter> &captured_params) const {
+    op->params["size"] = captured_params.at("size");
+    op->params["alpha"] = captured_params.at("alpha");
+    op->params["beta"] = captured_params.at("beta");
+    op->params["k"] = captured_params.at("k");
+  }
 };
 
 REGISTER_GLOBAL_PNNX_GRAPH_REWRITER_PASS(F_local_response_norm_5, 8)
 
-} // namespace pnnx
+}  // namespace pnnx
