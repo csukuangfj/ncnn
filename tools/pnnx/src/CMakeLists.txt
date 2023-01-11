@@ -511,7 +511,7 @@ set(pnnx_pass_ncnn_SRCS
     pass_ncnn/torchvision_DeformConv2d.cpp
 )
 
-find_package(Protobuf)
+# find_package(Protobuf)
 if(PROTOBUF_FOUND)
     protobuf_generate_cpp(ONNX_PROTO_SRCS ONNX_PROTO_HDRS onnx.proto)
 
