@@ -17,7 +17,8 @@
 
 namespace pnnx {
 
-class torch_cumsum : public GraphRewriterPass {
+class torch_cumsum : public GraphRewriterPass
+{
 public:
     const char* match_pattern_graph() const
     {

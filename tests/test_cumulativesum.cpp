@@ -59,7 +59,6 @@ static int test_cumulativesum_3d()
            || test_cumulativesum(RandomMat(303, 200, 103), -2);
 }
 
-
 int main()
 {
     SRAND(7767517);

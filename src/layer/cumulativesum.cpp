@@ -40,9 +40,9 @@ int CumulativeSum::forward_inplace(Mat& bottom_top_blob, const Option& opt) cons
 
         float* ptr = bottom_top_blob;
 
-        for(int i = 1; i < w; ++i)
+        for (int i = 1; i < w; ++i)
         {
-          ptr[i] = ptr[i] + ptr[i-1];
+            ptr[i] = ptr[i] + ptr[i - 1];
         }
 
         return 0;
@@ -56,13 +56,13 @@ int CumulativeSum::forward_inplace(Mat& bottom_top_blob, const Option& opt) cons
 
         for (int i = 1; i < h; ++i)
         {
-          const float* prev_row = bottom_top_blob.row(i-1);
-          float* this_row = bottom_top_blob.row(i);
+            const float* prev_row = bottom_top_blob.row(i - 1);
+            float* this_row = bottom_top_blob.row(i);
 
-          for (int k = 0; k < w; ++k)
-          {
-            this_row[k] = this_row[k] + prev_row[k];
-          }
+            for (int k = 0; k < w; ++k)
+            {
+                this_row[k] = this_row[k] + prev_row[k];
+            }
         }
 
         return 0;
@@ -77,12 +77,12 @@ int CumulativeSum::forward_inplace(Mat& bottom_top_blob, const Option& opt) cons
         #pragma omp parallel for num_threads(opt.num_threads)
         for (int i = 0; i < h; ++i)
         {
-          float* ptr = bottom_top_blob.row(i);
+            float* ptr = bottom_top_blob.row(i);
 
-          for (int k = 1; k < w; ++k)
-          {
-            ptr[k] = ptr[k] + ptr[k-1];
-          }
+            for (int k = 1; k < w; ++k)
+            {
+                ptr[k] = ptr[k] + ptr[k - 1];
+            }
         }
 
         return 0;
@@ -90,85 +90,82 @@ int CumulativeSum::forward_inplace(Mat& bottom_top_blob, const Option& opt) cons
 
     if (dims == 3 && positive_axis == 0)
     {
-      // sum over channels
-      int w = bottom_top_blob.w;
-      int h = bottom_top_blob.h;
-      int c = bottom_top_blob.c;
+        // sum over channels
+        int w = bottom_top_blob.w;
+        int h = bottom_top_blob.h;
+        int c = bottom_top_blob.c;
 
-      int size = w * h;
+        int size = w * h;
 
-      for (int i = 1; i < c; ++i)
-      {
-          const float* prev = bottom_top_blob.channel(i-1);
-          float* cur = bottom_top_blob.channel(i);
+        for (int i = 1; i < c; ++i)
+        {
+            const float* prev = bottom_top_blob.channel(i - 1);
+            float* cur = bottom_top_blob.channel(i);
 
-          for (int k = 0; k < size; ++k)
-          {
-            cur[k] = cur[k] + prev[k];
-          }
-      }
+            for (int k = 0; k < size; ++k)
+            {
+                cur[k] = cur[k] + prev[k];
+            }
+        }
 
-      return 0;
+        return 0;
     } // if (dims == 3 && positive_axis == 0)
 
     if (dims == 3 && positive_axis == 1)
     {
-      // sum over rows within each channel
+        // sum over rows within each channel
 
-      int w = bottom_top_blob.w;
-      int h = bottom_top_blob.h;
-      int c = bottom_top_blob.c;
+        int w = bottom_top_blob.w;
+        int h = bottom_top_blob.h;
+        int c = bottom_top_blob.c;
 
-      #pragma omp parallel for num_threads(opt.num_threads)
-      for (int q = 0; q < c; ++q)
-      {
-        Mat this_channel = bottom_top_blob.channel(q);
-
-        for (int i = 1; i < h; ++i)
+        #pragma omp parallel for num_threads(opt.num_threads)
+        for (int q = 0; q < c; ++q)
         {
-          const float* prev_row = this_channel.row(i-1);
-          float* this_row = this_channel.row(i);
+            Mat this_channel = bottom_top_blob.channel(q);
 
-          for (int k = 0; k < w; ++k)
-          {
-            this_row[k] = this_row[k] + prev_row[k];
-          }
+            for (int i = 1; i < h; ++i)
+            {
+                const float* prev_row = this_channel.row(i - 1);
+                float* this_row = this_channel.row(i);
+
+                for (int k = 0; k < w; ++k)
+                {
+                    this_row[k] = this_row[k] + prev_row[k];
+                }
+            }
         }
-      }
 
-      return 0;
+        return 0;
     } // if (dims == 3 && positive_axis == 1)
 
     if (dims == 3 && positive_axis == 2)
     {
-      // sum over columns within each channel
+        // sum over columns within each channel
 
-      int w = bottom_top_blob.w;
-      int h = bottom_top_blob.h;
-      int c = bottom_top_blob.c;
+        int w = bottom_top_blob.w;
+        int h = bottom_top_blob.h;
+        int c = bottom_top_blob.c;
 
-      #pragma omp parallel for num_threads(opt.num_threads)
-      for (int q = 0; q < c; ++q)
-      {
-        Mat this_channel = bottom_top_blob.channel(q);
-
-        for (int i = 0; i < h; ++i)
+        #pragma omp parallel for num_threads(opt.num_threads)
+        for (int q = 0; q < c; ++q)
         {
-          float* ptr = this_channel.row(i);
-          for (int k = 1; k < w; ++k)
-          {
-            ptr[k] = ptr[k] + ptr[k-1];
-          }
-        }
-      }
+            Mat this_channel = bottom_top_blob.channel(q);
 
-      return 0;
+            for (int i = 0; i < h; ++i)
+            {
+                float* ptr = this_channel.row(i);
+                for (int k = 1; k < w; ++k)
+                {
+                    ptr[k] = ptr[k] + ptr[k - 1];
+                }
+            }
+        }
+
+        return 0;
     } // if (dims == 3 && positive_axis == 2)
 
     return -100;
 }
 
 } // namespace ncnn
-
-
-

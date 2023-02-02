@@ -19,7 +19,7 @@
 
 namespace ncnn {
 
-class CumulativeSum: public Layer
+class CumulativeSum : public Layer
 {
 public:
     CumulativeSum();
@@ -35,4 +35,3 @@ public:
 } // namespace ncnn
 
 #endif // LAYER_CUMULATIVESUM_H
-
