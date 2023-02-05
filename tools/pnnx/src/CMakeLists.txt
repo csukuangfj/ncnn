@@ -511,6 +511,8 @@ set(pnnx_pass_ncnn_SRCS
     pass_ncnn/torch_transpose.cpp
     pass_ncnn/torch_unsqueeze.cpp
     pass_ncnn/torchvision_DeformConv2d.cpp
+
+    pass_ncnn/icefall_pooling_module_no_proj.cpp
 )
 
 # find_package(Protobuf)

@@ -220,6 +220,7 @@ int main(int argc, char** argv)
     std::vector<std::string> input_types2;
     std::vector<std::string> customop_modules;
     std::vector<std::string> module_operators;
+    module_operators.push_back("scaling_converter.PoolingModuleNoProj");
 
     for (int i = 2; i < argc; i++)
     {

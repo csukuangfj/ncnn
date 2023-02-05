@@ -28,7 +28,7 @@ void fuse_rnn_unpack(Graph& graph)
         {
             Operator* op = graph.ops[i];
 
-            if (op->type != "nn.RNN" && op->type != "nn.LSTM" && op->type != "nn.GRU")
+            if (op->type != "nn.RNN" && op->type != "nn.LSTM" && op->type != "nn.GRU" && op->type != "scaling_converter.PoolingModuleNoProj")
                 continue;
 
             if (op->outputs.size() != 1)
