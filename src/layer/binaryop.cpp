@@ -619,6 +619,22 @@ static int binary_op(const Mat& a, const Mat& b, Mat& c, const Option& opt)
             }
 
             // type 12
+#if 1
+            // fix https://github.com/Tencent/ncnn/issues/4508
+            const float* ptr = a;
+            float* outptr = c;
+
+            for (int y = 0; y < h; y++)
+            {
+                for (int x = 0; x < w; x++)
+                {
+                    outptr[x] = op(ptr[x], b[x]);
+                }
+
+                ptr += w;
+                outptr += w;
+            }
+#else
             const float* ptr = a;
             float* outptr = c;
 
@@ -633,6 +649,7 @@ static int binary_op(const Mat& a, const Mat& b, Mat& c, const Option& opt)
                 ptr += w;
                 outptr += w;
             }
+#endif
 
             return 0;
         }
@@ -925,6 +942,12 @@ int BinaryOp::forward(const std::vector<Mat>& bottom_blobs, std::vector<Mat>& to
     {
         // fix for torch.mean(keepdim=True)
         bottom_blob1 = bottom_blob1.reshape(bottom_blob1.h);
+    }
+
+    if (bottom_blob1.dims == 2 && bottom_blob1.h == 1)
+    {
+        // fix https://github.com/Tencent/ncnn/issues/4508
+        bottom_blob1 = bottom_blob1.reshape(bottom_blob1.w);
     }
 
     Mat& top_blob = top_blobs[0];

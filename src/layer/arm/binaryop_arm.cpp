@@ -29,7 +29,9 @@ namespace ncnn {
 BinaryOp_arm::BinaryOp_arm()
 {
 #if __ARM_NEON
-    support_packing = true;
+    // fix https://github.com/Tencent/ncnn/issues/4508
+    support_packing = false;
+    // support_packing = true;
 #if NCNN_ARM82
     support_fp16_storage = cpu_support_arm_asimdhp();
 #endif

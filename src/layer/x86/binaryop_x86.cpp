@@ -33,7 +33,9 @@ namespace ncnn {
 BinaryOp_x86::BinaryOp_x86()
 {
 #if __SSE2__
-    support_packing = true;
+    // fix https://github.com/Tencent/ncnn/issues/4508
+    support_packing = false;
+    // support_packing = true;
 #endif // __SSE2__
 }
 
