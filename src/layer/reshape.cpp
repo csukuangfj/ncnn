@@ -45,6 +45,12 @@ int Reshape::load_param(const ParamDict& pd)
 
 int Reshape::forward(const Mat& bottom_blob, Mat& top_blob, const Option& opt) const
 {
+    if (ndim == 0)
+    {
+      top_blob = bottom_blob;
+      return 0;
+    }
+
     size_t elemsize = bottom_blob.elemsize;
     int total = bottom_blob.w * bottom_blob.h * bottom_blob.d * bottom_blob.c;
 
