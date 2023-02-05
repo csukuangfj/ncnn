@@ -64,6 +64,7 @@ void convert_Tensor_select(Graph& graph)
             op->params.erase("index");
 
             // reshape for output, squeezing the select dim
+            if (!op->outputs[0]->shape.empty())
             {
                 Operand* out = op->outputs[0];
 
