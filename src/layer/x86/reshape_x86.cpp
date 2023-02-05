@@ -36,8 +36,8 @@ int Reshape_x86::forward(const Mat& bottom_blob, Mat& top_blob, const Option& op
 {
     if (ndim == 0)
     {
-      top_blob = bottom_blob;
-      return 0;
+        top_blob = bottom_blob;
+        return 0;
     }
 
     int elempack = bottom_blob.elempack;

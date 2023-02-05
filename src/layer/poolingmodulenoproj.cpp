@@ -22,17 +22,15 @@ PoolingModuleNoProj::PoolingModuleNoProj()
     support_inplace = false;
 }
 
-
 int PoolingModuleNoProj::forward(const std::vector<Mat>& bottom_blobs, std::vector<Mat>& top_blobs, const Option& opt) const
 {
     Mat x = bottom_blobs[0];
     Mat cached_len = bottom_blobs[1];
-    Mat cached_avg= bottom_blobs[2];
+    Mat cached_avg = bottom_blobs[2];
 
     // x.dims = 2, x.w = C, x.h = T
     // cached_len.dims = 1, cached_len.w = 1
     // cached_avg.dims = 2, cached_avg.w = C, cached_avg.h = 1
-
 
     Mat& out_x = top_blobs[0];
     out_x.create_like(x, opt.blob_allocator);
@@ -46,7 +44,6 @@ int PoolingModuleNoProj::forward(const std::vector<Mat>& bottom_blobs, std::vect
     int w = x.w;
     int h = x.h;
 
-
     const float* x_ptr = x;
     const float* cached_avg_ptr = cached_avg;
     float* out_ptr = out_x;
@@ -56,22 +53,22 @@ int PoolingModuleNoProj::forward(const std::vector<Mat>& bottom_blobs, std::vect
     // process row 0
     for (int c = 0; c < w; ++c)
     {
-      out_ptr[c] = x_ptr[c] + n * cached_avg_ptr[c];
+        out_ptr[c] = x_ptr[c] + n * cached_avg_ptr[c];
     }
 
     for (int r = 1; r < h; ++r)
     {
-      const float* x_cur = x.row(r);
+        const float* x_cur = x.row(r);
 
-      float* out_prev = out_x.row(r-1);
-      float* out_cur = out_x.row(r);
+        float* out_prev = out_x.row(r - 1);
+        float* out_cur = out_x.row(r);
 
-      float scale = 1. / (n + r); // scale for the previous row
-      for (int c = 0; c < w; ++c)
-      {
-        out_cur[c] = out_prev[c] + x_cur[c];
-        out_prev[c] *= scale;
-      }
+        float scale = 1. / (n + r); // scale for the previous row
+        for (int c = 0; c < w; ++c)
+        {
+            out_cur[c] = out_prev[c] + x_cur[c];
+            out_prev[c] *= scale;
+        }
     }
 
     float* last_row = out_x.row(h - 1);
@@ -80,8 +77,8 @@ int PoolingModuleNoProj::forward(const std::vector<Mat>& bottom_blobs, std::vect
     float* out_cached_avg_ptr = out_cached_avg;
     for (int c = 0; c < w; ++c)
     {
-      last_row[c] *= scale;
-      out_cached_avg_ptr[c] = last_row[c];
+        last_row[c] *= scale;
+        out_cached_avg_ptr[c] = last_row[c];
     }
 
     out_cached_len[0] = n + h;
@@ -90,4 +87,3 @@ int PoolingModuleNoProj::forward(const std::vector<Mat>& bottom_blobs, std::vect
 }
 
 } // namespace ncnn
-

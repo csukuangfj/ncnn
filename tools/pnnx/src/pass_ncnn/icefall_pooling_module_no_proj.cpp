@@ -50,4 +50,3 @@ REGISTER_GLOBAL_PNNX_NCNN_GRAPH_REWRITER_PASS(IcefallPoolingModuleNoProj, 20)
 } // namespace ncnn
 
 } // namespace pnnx
-

@@ -47,8 +47,8 @@ int Reshape::forward(const Mat& bottom_blob, Mat& top_blob, const Option& opt) c
 {
     if (ndim == 0)
     {
-      top_blob = bottom_blob;
-      return 0;
+        top_blob = bottom_blob;
+        return 0;
     }
 
     size_t elemsize = bottom_blob.elemsize;
