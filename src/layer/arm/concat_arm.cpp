@@ -34,7 +34,7 @@ Concat_arm::Concat_arm()
 
 int Concat_arm::forward(const std::vector<Mat>& bottom_blobs, std::vector<Mat>& top_blobs, const Option& opt) const
 {
-    int elembits = bottom_blobs[0].elembits();
+    int elembits = bottom_blobs[1].elembits();
 
 #if NCNN_ARM82
     if (support_packing && opt.use_fp16_storage && elembits == 16)

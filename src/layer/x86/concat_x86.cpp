@@ -25,7 +25,7 @@ Concat_x86::Concat_x86()
 
 int Concat_x86::forward(const std::vector<Mat>& bottom_blobs, std::vector<Mat>& top_blobs, const Option& opt) const
 {
-    int dims = bottom_blobs[0].dims;
+    int dims = bottom_blobs[1].dims;
     int positive_axis = axis < 0 ? dims + axis : axis;
 
     if (dims == 1) // positive_axis == 0
