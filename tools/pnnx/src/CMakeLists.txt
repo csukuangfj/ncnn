@@ -102,6 +102,8 @@ set(pnnx_pass_level1_SRCS
 
     pass_level1/torchvision_DeformConv2d.cpp
     pass_level1/torchvision_RoIAlign.cpp
+
+    pass_level1/icefall_rel_position_multihead_attention_permute.cpp
 )
 
 set(pnnx_pass_level2_SRCS
@@ -513,6 +515,7 @@ set(pnnx_pass_ncnn_SRCS
     pass_ncnn/torchvision_DeformConv2d.cpp
 
     pass_ncnn/icefall_pooling_module_no_proj.cpp
+    pass_ncnn/icefall_rel_position_multihead_attention_permute.cpp
 )
 
 # find_package(Protobuf)
