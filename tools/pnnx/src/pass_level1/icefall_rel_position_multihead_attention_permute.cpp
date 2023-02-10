@@ -19,7 +19,7 @@
 
 namespace pnnx {
 
-class IcefallRelPositionMultiheadAttentionPermute: public FuseModulePass
+class IcefallRelPositionMultiheadAttentionPermute : public FuseModulePass
 {
 public:
     const char* match_type_str() const
@@ -34,13 +34,10 @@ public:
 
     virtual void write(Operator* op, const std::shared_ptr<torch::jit::Graph>& graph, const torch::jit::Module& mod) const
     {
-      op->params["kind"] = mod.attr("kind").toInt();
+        op->params["kind"] = mod.attr("kind").toInt();
     }
 };
-
 
 REGISTER_GLOBAL_PNNX_FUSE_MODULE_PASS(IcefallRelPositionMultiheadAttentionPermute)
 
 } // namespace pnnx
-
-

@@ -19,7 +19,7 @@ namespace pnnx {
 
 namespace ncnn {
 
-class IcefallRelPositionMultiheadAttentionPermute: public GraphRewriterPass
+class IcefallRelPositionMultiheadAttentionPermute : public GraphRewriterPass
 {
 public:
     const char* match_pattern_graph() const
@@ -49,10 +49,8 @@ pnnx.Output                                      output           1 0 out
     }
 };
 
-
 REGISTER_GLOBAL_PNNX_NCNN_GRAPH_REWRITER_PASS(IcefallRelPositionMultiheadAttentionPermute, 20)
 
 } // namespace ncnn
 
 } // namespace pnnx
-
