@@ -105,6 +105,10 @@ int InnerProduct::forward(const Mat& _bottom_blob, Mat& top_blob, const Option& 
     {
         bottom_blob = bottom_blob.reshape(bottom_blob.w, bottom_blob.c);
     }
+    if (bottom_blob.dims == 3 && bottom_blob.c == 1)
+    {
+        bottom_blob = bottom_blob.reshape(bottom_blob.w, bottom_blob.h);
+    }
 
 #if NCNN_INT8
     if (opt.use_int8_inference && weight_data.elemsize == (size_t)1u)
