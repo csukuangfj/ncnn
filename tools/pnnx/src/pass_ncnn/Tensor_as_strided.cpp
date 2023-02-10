@@ -19,7 +19,7 @@ namespace pnnx {
 
 namespace ncnn {
 
-class Tensor_as_strided: public GraphRewriterPass
+class Tensor_as_strided : public GraphRewriterPass
 {
 public:
     const char* match_pattern_graph() const
