@@ -102,6 +102,9 @@ set(pnnx_pass_level1_SRCS
 
     pass_level1/torchvision_DeformConv2d.cpp
     pass_level1/torchvision_RoIAlign.cpp
+
+    pass_level1/icefall_compute_padding_mask.cpp
+    pass_level1/icefall_apply_padding_mask.cpp
 )
 
 set(pnnx_pass_level2_SRCS
@@ -509,6 +512,9 @@ set(pnnx_pass_ncnn_SRCS
     pass_ncnn/torch_transpose.cpp
     pass_ncnn/torch_unsqueeze.cpp
     pass_ncnn/torchvision_DeformConv2d.cpp
+
+    pass_ncnn/icefall_compute_padding_mask.cpp
+    pass_ncnn/icefall_apply_padding_mask.cpp
 )
 
 find_package(Protobuf)
