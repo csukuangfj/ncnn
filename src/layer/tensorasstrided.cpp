@@ -43,68 +43,68 @@ int TensorAsStrided::load_param(const ParamDict& pd)
 
 int TensorAsStrided::forward(const Mat& bottom_blob, Mat& top_blob, const Option& opt) const
 {
-  const int *p_sizes = sizes;
-  const int *p_strides = strides;
+    const int* p_sizes = sizes;
+    const int* p_strides = strides;
 
-  if (sizes.w == 3)
-  {
-    if (bottom_blob.dims != 3)
+    if (sizes.w == 3)
     {
-      NCNN_LOGE("Only 3-D tensors are supported right now");
-      return -100;
-    }
-
-    int inc = bottom_blob.c;
-    int inh = bottom_blob.h;
-    int inw = bottom_blob.w;
-
-    int outc = p_sizes[0];
-    int outh = p_sizes[1];
-    int outw = p_sizes[2];
-
-    if (bottom_blob.c != outc)
-    {
-      NCNN_LOGE("We only implement in_c == out_c right now");
-      return -100;
-    }
-
-    if (p_strides[0] != inh * inw)
-    {
-      NCNN_LOGE("Stride that crosses channels is not supported");
-      return -100;
-    }
-
-    size_t elemsize = bottom_blob.elemsize;
-    top_blob.create(outw, outh, outc, elemsize, opt.blob_allocator);
-
-    int stride1 = p_strides[1];
-    int stride2 = p_strides[2];
-
-    #pragma omp parallel for num_threads(opt.num_threads)
-    for (int q = 0; q < outc; q++)
-    {
-      Mat out_m = top_blob.channel(q);
-
-      const float* in_m = bottom_blob.channel(q);
-      in_m += storage_offset;
-
-      for (int y = 0; y < outh; ++y)
-      {
-        float* out_ptr = out_m.row(y);
-        const float* in_ptr = in_m + y * stride1;
-        for (int x = 0; x < outw; ++x)
+        if (bottom_blob.dims != 3)
         {
-          out_ptr[x] = in_ptr[x * stride2];
+            NCNN_LOGE("Only 3-D tensors are supported right now");
+            return -100;
         }
-      }
+
+        int inc = bottom_blob.c;
+        int inh = bottom_blob.h;
+        int inw = bottom_blob.w;
+
+        int outc = p_sizes[0];
+        int outh = p_sizes[1];
+        int outw = p_sizes[2];
+
+        if (bottom_blob.c != outc)
+        {
+            NCNN_LOGE("We only implement in_c == out_c right now");
+            return -100;
+        }
+
+        if (p_strides[0] != inh * inw)
+        {
+            NCNN_LOGE("Stride that crosses channels is not supported");
+            return -100;
+        }
+
+        size_t elemsize = bottom_blob.elemsize;
+        top_blob.create(outw, outh, outc, elemsize, opt.blob_allocator);
+
+        int stride1 = p_strides[1];
+        int stride2 = p_strides[2];
+
+        #pragma omp parallel for num_threads(opt.num_threads)
+        for (int q = 0; q < outc; q++)
+        {
+            Mat out_m = top_blob.channel(q);
+
+            const float* in_m = bottom_blob.channel(q);
+            in_m += storage_offset;
+
+            for (int y = 0; y < outh; ++y)
+            {
+                float* out_ptr = out_m.row(y);
+                const float* in_ptr = in_m + y * stride1;
+                for (int x = 0; x < outw; ++x)
+                {
+                    out_ptr[x] = in_ptr[x * stride2];
+                }
+            }
+        }
+
+        return 0;
     }
 
-    return 0;
-  }
+    NCNN_LOGE("TensorAsStrided: Only 3-D tensors are supported right now");
 
-  NCNN_LOGE("TensorAsStrided: Only 3-D tensors are supported right now");
-
-  return -100;
+    return -100;
 }
 
 } // namespace ncnn
