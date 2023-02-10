@@ -273,6 +273,8 @@ set(pnnx_pass_level2_SRCS
     pass_level2/torch_fft_fftn.cpp
 
     pass_level2/nn_quantized_FloatFunctional.cpp
+
+    pass_level2/Tensor_as_strided.cpp
 )
 
 set(pnnx_pass_level3_SRCS
@@ -516,6 +518,8 @@ set(pnnx_pass_ncnn_SRCS
 
     pass_ncnn/icefall_pooling_module_no_proj.cpp
     pass_ncnn/icefall_rel_position_multihead_attention_permute.cpp
+
+    pass_ncnn/Tensor_as_strided.cpp
 )
 
 # find_package(Protobuf)

@@ -1,6 +1,7 @@
 // Tencent is pleased to support the open source community by making ncnn available.
 //
 // Copyright (C) 2021 THL A29 Limited, a Tencent company. All rights reserved.
+//               2023 Xiaomi Corp.        (author: Fangjun Kuang)
 //
 // Licensed under the BSD 3-Clause License (the "License"); you may not use this file except
 // in compliance with the License. You may obtain a copy of the License at
@@ -12,41 +13,32 @@
 // CONDITIONS OF ANY KIND, either express or implied. See the License for the
 // specific language governing permissions and limitations under the License.
 
-#include "pass_level1.h"
-
-#include "../utils.h"
+#include "pass_level2.h"
 
 namespace pnnx {
 
-class Linear : public FuseModulePass
+class Tensor_as_strided : public GraphRewriterPass
 {
 public:
-    const char* match_type_str() const
+    const char* match_pattern_graph() const
     {
-        return "__torch__.torch.nn.modules.linear.Linear";
+        return R"PNNXIR(7767517
+6 5
+pnnx.Input               input            0 1 input
+pnnx.Input               size             0 1 size
+pnnx.Input               stride           0 1 stride
+pnnx.Input               storage_offset   0 1 storage_offset
+aten::as_strided         op               4 1 input size stride storage_offset out
+pnnx.Output              output           1 0 out
+)PNNXIR";
     }
 
     const char* type_str() const
     {
-        return "nn.Linear";
-    }
-
-    void write(Operator* op, const std::shared_ptr<torch::jit::Graph>& graph, const torch::jit::Module& mod) const
-    {
-        const auto& weight = mod.attr("weight").toTensor();
-
-        op->params["in_features"] = weight.size(1);
-        op->params["out_features"] = weight.size(0);
-        op->params["bias"] = mod.hasattr("bias") && !mod.attr("bias").isNone();
-
-        op->attrs["weight"] = weight;
-        if (mod.hasattr("bias") && !mod.attr("bias").isNone())
-        {
-            op->attrs["bias"] = mod.attr("bias").toTensor();
-        }
+        return "Tensor.as_strided";
     }
 };
 
-REGISTER_GLOBAL_PNNX_FUSE_MODULE_PASS(Linear)
+REGISTER_GLOBAL_PNNX_GRAPH_REWRITER_PASS(Tensor_as_strided, 20)
 
 } // namespace pnnx

@@ -19,40 +19,43 @@ namespace pnnx {
 
 namespace ncnn {
 
-class IcefallRelPositionMultiheadAttentionPermute: public GraphRewriterPass
+class Tensor_as_strided: public GraphRewriterPass
 {
 public:
     const char* match_pattern_graph() const
     {
         return R"PNNXIR(7767517
 3 2
-pnnx.Input                                       x                0 1 x
-zipformer.RelPositionMultiheadAttentionPermute   op_0             1 1 x out kind=%kind
-pnnx.Output                                      output           1 0 out
+pnnx.Input              input     0 1 input
+Tensor.as_strided       op        1 1 input out size=%size stride=%stride storage_offset=%storage_offset
+pnnx.Output             output    1 0 out
 )PNNXIR";
     }
 
     const char* type_str() const
     {
-        return "Permute";
+        return "TensorAsStrided";
     }
 
     const char* name_str() const
     {
-        return "permute";
+        return "tensor_as_strided";
     }
 
     void write(Operator* op, const std::map<std::string, Parameter>& captured_params) const
     {
-        int kind = captured_params.at("kind").i;
-        op->params["0"] = kind;
+        std::vector<int> size = captured_params.at("size").ai;
+        std::vector<int> stride = captured_params.at("stride").ai;
+        int storage_offset = captured_params.at("storage_offset").i;
+
+        op->params["0"] = size;
+        op->params["1"] = stride;
+        op->params["2"] = storage_offset;
     }
 };
 
-
-REGISTER_GLOBAL_PNNX_NCNN_GRAPH_REWRITER_PASS(IcefallRelPositionMultiheadAttentionPermute, 20)
+REGISTER_GLOBAL_PNNX_NCNN_GRAPH_REWRITER_PASS(Tensor_as_strided, 20)
 
 } // namespace ncnn
 
 } // namespace pnnx
-
