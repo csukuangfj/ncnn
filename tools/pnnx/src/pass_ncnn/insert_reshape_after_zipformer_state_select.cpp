@@ -36,8 +36,8 @@ void insert_reshape_after_zipformer_state_select(Graph& graph)
             Operand* op_out = op->outputs[0];
             if (op_out->consumers.size() == 1 && op_out->consumers[0]->type == "Reshape")
             {
-              // We have already processed this op before, so skip it
-              continue;
+                // We have already processed this op before, so skip it
+                continue;
             }
 
             matched = true;
@@ -59,10 +59,10 @@ void insert_reshape_after_zipformer_state_select(Graph& graph)
 
                 for (size_t k = 0; k < op2->inputs.size(); ++k)
                 {
-                  if (op2->inputs[k] == op_out)
-                  {
-                    op2->inputs[k] = reshape_out;
-                  }
+                    if (op2->inputs[k] == op_out)
+                    {
+                        op2->inputs[k] = reshape_out;
+                    }
                 }
             }
             op_out->consumers.clear();

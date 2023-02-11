@@ -45,10 +45,9 @@ pnnx.Output                      output           1 0 out
     void write(Operator* op, const std::map<std::string, Parameter>& captured_params) const
     {
         int i = captured_params.at("i").i;
-        op->params["9"] = {i}; //start
-        op->params["10"] = {i+1}; // end
-        op->params["11"] = {0}; // axis
-
+        op->params["9"] = {i};      //start
+        op->params["10"] = {i + 1}; // end
+        op->params["11"] = {0};     // axis
     }
 };
 
