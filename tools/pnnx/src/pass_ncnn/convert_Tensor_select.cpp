@@ -41,7 +41,7 @@ void convert_Tensor_select(Graph& graph)
             int axis = op->params.at("dim").i;
             if (axis == batch_index)
             {
-                fprintf(stderr, "select along batch axis %d is not supported\n", batch_index);
+                fprintf(stderr, "select along batch axis %d is not supported %s\n", batch_index, op->name.c_str());
                 continue;
             }
 
