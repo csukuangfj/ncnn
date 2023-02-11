@@ -45,6 +45,7 @@
 #include "pass_ncnn/fuse_binaryop_eltwise.h"
 #include "pass_ncnn/insert_reshape_linear.h"
 #include "pass_ncnn/insert_reshape_pooling.h"
+#include "pass_ncnn/insert_reshape_after_zipformer_state_select.h"
 
 #include "pass_level4/dead_code_elimination.h"
 #include "pass_level4/canonicalize.h"
@@ -98,6 +99,8 @@ void pass_ncnn(Graph& g)
     ncnn::convert_torch_einsum(g);
 
     ncnn::convert_Tensor_select(g);
+
+    ncnn::insert_reshape_after_zipformer_state_select(g);
 
     int opindex = 0;
     for (auto x : g_global_pnnx_ncnn_graph_rewriter_passes)
