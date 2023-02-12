@@ -31,11 +31,13 @@ int TensorAsStrided::load_param(const ParamDict& pd)
     if (sizes.dims != 1 && strides.dims != 1)
     {
         NCNN_LOGE("sizes.dims: %d, strides.dims: %d. They are not 1!\n", sizes.dims, strides.dims);
+        return -100;
     }
 
     if (sizes.w != strides.w)
     {
         NCNN_LOGE("sizes.w: %d, strides.w: %d. They are not equal!\n", sizes.w, strides.w);
+        return -100;
     }
 
     return 0;

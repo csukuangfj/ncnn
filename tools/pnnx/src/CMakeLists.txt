@@ -105,6 +105,7 @@ set(pnnx_pass_level1_SRCS
 
     pass_level1/icefall_rel_position_multihead_attention_permute.cpp
     pass_level1/icefall_zipformer_state_select.cpp
+    pass_level1/icefall_simple_upsample.cpp
 )
 
 set(pnnx_pass_level2_SRCS
@@ -524,6 +525,7 @@ set(pnnx_pass_ncnn_SRCS
     pass_ncnn/Tensor_as_strided.cpp
     pass_ncnn/insert_reshape_after_zipformer_state_select.cpp
     pass_ncnn/icefall_attention_downsample_unsqueeze.cpp
+    pass_ncnn/icefall_simple_upsample.cpp
 )
 
 # find_package(Protobuf)
