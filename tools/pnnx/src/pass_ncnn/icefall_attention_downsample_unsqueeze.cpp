@@ -19,7 +19,7 @@ namespace pnnx {
 
 namespace ncnn {
 
-class IcefallAttentionDownsampleUnsqueeze: public GraphRewriterPass
+class IcefallAttentionDownsampleUnsqueeze : public GraphRewriterPass
 {
 public:
     const char* match_pattern_graph() const
