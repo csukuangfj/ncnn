@@ -40,14 +40,14 @@ public:
         const auto& bias = mod.attr("bias").toTensor();
         if (bias.size(0) != upsample)
         {
-          fprintf(stderr, "bias.size(0) %d vs %d\n", (int)bias.size(0), upsample);
-          exit(-1);
+            fprintf(stderr, "bias.size(0) %d vs %d\n", (int)bias.size(0), upsample);
+            exit(-1);
         }
 
         if (bias.size(1) != num_channels)
         {
-          fprintf(stderr, "bias.size(1) %d vs %d\n", (int)bias.size(1), num_channels);
-          exit(-1);
+            fprintf(stderr, "bias.size(1) %d vs %d\n", (int)bias.size(1), num_channels);
+            exit(-1);
         }
 
         op->params["upsample"] = upsample;

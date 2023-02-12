@@ -44,8 +44,8 @@ pnnx.Output                output           1 0 out
 
     void write(Operator* op, const std::map<std::string, Parameter>& captured_params, const std::map<std::string, Attribute>& captured_attrs) const
     {
-        op->params["0"] = captured_params.at("upsample").i ;
-        op->params["1"] = captured_params.at("num_channels").i ;
+        op->params["0"] = captured_params.at("upsample").i;
+        op->params["1"] = captured_params.at("num_channels").i;
         op->params["2"] = (int)(captured_attrs.at("op_0.bias").data.size() / sizeof(float));
 
         op->attrs["0"] = Attribute();
