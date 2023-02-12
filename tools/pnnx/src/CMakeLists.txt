@@ -523,6 +523,7 @@ set(pnnx_pass_ncnn_SRCS
 
     pass_ncnn/Tensor_as_strided.cpp
     pass_ncnn/insert_reshape_after_zipformer_state_select.cpp
+    pass_ncnn/icefall_attention_downsample_unsqueeze.cpp
 )
 
 # find_package(Protobuf)
