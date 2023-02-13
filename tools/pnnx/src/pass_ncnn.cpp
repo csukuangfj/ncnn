@@ -19,6 +19,7 @@
 #include "pass_ncnn/convert_half_to_float.h"
 #include "pass_ncnn/convert_input.h"
 #include "pass_ncnn/convert_torch_cat.h"
+#include "pass_ncnn/convert_torch_stack.h"
 #include "pass_ncnn/convert_torch_chunk.h"
 #include "pass_ncnn/convert_torch_einsum.h"
 #include "pass_ncnn/convert_torch_split.h"
@@ -92,6 +93,7 @@ void pass_ncnn(Graph& g)
     ncnn::fuse_convert_shufflechannel_slice(g);
 
     ncnn::convert_torch_cat(g);
+    ncnn::convert_torch_stack(g);
     ncnn::convert_torch_chunk(g);
     ncnn::convert_torch_split(g);
     ncnn::convert_torch_unbind(g);
