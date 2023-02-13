@@ -36,7 +36,7 @@ int PoolingModuleNoProj::forward(const std::vector<Mat>& bottom_blobs, std::vect
     out_x.create_like(x, opt.blob_allocator);
 
     Mat& out_cached_len = top_blobs[1];
-    out_cached_len.create_like(cached_len, opt.blob_allocator);
+    out_cached_len.create(cached_len.w, cached_len.elemsize, opt.blob_allocator);
 
     Mat& out_cached_avg = top_blobs[2];
     out_cached_avg.create_like(cached_avg, opt.blob_allocator);
