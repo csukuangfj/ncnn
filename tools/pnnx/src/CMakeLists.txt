@@ -527,6 +527,7 @@ set(pnnx_pass_ncnn_SRCS
     pass_ncnn/insert_reshape_after_zipformer_state_select.cpp
     pass_ncnn/icefall_attention_downsample_unsqueeze.cpp
     pass_ncnn/icefall_simple_upsample.cpp
+    pass_ncnn/icefall_fix_zipformer_attention_downsample.cpp
 )
 
 # find_package(Protobuf)

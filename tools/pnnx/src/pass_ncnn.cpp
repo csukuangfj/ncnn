@@ -47,6 +47,7 @@
 #include "pass_ncnn/insert_reshape_linear.h"
 #include "pass_ncnn/insert_reshape_pooling.h"
 #include "pass_ncnn/insert_reshape_after_zipformer_state_select.h"
+#include "pass_ncnn/icefall_fix_zipformer_attention_downsample.h"
 
 #include "pass_level4/dead_code_elimination.h"
 #include "pass_level4/canonicalize.h"
@@ -127,6 +128,7 @@ void pass_ncnn(Graph& g)
     ncnn::fuse_innerproduct_activation(g);
     ncnn::eliminate_tail_reshape_permute(g);
 
+
     dead_code_elimination(g);
 
     canonicalize(g);
@@ -134,6 +136,8 @@ void pass_ncnn(Graph& g)
     ncnn::convert_custom_op(g);
 
     ncnn::convert_attribute(g);
+
+    ncnn::icefall_fix_zipformer_attention_downsample(g);
 
     ncnn::convert_input(g);
 
