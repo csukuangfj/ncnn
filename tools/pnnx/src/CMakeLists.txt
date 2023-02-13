@@ -102,6 +102,10 @@ set(pnnx_pass_level1_SRCS
 
     pass_level1/torchvision_DeformConv2d.cpp
     pass_level1/torchvision_RoIAlign.cpp
+
+    pass_level1/icefall_rel_position_multihead_attention_permute.cpp
+    pass_level1/icefall_zipformer_state_select.cpp
+    pass_level1/icefall_simple_upsample.cpp
 )
 
 set(pnnx_pass_level2_SRCS
@@ -205,6 +209,7 @@ set(pnnx_pass_level2_SRCS
     pass_level2/torch_clamp.cpp
     pass_level2/torch_clone.cpp
     pass_level2/torch_complex.cpp
+    pass_level2/torch_cumsum.cpp
     pass_level2/torch_dequantize.cpp
     pass_level2/torch_einsum.cpp
     pass_level2/torch_empty.cpp
@@ -270,6 +275,8 @@ set(pnnx_pass_level2_SRCS
     pass_level2/torch_fft_fftn.cpp
 
     pass_level2/nn_quantized_FloatFunctional.cpp
+
+    pass_level2/Tensor_as_strided.cpp
 )
 
 set(pnnx_pass_level3_SRCS
@@ -495,6 +502,7 @@ set(pnnx_pass_ncnn_SRCS
     pass_ncnn/torch_bmm.cpp
     pass_ncnn/torch_clamp.cpp
     pass_ncnn/torch_clone.cpp
+    pass_ncnn/torch_cumsum.cpp
     pass_ncnn/torch_flatten.cpp
     pass_ncnn/torch_logsumexp.cpp
     pass_ncnn/torch_matmul.cpp
@@ -509,6 +517,17 @@ set(pnnx_pass_ncnn_SRCS
     pass_ncnn/torch_transpose.cpp
     pass_ncnn/torch_unsqueeze.cpp
     pass_ncnn/torchvision_DeformConv2d.cpp
+
+    pass_ncnn/icefall_pooling_module_no_proj.cpp
+    pass_ncnn/icefall_rel_position_multihead_attention_permute.cpp
+    pass_ncnn/icefall_zipformer_state_select.cpp
+
+    pass_ncnn/Tensor_as_strided.cpp
+    pass_ncnn/convert_torch_stack.cpp
+    pass_ncnn/insert_reshape_after_zipformer_state_select.cpp
+    pass_ncnn/icefall_attention_downsample_unsqueeze.cpp
+    pass_ncnn/icefall_simple_upsample.cpp
+    pass_ncnn/icefall_fix_zipformer_attention_downsample.cpp
 )
 
 # find_package(Protobuf)

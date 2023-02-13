@@ -34,7 +34,7 @@ Concat_arm::Concat_arm()
 
 int Concat_arm::forward(const std::vector<Mat>& bottom_blobs, std::vector<Mat>& top_blobs, const Option& opt) const
 {
-    int elembits = bottom_blobs[0].elembits();
+    int elembits = bottom_blobs[1].elembits();
 
 #if NCNN_ARM82
     if (support_packing && opt.use_fp16_storage && elembits == 16)
@@ -46,7 +46,7 @@ int Concat_arm::forward(const std::vector<Mat>& bottom_blobs, std::vector<Mat>& 
         return forward_bf16s_fp16s(bottom_blobs, top_blobs, opt);
 #endif
 
-    int dims = bottom_blobs[0].dims;
+    int dims = bottom_blobs[1].dims;
     int positive_axis = axis < 0 ? dims + axis : axis;
 
     if (dims == 1) // positive_axis == 0

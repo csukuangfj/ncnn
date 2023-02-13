@@ -220,6 +220,9 @@ int main(int argc, char** argv)
     std::vector<std::string> input_types2;
     std::vector<std::string> customop_modules;
     std::vector<std::string> module_operators;
+    module_operators.push_back("scaling_converter.PoolingModuleNoProj");
+    module_operators.push_back("zipformer.AttentionDownsampleUnsqueeze");
+    module_operators.push_back("zipformer2.AttentionDownsampleUnsqueeze");
 
     for (int i = 2; i < argc; i++)
     {
@@ -415,9 +418,9 @@ int main(int argc, char** argv)
     // delete foldable_constants_zippath
     remove(foldable_constants_zippath.c_str());
 
-    pnnx_graph.save(pnnxparampath, pnnxbinpath);
-
-    pnnx_graph.python(pnnxpypath, pnnxbinpath);
+    // pnnx_graph.save(pnnxparampath, pnnxbinpath);
+    //
+    // pnnx_graph.python(pnnxpypath, pnnxbinpath);
 
 #if BUILD_PNNX2ONNX
     pnnx::save_onnx(pnnx_graph, pnnxonnxpath.c_str(), fp16);

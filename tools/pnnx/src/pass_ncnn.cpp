@@ -19,6 +19,7 @@
 #include "pass_ncnn/convert_half_to_float.h"
 #include "pass_ncnn/convert_input.h"
 #include "pass_ncnn/convert_torch_cat.h"
+#include "pass_ncnn/convert_torch_stack.h"
 #include "pass_ncnn/convert_torch_chunk.h"
 #include "pass_ncnn/convert_torch_einsum.h"
 #include "pass_ncnn/convert_torch_split.h"
@@ -45,6 +46,8 @@
 #include "pass_ncnn/fuse_binaryop_eltwise.h"
 #include "pass_ncnn/insert_reshape_linear.h"
 #include "pass_ncnn/insert_reshape_pooling.h"
+#include "pass_ncnn/insert_reshape_after_zipformer_state_select.h"
+#include "pass_ncnn/icefall_fix_zipformer_attention_downsample.h"
 
 #include "pass_level4/dead_code_elimination.h"
 #include "pass_level4/canonicalize.h"
@@ -91,6 +94,7 @@ void pass_ncnn(Graph& g)
     ncnn::fuse_convert_shufflechannel_slice(g);
 
     ncnn::convert_torch_cat(g);
+    ncnn::convert_torch_stack(g);
     ncnn::convert_torch_chunk(g);
     ncnn::convert_torch_split(g);
     ncnn::convert_torch_unbind(g);
@@ -98,6 +102,8 @@ void pass_ncnn(Graph& g)
     ncnn::convert_torch_einsum(g);
 
     ncnn::convert_Tensor_select(g);
+
+    ncnn::insert_reshape_after_zipformer_state_select(g);
 
     int opindex = 0;
     for (auto x : g_global_pnnx_ncnn_graph_rewriter_passes)
@@ -129,6 +135,8 @@ void pass_ncnn(Graph& g)
     ncnn::convert_custom_op(g);
 
     ncnn::convert_attribute(g);
+
+    ncnn::icefall_fix_zipformer_attention_downsample(g);
 
     ncnn::convert_input(g);
 
