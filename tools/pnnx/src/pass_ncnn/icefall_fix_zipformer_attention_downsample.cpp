@@ -50,6 +50,7 @@ void icefall_fix_zipformer_attention_downsample(Graph& graph)
 
             // ncnn ignores the batch index for the query version
             // in AttenionDownsample; we give it an extra dim here.
+            op->params["1"] = 1;
             op->params["2"] = 1;
 
             // find the consumer of MemoryData, which is a BinaryOp
