@@ -164,6 +164,7 @@ ncnn_add_layer(CumulativeSum)
 ncnn_add_layer(PoolingModuleNoProj)
 ncnn_add_layer(TensorAsStrided)
 ncnn_add_layer(SimpleUpsample)
+ncnn_add_layer(Stack)
 
 if(NCNN_VULKAN)
     ncnn_add_shader(${CMAKE_CURRENT_SOURCE_DIR}/convert_ycbcr.comp)
