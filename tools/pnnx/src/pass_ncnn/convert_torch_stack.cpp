@@ -32,8 +32,8 @@ void convert_torch_stack(Graph& graph)
 
         if (axis != 0)
         {
-          fprintf(stderr, "Only stack along axis 0 is implemented");
-          continue;
+            fprintf(stderr, "Only stack along axis 0 is implemented");
+            continue;
         }
 
         op->type = "Stack";

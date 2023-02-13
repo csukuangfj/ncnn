@@ -34,7 +34,6 @@ int Stack::load_param(const ParamDict& pd)
     return 0;
 }
 
-
 int Stack::forward(const std::vector<Mat>& bottom_blobs, std::vector<Mat>& top_blobs, const Option& opt) const
 {
     int dims = bottom_blobs[0].dims;
@@ -42,51 +41,51 @@ int Stack::forward(const std::vector<Mat>& bottom_blobs, std::vector<Mat>& top_b
 
     if (dims == 1)
     {
-      int out_w = bottom_blobs[0].w;
-      int out_h = bottom_blobs.size();
+        int out_w = bottom_blobs[0].w;
+        int out_h = bottom_blobs.size();
 
-      Mat& top_blob = top_blobs[0];
-      top_blob.create(out_w, out_h, elemsize, opt.blob_allocator);
-      if (top_blob.empty())
-          return -100;
+        Mat& top_blob = top_blobs[0];
+        top_blob.create(out_w, out_h, elemsize, opt.blob_allocator);
+        if (top_blob.empty())
+            return -100;
 
-      unsigned char* outptr = top_blob;
+        unsigned char* outptr = top_blob;
 
-      size_t bytes_per_blob = out_w * elemsize;
+        size_t bytes_per_blob = out_w * elemsize;
 
-      for (size_t b = 0; b < bottom_blobs.size(); ++b)
-      {
+        for (size_t b = 0; b < bottom_blobs.size(); ++b)
+        {
             const unsigned char* ptr = bottom_blobs[b];
             memcpy(outptr, ptr, bytes_per_blob);
 
             outptr += bytes_per_blob;
-      }
+        }
 
-      return 0;
+        return 0;
     }
 
     if (dims == 2)
     {
-      int out_w = bottom_blobs[0].w;
-      int out_h = bottom_blobs[0].h;
-      int out_c = bottom_blobs.size();
+        int out_w = bottom_blobs[0].w;
+        int out_h = bottom_blobs[0].h;
+        int out_c = bottom_blobs.size();
 
-      Mat& top_blob = top_blobs[0];
-      top_blob.create(out_w, out_h, out_c, elemsize, opt.blob_allocator);
-      if (top_blob.empty())
-          return -100;
+        Mat& top_blob = top_blobs[0];
+        top_blob.create(out_w, out_h, out_c, elemsize, opt.blob_allocator);
+        if (top_blob.empty())
+            return -100;
 
-      size_t bytes_per_blob = out_w * out_h * elemsize;
+        size_t bytes_per_blob = out_w * out_h * elemsize;
 
-      for (size_t b = 0; b < bottom_blobs.size(); ++b)
-      {
+        for (size_t b = 0; b < bottom_blobs.size(); ++b)
+        {
             unsigned char* outptr = top_blob.channel(b);
             const unsigned char* ptr = bottom_blobs[b];
 
             memcpy(outptr, ptr, bytes_per_blob);
-      }
+        }
 
-      return 0;
+        return 0;
     }
 
     NCNN_LOGE("Stack: dim %d is not implemented", dims);
