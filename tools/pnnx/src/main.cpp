@@ -222,6 +222,7 @@ int main(int argc, char** argv)
     std::vector<std::string> module_operators;
     module_operators.push_back("scaling_converter.PoolingModuleNoProj");
     module_operators.push_back("zipformer.AttentionDownsampleUnsqueeze");
+    module_operators.push_back("zipformer2.AttentionDownsampleUnsqueeze");
 
     for (int i = 2; i < argc; i++)
     {

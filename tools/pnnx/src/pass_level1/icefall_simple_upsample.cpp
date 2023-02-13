@@ -59,4 +59,15 @@ public:
 
 REGISTER_GLOBAL_PNNX_FUSE_MODULE_PASS(IcefallSimpleUpsample)
 
+class IcefallSimpleUpsample_2 : public IcefallSimpleUpsample
+{
+public:
+    const char* match_type_str() const
+    {
+        return "__torch__.zipformer2.SimpleUpsample";
+    }
+};
+
+REGISTER_GLOBAL_PNNX_FUSE_MODULE_PASS(IcefallSimpleUpsample_2)
+
 } // namespace pnnx

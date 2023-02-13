@@ -40,4 +40,15 @@ public:
 
 REGISTER_GLOBAL_PNNX_FUSE_MODULE_PASS(IcefallRelPositionMultiheadAttentionPermute)
 
+class IcefallRelPositionMultiheadAttentionPermute_2 : public IcefallRelPositionMultiheadAttentionPermute
+{
+public:
+    const char* match_type_str() const
+    {
+        return "__torch__.zipformer2.RelPositionMultiheadAttentionPermute";
+    }
+};
+
+REGISTER_GLOBAL_PNNX_FUSE_MODULE_PASS(IcefallRelPositionMultiheadAttentionPermute_2)
+
 } // namespace pnnx

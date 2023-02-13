@@ -40,4 +40,15 @@ public:
 
 REGISTER_GLOBAL_PNNX_FUSE_MODULE_PASS(IcefallZipformerStateSelect)
 
+class IcefallZipformerStateSelect_2 : public IcefallZipformerStateSelect
+{
+public:
+    const char* match_type_str() const
+    {
+        return "__torch__.zipformer2.ZipformerStateSelect";
+    }
+};
+
+REGISTER_GLOBAL_PNNX_FUSE_MODULE_PASS(IcefallZipformerStateSelect_2)
+
 } // namespace pnnx

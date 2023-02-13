@@ -45,6 +45,22 @@ pnnx.Output                             output           1 0 out
 
 REGISTER_GLOBAL_PNNX_NCNN_GRAPH_REWRITER_PASS(IcefallAttentionDownsampleUnsqueeze, 20)
 
+class IcefallAttentionDownsampleUnsqueeze_2 : public IcefallAttentionDownsampleUnsqueeze
+{
+public:
+    const char* match_pattern_graph() const
+    {
+        return R"PNNXIR(7767517
+3 2
+pnnx.Input                              x                0 1 x
+zipformer2.AttentionDownsampleUnsqueeze  op_0             1 1 x out
+pnnx.Output                             output           1 0 out
+)PNNXIR";
+    }
+};
+
+REGISTER_GLOBAL_PNNX_NCNN_GRAPH_REWRITER_PASS(IcefallAttentionDownsampleUnsqueeze_2, 20)
+
 } // namespace ncnn
 
 } // namespace pnnx
