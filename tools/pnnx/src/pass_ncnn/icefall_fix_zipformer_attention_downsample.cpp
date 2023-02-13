@@ -20,13 +20,12 @@ namespace pnnx {
 
 namespace ncnn {
 
-static bool ends_with(std::string const & str, std::string const & suffix)
+static bool ends_with(std::string const& str, std::string const& suffix)
 {
     if (suffix.size() > str.size())
-      return false;
+        return false;
 
-
-     return 0 == str.compare(str.size()-suffix.size(), suffix.size(), suffix);
+    return 0 == str.compare(str.size() - suffix.size(), suffix.size(), suffix);
 }
 
 void icefall_fix_zipformer_attention_downsample(Graph& graph)
@@ -46,7 +45,7 @@ void icefall_fix_zipformer_attention_downsample(Graph& graph)
                 continue;
 
             if (op->params.find("2") != op->params.end())
-              continue;
+                continue;
 
             // ncnn ignores the batch index for the query version
             // in AttenionDownsample; we give it an extra dim here.
@@ -56,28 +55,27 @@ void icefall_fix_zipformer_attention_downsample(Graph& graph)
             Operator* binary_op = op->outputs[0]->consumers[0];
 
             if (binary_op->type != "BinaryOp")
-              continue;
+                continue;
 
             Operator* reduction_op = binary_op->outputs[0]->consumers[0];
             if (reduction_op->type != "Reduction")
-              continue;
+                continue;
 
             Operator* softmax_op = reduction_op->outputs[0]->consumers[0];
 
             if (softmax_op->type != "Softmax")
-              continue;
-
+                continue;
 
             softmax_op->params["0"] = 1;
             softmax_op->params["1"] = 1;
 
-            binary_op =  softmax_op->outputs[0]->consumers[0];
+            binary_op = softmax_op->outputs[0]->consumers[0];
             if (binary_op->type != "BinaryOp")
-              continue;
+                continue;
 
             reduction_op = binary_op->outputs[0]->consumers[0];
             if (reduction_op->type != "Reduction")
-              continue;
+                continue;
 
             reduction_op->params["3"] = {1};
 

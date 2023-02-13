@@ -128,7 +128,6 @@ void pass_ncnn(Graph& g)
     ncnn::fuse_innerproduct_activation(g);
     ncnn::eliminate_tail_reshape_permute(g);
 
-
     dead_code_elimination(g);
 
     canonicalize(g);
