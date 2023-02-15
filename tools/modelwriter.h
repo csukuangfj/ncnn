@@ -41,6 +41,7 @@
 #include "layer/convolutiondepthwise1d.h"
 #include "layer/convolutiondepthwise3d.h"
 #include "layer/crop.h"
+#include "layer/cumulativesum.h"
 #include "layer/deconvolution.h"
 #include "layer/deconvolution1d.h"
 #include "layer/deconvolution3d.h"
@@ -56,6 +57,7 @@
 #include "layer/expanddims.h"
 #include "layer/flatten.h"
 #include "layer/gelu.h"
+#include "layer/glu.h"
 #include "layer/gemm.h"
 #include "layer/groupnorm.h"
 #include "layer/gru.h"
@@ -96,11 +98,14 @@
 #include "layer/roipooling.h"
 #include "layer/scale.h"
 #include "layer/shufflechannel.h"
+#include "layer/simpleupsample.h"
 #include "layer/slice.h"
 #include "layer/softmax.h"
 #include "layer/split.h"
 #include "layer/squeeze.h"
+#include "layer/stack.h"
 #include "layer/threshold.h"
+#include "layer/tensorasstrided.h"
 #include "layer/unaryop.h"
 #include "layer/yolodetectionoutput.h"
 #include "layer/yolov3detectionoutput.h"
@@ -1184,6 +1189,13 @@ int ModelWriter::save(const char* parampath, const char* binpath)
                 if (!op->axes.empty()) fprintf_param_int_array(11, op->axes, pp);
             }
         }
+        else if (layer->type == "CumulativeSum")
+        {
+            ncnn::CumulativeSum* op = (ncnn::CumulativeSum*)layer;
+            ncnn::CumulativeSum* op_default = (ncnn::CumulativeSum*)layer_default;
+
+            fprintf_param_value(" 0=%d", axis)
+        }
         else if (layer->type == "Deconvolution")
         {
             ncnn::Deconvolution* op = (ncnn::Deconvolution*)layer;
@@ -1578,6 +1590,13 @@ int ModelWriter::save(const char* parampath, const char* binpath)
             ncnn::GELU* op_default = (ncnn::GELU*)layer_default;
 
             fprintf_param_value(" 0=%d", fast_gelu)
+        }
+        else if (layer->type == "GLU")
+        {
+            ncnn::GLU* op = (ncnn::GLU*)layer;
+            ncnn::GLU* op_default = (ncnn::GLU*)layer_default;
+
+            fprintf_param_value(" 0=%d", axis)
         }
         else if (layer->type == "Gemm")
         {
@@ -2118,6 +2137,15 @@ int ModelWriter::save(const char* parampath, const char* binpath)
             fprintf_param_value(" 0=%d", group)
             fprintf_param_value(" 1=%d", reverse)
         }
+        else if (layer->type == "SimpleUpsample")
+        {
+            ncnn::SimpleUpsample* op = (ncnn::SimpleUpsample*)layer;
+            ncnn::SimpleUpsample* op_default = (ncnn::SimpleUpsample*)layer_default;
+
+            fprintf_param_value(" 0=%d", upsample)
+            fprintf_param_value(" 1=%d", num_channels)
+            fprintf_param_value(" 2=%d", bias_data_size)
+        }
         else if (layer->type == "Slice")
         {
             ncnn::Slice* op = (ncnn::Slice*)layer;
@@ -2154,12 +2182,29 @@ int ModelWriter::save(const char* parampath, const char* binpath)
                 if (!op->axes.empty()) fprintf_param_int_array(0, op->axes, pp);
             }
         }
+        else if (layer->type == "Stack")
+        {
+            ncnn::Stack* op = (ncnn::Stack*)layer;
+            ncnn::Stack* op_default = (ncnn::Stack*)layer_default;
+
+            fprintf_param_value(" 0=%d", axis)
+        }
         else if (layer->type == "Threshold")
         {
             ncnn::Threshold* op = (ncnn::Threshold*)layer;
             ncnn::Threshold* op_default = (ncnn::Threshold*)layer_default;
 
             fprintf_param_value(" 0=%e", threshold)
+        }
+        else if (layer->type == "TensorAsStrided")
+        {
+            ncnn::TensorAsStrided* op = (ncnn::TensorAsStrided*)layer;
+            ncnn::TensorAsStrided* op_default = (ncnn::TensorAsStrided*)layer_default;
+
+            if (!op->sizes.empty()) fprintf_param_int_array(0, op->sizes, pp);
+            if (!op->strides.empty()) fprintf_param_int_array(1, op->strides, pp);
+
+            fprintf_param_value(" 2=%d", storage_offset)
         }
         else if (layer->type == "UnaryOp")
         {
