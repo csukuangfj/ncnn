@@ -33,6 +33,7 @@ public:
 public:
     int upsample;
     int num_channels;
+    int bias_data_size;
 
     Mat bias;
 };

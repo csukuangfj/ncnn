@@ -30,8 +30,11 @@ int TensorAsStrided::load_param(const ParamDict& pd)
 
     if (sizes.dims != 1 && strides.dims != 1)
     {
-        NCNN_LOGE("sizes.dims: %d, strides.dims: %d. They are not 1!\n", sizes.dims, strides.dims);
-        return -100;
+        if (sizes.dims != 0)
+        {
+            NCNN_LOGE("sizes.dims: %d, strides.dims: %d. They are not 1!\n", sizes.dims, strides.dims);
+            return -100;
+        }
     }
 
     if (sizes.w != strides.w)
@@ -82,7 +85,7 @@ int TensorAsStrided::forward(const Mat& bottom_blob, Mat& top_blob, const Option
         int stride1 = p_strides[1];
         int stride2 = p_strides[2];
 
-        #pragma omp parallel for num_threads(opt.num_threads)
+#pragma omp parallel for num_threads(opt.num_threads)
         for (int q = 0; q < outc; q++)
         {
             Mat out_m = top_blob.channel(q);

@@ -26,7 +26,7 @@ int SimpleUpsample::load_param(const ParamDict& pd)
 {
     upsample = pd.get(0, 0);
     num_channels = pd.get(1, 0);
-    int bias_data_size = pd.get(2, 0);
+    bias_data_size = pd.get(2, 0);
     if (bias_data_size != upsample * num_channels)
     {
         NCNN_LOGE("upsample: %d, num_channels: %d, bias_data_size: %d. %dx%d!=%d", upsample, num_channels, bias_data_size,
@@ -61,7 +61,7 @@ int SimpleUpsample::forward(const Mat& bottom_blob, Mat& top_blob, const Option&
     if (top_blob.empty())
         return -100;
 
-    #pragma omp parallel for num_threads(opt.num_threads)
+#pragma omp parallel for num_threads(opt.num_threads)
     for (int q = 0; q < outc; ++q)
     {
         Mat out_m = top_blob.channel(q);
