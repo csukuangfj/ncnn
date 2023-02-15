@@ -85,7 +85,7 @@ int TensorAsStrided::forward(const Mat& bottom_blob, Mat& top_blob, const Option
         int stride1 = p_strides[1];
         int stride2 = p_strides[2];
 
-#pragma omp parallel for num_threads(opt.num_threads)
+        #pragma omp parallel for num_threads(opt.num_threads)
         for (int q = 0; q < outc; q++)
         {
             Mat out_m = top_blob.channel(q);

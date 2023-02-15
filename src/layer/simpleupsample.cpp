@@ -61,7 +61,7 @@ int SimpleUpsample::forward(const Mat& bottom_blob, Mat& top_blob, const Option&
     if (top_blob.empty())
         return -100;
 
-#pragma omp parallel for num_threads(opt.num_threads)
+    #pragma omp parallel for num_threads(opt.num_threads)
     for (int q = 0; q < outc; ++q)
     {
         Mat out_m = top_blob.channel(q);
