@@ -117,52 +117,52 @@ static struct prng_rand_t g_prng_rand_state;
 #define SRAND(seed) prng_srand(seed, &g_prng_rand_state)
 #define RAND()      prng_rand(&g_prng_rand_state)
 
+class SherpaMetaData : public ncnn::Layer
+{
+public:
+    int load_param(const ncnn::ParamDict& pd) override
+    {
+        arg0 = pd.get(0, 0);
+        arg1 = pd.get(1, 0), arg2 = pd.get(2, 0), arg3 = pd.get(3, 0);
+        arg4 = pd.get(4, 0), arg5 = pd.get(5, 0), arg6 = pd.get(6, 0);
+        arg7 = pd.get(7, 0), arg8 = pd.get(8, 0), arg9 = pd.get(9, 0);
+        arg10 = pd.get(10, 0), arg11 = pd.get(11, 0), arg12 = pd.get(12, 0);
+        arg13 = pd.get(13, 0), arg14 = pd.get(14, 0), arg15 = pd.get(15, 0);
 
-class SherpaMetaData : public ncnn::Layer {
- public:
-  int load_param(const ncnn::ParamDict &pd) override {
-  arg0 = pd.get(0, 0);
-  arg1 = pd.get(1, 0), arg2 = pd.get(2, 0), arg3 = pd.get(3, 0);
-  arg4 = pd.get(4, 0), arg5 = pd.get(5, 0), arg6 = pd.get(6, 0);
-  arg7 = pd.get(7, 0), arg8 = pd.get(8, 0), arg9 = pd.get(9, 0);
-  arg10 = pd.get(10, 0), arg11 = pd.get(11, 0), arg12 = pd.get(12, 0);
-  arg13 = pd.get(13, 0), arg14 = pd.get(14, 0), arg15 = pd.get(15, 0);
+        arg16 = pd.get(16, ncnn::Mat()), arg17 = pd.get(17, ncnn::Mat());
+        arg18 = pd.get(18, ncnn::Mat()), arg19 = pd.get(19, ncnn::Mat());
+        arg20 = pd.get(20, ncnn::Mat()), arg21 = pd.get(21, ncnn::Mat());
+        arg22 = pd.get(22, ncnn::Mat()), arg23 = pd.get(23, ncnn::Mat());
 
-  arg16 = pd.get(16, ncnn::Mat()), arg17 = pd.get(17, ncnn::Mat());
-  arg18 = pd.get(18, ncnn::Mat()), arg19 = pd.get(19, ncnn::Mat());
-  arg20 = pd.get(20, ncnn::Mat()), arg21 = pd.get(21, ncnn::Mat());
-  arg22 = pd.get(22, ncnn::Mat()), arg23 = pd.get(23, ncnn::Mat());
+        // The following 8 attributes are of type float
+        arg24 = pd.get(24, 0.f), arg25 = pd.get(25, 0.f), arg26 = pd.get(26, 0.f);
+        arg27 = pd.get(27, 0.f), arg28 = pd.get(28, 0.f), arg29 = pd.get(29, 0.f);
+        arg30 = pd.get(30, 0.f), arg31 = pd.get(31, 0.f);
 
-  // The following 8 attributes are of type float
-  arg24 = pd.get(24, 0.f), arg25 = pd.get(25, 0.f), arg26 = pd.get(26, 0.f);
-  arg27 = pd.get(27, 0.f), arg28 = pd.get(28, 0.f), arg29 = pd.get(29, 0.f);
-  arg30 = pd.get(30, 0.f), arg31 = pd.get(31, 0.f);
+        return 0;
+    }
 
-  return 0;
+    // arg0 is the model type:
+    //  1 - ConvEmformer
+    //  2 - Zipformer
+    //  3 - LSTM
+    int32_t arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7;
+    int32_t arg8, arg9, arg10, arg11, arg12, arg13, arg14, arg15;
 
-  }
+    ncnn::Mat arg16, arg17, arg18, arg19, arg20, arg21, arg22, arg23;
 
-  // arg0 is the model type:
-  //  1 - ConvEmformer
-  //  2 - Zipformer
-  //  3 - LSTM
-  int32_t arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7;
-  int32_t arg8, arg9, arg10, arg11, arg12, arg13, arg14, arg15;
-
-  ncnn::Mat arg16, arg17, arg18, arg19, arg20, arg21, arg22, arg23;
-
-  float arg24, arg25, arg26, arg27, arg28, arg29, arg30, arg31;
+    float arg24, arg25, arg26, arg27, arg28, arg29, arg30, arg31;
 };
 
-
-inline ncnn::Layer *SherpaMetaDataCreator(void * /*userdata*/) {
-  return new SherpaMetaData();
+inline ncnn::Layer* SherpaMetaDataCreator(void* /*userdata*/)
+{
+    return new SherpaMetaData();
 }
 
-inline void RegisterSherpaMetaDataLayer(ncnn::Net &net) {
-  net.register_custom_layer("SherpaMetaData", SherpaMetaDataCreator);
+inline void RegisterSherpaMetaDataLayer(ncnn::Net& net)
+{
+    net.register_custom_layer("SherpaMetaData", SherpaMetaDataCreator);
 }
-
 
 class MemoryFootprintAllocator : public ncnn::Allocator
 {
@@ -832,7 +832,7 @@ int ModelWriter::save(const char* parampath, const char* binpath)
         }
 
         // custom op
-        if ((layer->typeindex & ncnn::LayerType::CustomBit) && layer->type!="SherpaMetaData")
+        if ((layer->typeindex & ncnn::LayerType::CustomBit) && layer->type != "SherpaMetaData")
         {
             ((CustomLayer*)layer)->write_param(pp);
 
@@ -843,7 +843,7 @@ int ModelWriter::save(const char* parampath, const char* binpath)
 
         ncnn::Layer* layer_default = ncnn::create_layer(layer->typeindex);
         if (!layer_default)
-          layer_default = create_custom_layer(layer->type.c_str());
+            layer_default = create_custom_layer(layer->type.c_str());
 
         ncnn::ParamDict pd;
         layer_default->load_param(pd);
