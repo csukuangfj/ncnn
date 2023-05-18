@@ -148,10 +148,10 @@ PYBIND11_MODULE(ncnn, m)
     .def_readwrite("shape", &Blob::shape);
 
     py::class_<ModelBin>(m, "ModelBin")
-      .def(py::init<>())
-      .def("load", (Mat (ModelBin::*)(int, int) const) & ModelBin::load, py::arg("w"), py::arg("type"))
-      .def("load", (Mat (ModelBin::*)(int, int, int) const) & ModelBin::load, py::arg("w"), py::arg("h"), py::arg("type"))
-      .def("load", (Mat (ModelBin::*)(int, int, int, int) const) & ModelBin::load, py::arg("w"), py::arg("h"), py::arg("c"), py::arg("type"));
+    .def(py::init<>())
+    .def("load", (Mat(ModelBin::*)(int, int) const) & ModelBin::load, py::arg("w"), py::arg("type"))
+    .def("load", (Mat(ModelBin::*)(int, int, int) const) & ModelBin::load, py::arg("w"), py::arg("h"), py::arg("type"))
+    .def("load", (Mat(ModelBin::*)(int, int, int, int) const) & ModelBin::load, py::arg("w"), py::arg("h"), py::arg("c"), py::arg("type"));
 
     py::class_<ParamDict>(m, "ParamDict")
     .def(py::init<>())
@@ -858,7 +858,7 @@ PYBIND11_MODULE(ncnn, m)
     py::class_<Layer, PyLayer>(m, "Layer")
     .def(py::init<>())
     .def("load_param", &Layer::load_param, py::arg("pd"))
-    .def("load_model", (int (Layer::*)(const ModelBin*))&Layer::load_model, py::arg("mb"))
+    .def("load_model", (int (Layer::*)(const ModelBin*)) & Layer::load_model, py::arg("mb"))
     .def("create_pipeline", &Layer::create_pipeline, py::arg("opt"))
     .def("destroy_pipeline", &Layer::destroy_pipeline, py::arg("opt"))
     .def_readwrite("one_blob_only", &Layer::one_blob_only)
