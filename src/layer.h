@@ -47,7 +47,10 @@ public:
     // load layer specific weight data from model binary
     // return 0 if success
     virtual int load_model(const ModelBin& mb);
-    virtual int load_model(const ModelBin* mb) {return load_model(*mb);}
+    virtual int load_model(const ModelBin* mb)
+    {
+        return load_model(*mb);
+    }
 
     // layer implementation specific setup
     // return 0 if success
