@@ -47,7 +47,7 @@ void convert_attribute(Graph& graph)
                 continue;
 
             if (i == 0 && batch_index == 233 && data.shape[0] == 1 && strstr(op->name.c_str(), "encoder_pos"))
-              continue;
+                continue;
 
             new_shape.push_back(data.shape[i]);
         }

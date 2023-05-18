@@ -50,11 +50,11 @@ public:
             exit(-1);
         }
         const float* p = bias.data_ptr<float>();
-        for (int kk  = 0; kk < 10; ++kk) {
-          fprintf(stderr, "%.4f ", p[kk]);
+        for (int kk = 0; kk < 10; ++kk)
+        {
+            fprintf(stderr, "%.4f ", p[kk]);
         }
         fprintf(stderr, "\n");
-
 
         op->params["upsample"] = upsample;
         op->params["num_channels"] = num_channels;
