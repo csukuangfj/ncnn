@@ -12,6 +12,7 @@
 // CONDITIONS OF ANY KIND, either express or implied. See the License for the
 // specific language governing permissions and limitations under the License.
 
+#include <cstring>
 #include "convert_attribute.h"
 
 namespace pnnx {
@@ -43,6 +44,9 @@ void convert_attribute(Graph& graph)
         for (int i = 0; i < (int)data.shape.size(); i++)
         {
             if (i == batch_index && data.shape[i] == 1)
+                continue;
+
+            if (i == 0 && batch_index == 233 && data.shape[0] == 1 && strstr(op->name.c_str(), "encoder_pos"))
                 continue;
 
             new_shape.push_back(data.shape[i]);
