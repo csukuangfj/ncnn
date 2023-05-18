@@ -28,7 +28,6 @@
 #include "pybind11_mat.h"
 #include "pybind11_datareader.h"
 #include "pybind11_allocator.h"
-#include "pybind11_modelbin.h"
 #include "pybind11_layer.h"
 using namespace ncnn;
 
@@ -148,13 +147,11 @@ PYBIND11_MODULE(ncnn, m)
     .def_readwrite("consumer", &Blob::consumer)
     .def_readwrite("shape", &Blob::shape);
 
-    py::class_<ModelBin, PyModelBin<> >(m, "ModelBin");
-    py::class_<ModelBinFromDataReader, ModelBin, PyModelBinOther<ModelBinFromDataReader> >(m, "ModelBinFromDataReader")
-    .def(py::init<const DataReader&>(), py::arg("dr"))
-    .def("load", &ModelBinFromDataReader::load, py::arg("w"), py::arg("type"));
-    py::class_<ModelBinFromMatArray, ModelBin, PyModelBinOther<ModelBinFromMatArray> >(m, "ModelBinFromMatArray")
-    .def(py::init<const Mat*>(), py::arg("weights"))
-    .def("load", &ModelBinFromMatArray::load, py::arg("w"), py::arg("type"));
+    py::class_<ModelBin>(m, "ModelBin")
+      .def(py::init<>())
+      .def("load", (Mat (ModelBin::*)(int, int) const) & ModelBin::load, py::arg("w"), py::arg("type"))
+      .def("load", (Mat (ModelBin::*)(int, int, int) const) & ModelBin::load, py::arg("w"), py::arg("h"), py::arg("type"))
+      .def("load", (Mat (ModelBin::*)(int, int, int, int) const) & ModelBin::load, py::arg("w"), py::arg("h"), py::arg("c"), py::arg("type"));
 
     py::class_<ParamDict>(m, "ParamDict")
     .def(py::init<>())
@@ -861,7 +858,7 @@ PYBIND11_MODULE(ncnn, m)
     py::class_<Layer, PyLayer>(m, "Layer")
     .def(py::init<>())
     .def("load_param", &Layer::load_param, py::arg("pd"))
-    .def("load_model", &Layer::load_model, py::arg("mb"))
+    .def("load_model", (int (Layer::*)(const ModelBin*))&Layer::load_model, py::arg("mb"))
     .def("create_pipeline", &Layer::create_pipeline, py::arg("opt"))
     .def("destroy_pipeline", &Layer::destroy_pipeline, py::arg("opt"))
     .def_readwrite("one_blob_only", &Layer::one_blob_only)
