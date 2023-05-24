@@ -1745,7 +1745,7 @@ int Net::load_model(const DataReader& dr)
             break;
         }
 
-        int lret = layer->load_model(&mb);
+        int lret = layer->load_model(mb);
         if (lret != 0)
         {
 #if NCNN_STRING

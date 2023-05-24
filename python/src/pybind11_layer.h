@@ -31,7 +31,7 @@ public:
             pd);
     }
 
-    virtual int load_model(const ncnn::ModelBin* mb)
+    virtual int load_model(const ncnn::ModelBin& mb)
     {
         PYBIND11_OVERRIDE_REFERENCE(
             int,
